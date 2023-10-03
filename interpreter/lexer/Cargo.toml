@@ -1,0 +1,9 @@
+[package]
+name = "syphon_lexer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thin-vec = { workspace = true }
+
+syphon_errors = { path = "../errors" }

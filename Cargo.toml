@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "interpreter/*"
+]
+
+[workspace.dependencies]
+thin-vec = "0.2"

@@ -152,7 +152,7 @@ impl<'a> Parser<'a> {
             arguments.push(argument);
 
             while self.eat(Token::Delimiter(Delimiter::Comma)) {
-                if self.eat(Token::Delimiter(Delimiter::RParen)) {
+                if self.peek() == Token::Delimiter(Delimiter::RParen) {
                     break;
                 }
 

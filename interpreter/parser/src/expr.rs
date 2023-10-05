@@ -120,9 +120,9 @@ impl<'a> Parser<'a> {
         let right = self.parse_expr_kind(precedence);
 
         ExprKind::BinaryOperation {
-            left: Box::new(left),
+            left: left.into(),
             operator: operator.as_char(),
-            right: Box::new(right),
+            right: right.into(),
             at: self.lexer.cursor.at,
         }
     }

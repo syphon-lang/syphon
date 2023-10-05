@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "syphon_ast"
+version = "0.1.0"
+dependencies = [
+ "thin-vec",
+]
+
+[[package]]
 name = "syphon_errors"
 version = "0.1.0"
 dependencies = [
@@ -14,6 +21,16 @@ name = "syphon_lexer"
 version = "0.1.0"
 dependencies = [
  "syphon_errors",
+ "thin-vec",
+]
+
+[[package]]
+name = "syphon_parser"
+version = "0.1.0"
+dependencies = [
+ "syphon_ast",
+ "syphon_errors",
+ "syphon_lexer",
  "thin-vec",
 ]
 

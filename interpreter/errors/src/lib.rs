@@ -23,7 +23,7 @@ impl ErrorHandler {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EvaluateError {
     pub file_name: String,
     at: (usize, usize),

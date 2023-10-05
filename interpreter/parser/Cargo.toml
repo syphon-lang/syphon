@@ -1,0 +1,11 @@
+[package]
+name = "syphon_parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thin-vec = { workspace = true }
+
+syphon_ast = { path = "../ast" }
+syphon_lexer = { path = "../lexer" }
+syphon_errors = { path = "../errors" }

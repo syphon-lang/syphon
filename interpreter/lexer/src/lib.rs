@@ -8,9 +8,10 @@ use syphon_errors::EvaluateError;
 
 use thin_vec::ThinVec;
 
+#[derive(Clone)]
 pub struct Lexer<'a> {
-    cursor: Cursor<'a>,
-    errors: ThinVec<EvaluateError>,
+    pub cursor: Cursor<'a>,
+    pub errors: ThinVec<EvaluateError>,
 }
 
 impl<'a> Lexer<'a> {
@@ -54,7 +55,7 @@ impl<'a> Lexer<'a> {
 
             '+' => Token::Operator(Operator::Plus),
             '-' => Token::Operator(Operator::Minus),
-            '/' => Token::Operator(Operator::ForwradSlash),
+            '/' => Token::Operator(Operator::ForwardSlash),
             '*' => mini_condition!(
                 '*',
                 Token::Operator(Operator::DoubleStar),
@@ -144,7 +145,7 @@ impl<'a> Lexer<'a> {
         if let Ok(integer) = literal.parse::<u64>() {
             Token::Int(integer)
         } else if let Ok(float) = literal.parse::<f64>() {
-            Token::Flaot(float)
+            Token::Float(float)
         } else {
             self.errors.push(EvaluateError::unable_to(
                 self.cursor.at,

@@ -1,5 +1,6 @@
 use std::str::Chars;
 
+#[derive(Clone)]
 pub struct Cursor<'a> {
     chars: Chars<'a>,
     pub at: (usize, usize),

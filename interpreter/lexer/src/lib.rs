@@ -142,7 +142,7 @@ impl<'a> Lexer<'a> {
             self.cursor.consume();
         }
 
-        if let Ok(integer) = literal.parse::<u64>() {
+        if let Ok(integer) = literal.parse::<i64>() {
             Token::Int(integer)
         } else if let Ok(float) = literal.parse::<f64>() {
             Token::Float(float)

@@ -1,6 +1,6 @@
 use thin_vec::ThinVec;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Node {
     Module { body: ThinVec<Node> },
 
@@ -8,7 +8,7 @@ pub enum Node {
     Expr(Box<ExprKind>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StmtKind {
     VariableDeclaration(Variable),
     FunctionDefinition(Function),
@@ -16,7 +16,7 @@ pub enum StmtKind {
     Unknown,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Variable {
     pub is_constant: bool,
     pub name: String,
@@ -24,7 +24,7 @@ pub struct Variable {
     pub at: (usize, usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
     pub parameters: ThinVec<FunctionParameter>,
@@ -32,19 +32,19 @@ pub struct Function {
     pub at: (usize, usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionParameter {
     pub name: String,
     pub at: (usize, usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Return {
     pub value: Option<ExprKind>,
     pub at: (usize, usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprKind {
     Identifier {
         symbol: String,
@@ -55,7 +55,7 @@ pub enum ExprKind {
         at: (usize, usize),
     },
     Int {
-        value: u64,
+        value: i64,
         at: (usize, usize),
     },
     Float {
@@ -74,7 +74,7 @@ pub enum ExprKind {
     },
     BinaryOperation {
         left: Box<ExprKind>,
-        operator: char,
+        operator: String,
         right: Box<ExprKind>,
         at: (usize, usize),
     },

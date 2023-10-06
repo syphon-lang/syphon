@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
+
+[[package]]
 name = "syphon_ast"
 version = "0.1.0"
 dependencies = [
@@ -13,6 +19,16 @@ dependencies = [
 name = "syphon_errors"
 version = "0.1.0"
 dependencies = [
+ "thin-vec",
+]
+
+[[package]]
+name = "syphon_evaluator"
+version = "0.1.0"
+dependencies = [
+ "rustc-hash",
+ "syphon_ast",
+ "syphon_errors",
  "thin-vec",
 ]
 

@@ -4,4 +4,5 @@ members = [
 ]
 
 [workspace.dependencies]
+rustc-hash = "1"
 thin-vec = "0.2"

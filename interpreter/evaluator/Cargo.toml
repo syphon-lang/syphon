@@ -1,0 +1,11 @@
+[package]
+name = "syphon_evaluator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rustc-hash = { workspace = true }
+thin-vec = { workspace = true }
+
+syphon_ast = { path = "../ast" }
+syphon_errors = { path = "../errors" }

@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_integer(&mut self, value: u64) -> ExprKind {
+    fn parse_integer(&mut self, value: i64) -> ExprKind {
         self.next_token();
 
         ExprKind::Int {
@@ -104,6 +104,9 @@ impl<'a> Parser<'a> {
                 Operator::Minus => self.parse_binary_operation(left),
                 Operator::ForwardSlash => self.parse_binary_operation(left),
                 Operator::Star => self.parse_binary_operation(left),
+                Operator::DoubleStar => self.parse_binary_operation(left),
+                Operator::Percent => self.parse_binary_operation(left),
+
                 _ => left,
             },
 
@@ -121,7 +124,7 @@ impl<'a> Parser<'a> {
 
         ExprKind::BinaryOperation {
             left: left.into(),
-            operator: operator.as_char(),
+            operator: operator.to_string(),
             right: right.into(),
             at: self.lexer.cursor.at,
         }

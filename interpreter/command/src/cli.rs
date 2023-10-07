@@ -4,5 +4,5 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 pub struct Arguments {
-    pub file_name: Option<PathBuf>,
+    pub file_path: Option<PathBuf>,
 }

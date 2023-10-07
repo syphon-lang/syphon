@@ -26,12 +26,12 @@ pub fn start() -> io::Result<()> {
         let module = parser.module();
 
         if !parser.lexer.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdout>"), parser.lexer.errors);
+            ErrorHandler::handle_errors(String::from("<stdin>"), parser.lexer.errors);
             continue;
         }
 
         if !parser.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdout>"), parser.errors);
+            ErrorHandler::handle_errors(String::from("<stdin>"), parser.errors);
             continue;
         }
 
@@ -40,7 +40,7 @@ pub fn start() -> io::Result<()> {
         let value = evaluator.eval(module);
 
         if !evaluator.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdout>"), evaluator.errors);
+            ErrorHandler::handle_errors(String::from("<stdin>"), evaluator.errors);
             continue;
         }
 

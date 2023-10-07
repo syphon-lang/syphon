@@ -159,6 +159,20 @@ impl<'a> Evaluator<'a> {
             ..
         }) = value
         {
+            if arguments.len() < parameters.len() || arguments.len() > parameters.len() {
+                self.errors.push(EvaluateError::expected_got(
+                    at,
+                    match parameters.len() {
+                        1 => format!("{} argument", parameters.len()),
+                        _ => format!("{} arguments", parameters.len()),
+                    }
+                    .as_str(),
+                    arguments.len().to_string().as_str(),
+                ));
+
+                return Value::None;
+            }
+
             let mut env = env.clone();
 
             let body = body.clone();

@@ -56,7 +56,7 @@ impl EvaluateError {
     }
 
     pub fn expected_got(at: (usize, usize), expected: &str, got: &str) -> EvaluateError {
-        EvaluateError::new(at, format!("expected {} got '{}'", expected, got))
+        EvaluateError::new(at, format!("expected {} got {}", expected, got))
     }
 
     pub fn unable_to(at: (usize, usize), stmt: &str) -> EvaluateError {

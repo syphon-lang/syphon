@@ -249,6 +249,7 @@ impl<'a> Evaluator<'a> {
             "+" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs + rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 + rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs + rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs + rhs),
                 (Value::Str(lhs), Value::Str(rhs)) => Value::Str(lhs + rhs.as_str()),
 
@@ -263,6 +264,7 @@ impl<'a> Evaluator<'a> {
             "-" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs - rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 - rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs - rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs - rhs),
 
                 _ => {
@@ -274,8 +276,9 @@ impl<'a> Evaluator<'a> {
             },
 
             "/" => match (lhs, rhs) {
-                (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs / rhs),
+                (Value::Int(lhs), Value::Int(rhs)) => Value::Float(lhs as f64 / rhs as f64),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 / rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs / rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs / rhs),
 
                 _ => {
@@ -289,6 +292,7 @@ impl<'a> Evaluator<'a> {
             "*" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs * rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 * rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs * rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs * rhs),
 
                 _ => {
@@ -302,6 +306,7 @@ impl<'a> Evaluator<'a> {
             "**" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Float((lhs as f64).powf(rhs as f64)),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Float((lhs as f64).powf(rhs)),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Float((lhs).powf(rhs as f64)),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs.powf(rhs)),
 
                 _ => {
@@ -315,6 +320,7 @@ impl<'a> Evaluator<'a> {
             "%" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs % rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 % rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs % rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs % rhs),
 
                 _ => {
@@ -328,6 +334,7 @@ impl<'a> Evaluator<'a> {
             ">" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs > rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Bool(lhs as f64 > rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs > rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs > rhs),
 
                 _ => {
@@ -341,6 +348,7 @@ impl<'a> Evaluator<'a> {
             "<" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs < rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Bool((lhs as f64) < rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs < rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs < rhs),
 
                 _ => {
@@ -354,6 +362,7 @@ impl<'a> Evaluator<'a> {
             "==" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs == rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Bool(lhs as f64 == rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs == rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs == rhs),
                 (Value::Str(lhs), Value::Str(rhs)) => Value::Bool(lhs == rhs),
                 (Value::None, Value::None) => Value::Bool(true),
@@ -371,6 +380,7 @@ impl<'a> Evaluator<'a> {
             "!=" => match (lhs, rhs) {
                 (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs != rhs),
                 (Value::Int(lhs), Value::Float(rhs)) => Value::Bool(lhs as f64 != rhs),
+                (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs != rhs as f64),
                 (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs != rhs),
                 (Value::Str(lhs), Value::Str(rhs)) => Value::Bool(lhs != rhs),
                 (Value::None, Value::None) => Value::Bool(false),

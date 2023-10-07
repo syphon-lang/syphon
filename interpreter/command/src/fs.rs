@@ -1,5 +1,4 @@
 use syphon_errors::ErrorHandler;
-use syphon_evaluator::*;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 
@@ -39,19 +38,6 @@ pub fn run_file(file_path: PathBuf) -> io::Result<()> {
         ErrorHandler::handle_errors(
             file_path.to_str().unwrap_or_default().to_string(),
             parser.errors,
-        );
-        exit(1);
-    }
-
-    let mut env = Environment::new(None);
-    let mut evaluator = Evaluator::new(&mut env);
-
-    evaluator.eval(module);
-
-    if !evaluator.errors.is_empty() {
-        ErrorHandler::handle_errors(
-            file_path.to_str().unwrap_or_default().to_string(),
-            evaluator.errors,
         );
         exit(1);
     }

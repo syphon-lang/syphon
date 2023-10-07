@@ -7,6 +7,5 @@ edition = "2021"
 clap = { workspace = true }
 
 syphon_errors = { path = "../errors" }
-syphon_evaluator = { path = "../evaluator/" }
 syphon_lexer = { path = "../lexer" }
 syphon_parser = { path = "../parser" }

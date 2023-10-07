@@ -1,5 +1,4 @@
 use syphon_errors::ErrorHandler;
-use syphon_evaluator::*;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 
@@ -8,8 +7,6 @@ use std::io;
 
 pub fn start() -> io::Result<()> {
     let mut reader = BufReader::new(io::stdin());
-
-    let mut env = Environment::new(None);
 
     loop {
         let mut input = String::new();
@@ -33,20 +30,6 @@ pub fn start() -> io::Result<()> {
         if !parser.errors.is_empty() {
             ErrorHandler::handle_errors(String::from("<stdin>"), parser.errors);
             continue;
-        }
-
-        let mut evaluator = Evaluator::new(&mut env);
-
-        let value = evaluator.eval(module);
-
-        if !evaluator.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), evaluator.errors);
-            continue;
-        }
-
-        match value {
-            Value::None => continue,
-            _ => println!("{}", value),
         }
     }
 }

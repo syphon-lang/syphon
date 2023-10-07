@@ -4,5 +4,6 @@ members = [
 ]
 
 [workspace.dependencies]
+clap = { version = "4", features = ["derive"] }
 rustc-hash = "1"
 thin-vec = "0.2"

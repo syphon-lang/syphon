@@ -2,21 +2,21 @@ mod env;
 pub use env::Environment;
 
 mod values;
-use values::*;
+pub use values::*;
 
 use thin_vec::ThinVec;
 
 use syphon_ast::*;
 use syphon_errors::EvaluateError;
 
-pub struct Evaluator {
-    env: Environment,
+pub struct Evaluator<'a> {
+    env: &'a mut Environment,
 
     pub errors: ThinVec<EvaluateError>,
 }
 
-impl Evaluator {
-    pub fn new(env: Environment) -> Evaluator {
+impl<'a> Evaluator<'a> {
+    pub fn new(env: &mut Environment) -> Evaluator {
         Evaluator {
             env,
 
@@ -129,7 +129,7 @@ impl Evaluator {
                 at,
             } => self.eval_binary_operation(*left, operator, *right, at),
 
-            ExprKind::Unknown => unreachable!(),
+            ExprKind::Unknown => Value::None,
         }
     }
 
@@ -170,7 +170,7 @@ impl Evaluator {
 
             env.set_multiple(parameters_names, arguments);
 
-            let mut evaluator = Evaluator::new(env);
+            let mut evaluator = Evaluator::new(&mut env);
 
             evaluator.eval_function_body(body)
         } else {

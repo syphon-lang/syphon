@@ -3,8 +3,6 @@ use thin_vec::ThinVec;
 use std::error::Error;
 use std::fmt::Display;
 
-use std::process::exit;
-
 pub struct ErrorHandler {}
 
 impl ErrorHandler {
@@ -14,8 +12,6 @@ impl ErrorHandler {
 
             ErrorHandler::handle_error(error);
         }
-
-        exit(1);
     }
 
     pub fn handle_error(error: EvaluateError) {

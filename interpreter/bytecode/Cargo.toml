@@ -1,5 +1,5 @@
 [package]
-name = "syphon_parser"
+name = "syphon_bytecode"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,3 +9,4 @@ thin-vec = { workspace = true }
 syphon_ast = { path = "../ast" }
 syphon_errors = { path = "../errors" }
 syphon_lexer = { path = "../lexer" }
+syphon_parser = { path = "../parser" }

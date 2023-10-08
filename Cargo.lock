@@ -155,6 +155,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syphon_bytecode"
+version = "0.1.0"
+dependencies = [
+ "syphon_ast",
+ "syphon_errors",
+ "syphon_lexer",
+ "syphon_parser",
+ "thin-vec",
+]
+
+[[package]]
 name = "syphon_errors"
 version = "0.1.0"
 dependencies = [

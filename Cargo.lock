@@ -160,7 +160,6 @@ version = "0.1.0"
 dependencies = [
  "syphon_ast",
  "syphon_errors",
- "syphon_lexer",
  "syphon_parser",
  "thin-vec",
 ]
@@ -187,6 +186,14 @@ dependencies = [
  "syphon_ast",
  "syphon_errors",
  "syphon_lexer",
+ "thin-vec",
+]
+
+[[package]]
+name = "syphon_vm"
+version = "0.1.0"
+dependencies = [
+ "syphon_bytecode",
  "thin-vec",
 ]
 

@@ -8,5 +8,4 @@ thin-vec = { workspace = true }
 
 syphon_ast = { path = "../ast" }
 syphon_errors = { path = "../errors" }
-syphon_lexer = { path = "../lexer" }
 syphon_parser = { path = "../parser" }

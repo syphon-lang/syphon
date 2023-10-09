@@ -2,8 +2,6 @@ use crate::values::Value;
 
 use thin_vec::ThinVec;
 
-use std::fmt::Display;
-
 pub struct Chunk {
     pub code: ThinVec<Instruction>,
     constants: ThinVec<Value>,

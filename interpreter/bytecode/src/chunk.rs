@@ -2,6 +2,8 @@ use crate::values::Value;
 
 use thin_vec::ThinVec;
 
+use std::fmt::Display;
+
 pub struct Chunk {
     pub code: ThinVec<Instruction>,
     constants: ThinVec<Value>,
@@ -9,11 +11,18 @@ pub struct Chunk {
 
 #[repr(u8)]
 pub enum Instruction {
-    LoadConstant { index: usize },
+    LoadConstant(usize),
     Return,
 }
 
 impl Chunk {
+    pub fn new() -> Chunk {
+        Chunk {
+            code: ThinVec::new(),
+            constants: ThinVec::new(),
+        }
+    }
+
     pub fn write_instruction(&mut self, instruction: Instruction) {
         self.code.push(instruction);
     }

@@ -7,3 +7,4 @@ edition = "2021"
 thin-vec = { workspace = true }
 
 syphon_bytecode = { path = "../bytecode" }
+syphon_errors = { path = "../errors" }

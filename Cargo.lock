@@ -194,6 +194,7 @@ name = "syphon_vm"
 version = "0.1.0"
 dependencies = [
  "syphon_bytecode",
+ "syphon_errors",
  "thin-vec",
 ]
 

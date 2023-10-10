@@ -164,7 +164,7 @@ impl<'a> Parser<'a> {
             }
 
             if !self.eat(Token::Delimiter(Delimiter::RParen)) {
-                self.errors.push(EvaluateError::expected(
+                self.errors.push(SyphonError::expected(
                     self.lexer.cursor.at,
                     "function call ends with ')'",
                 ));

@@ -18,7 +18,7 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
     let disassmebled_instruction: String;
 
     match instruction {
-        Instruction::LoadConstant(index) => {
+        Instruction::LoadConstant { index, .. } => {
             disassmebled_instruction = format!(
                 "LoadConstant {} ({})",
                 index,

@@ -4,14 +4,15 @@ pub mod token;
 use cursor::Cursor;
 use token::*;
 
-use syphon_errors::EvaluateError;
+use syphon_errors::SyphonError;
 
 use thin_vec::ThinVec;
 
 #[derive(Clone)]
 pub struct Lexer<'a> {
     pub cursor: Cursor<'a>,
-    pub errors: ThinVec<EvaluateError>,
+
+    pub errors: ThinVec<SyphonError>,
 }
 
 impl<'a> Lexer<'a> {
@@ -81,7 +82,7 @@ impl<'a> Lexer<'a> {
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(ch),
             '0'..='9' => self.read_number(ch),
             _ => {
-                self.errors.push(EvaluateError::unexpected(
+                self.errors.push(SyphonError::unexpected(
                     self.cursor.at,
                     "character",
                     ch.to_string().as_str(),
@@ -147,7 +148,7 @@ impl<'a> Lexer<'a> {
         } else if let Ok(float) = literal.parse::<f64>() {
             Token::Float(float)
         } else {
-            self.errors.push(EvaluateError::unable_to(
+            self.errors.push(SyphonError::unable_to(
                 self.cursor.at,
                 "parse integer or float",
             ));

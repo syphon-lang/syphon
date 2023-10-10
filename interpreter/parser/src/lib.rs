@@ -6,14 +6,14 @@ mod stmt;
 use thin_vec::ThinVec;
 
 use syphon_ast::*;
-use syphon_errors::EvaluateError;
+use syphon_errors::SyphonError;
 use syphon_lexer::token::*;
 use syphon_lexer::Lexer;
 
 pub struct Parser<'a> {
     pub lexer: Lexer<'a>,
 
-    pub errors: ThinVec<EvaluateError>,
+    pub errors: ThinVec<SyphonError>,
 }
 
 impl<'a> Parser<'a> {

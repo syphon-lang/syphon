@@ -21,10 +21,8 @@ impl<'a> Parser<'a> {
         let name = match self.next_token() {
             Token::Identifier(name) => name,
             _ => {
-                self.errors.push(EvaluateError::expected(
-                    self.lexer.cursor.at,
-                    "variable name",
-                ));
+                self.errors
+                    .push(SyphonError::expected(self.lexer.cursor.at, "variable name"));
 
                 String::new()
             }
@@ -34,7 +32,7 @@ impl<'a> Parser<'a> {
             Token::Delimiter(Delimiter::Assign) => Some(self.parse_expr_kind(Precedence::Lowest)),
             Token::Delimiter(Delimiter::Semicolon) => None,
             _ => {
-                self.errors.push(EvaluateError::unexpected(
+                self.errors.push(SyphonError::unexpected(
                     self.lexer.cursor.at,
                     "token",
                     self.peek().to_string().as_str(),
@@ -63,10 +61,8 @@ impl<'a> Parser<'a> {
         let name = match self.next_token() {
             Token::Identifier(name) => name,
             _ => {
-                self.errors.push(EvaluateError::expected(
-                    self.lexer.cursor.at,
-                    "function name",
-                ));
+                self.errors
+                    .push(SyphonError::expected(self.lexer.cursor.at, "function name"));
 
                 String::new()
             }
@@ -91,7 +87,7 @@ impl<'a> Parser<'a> {
         let mut parameters = ThinVec::new();
 
         if !self.eat(Token::Delimiter(Delimiter::LParen)) {
-            self.errors.push(EvaluateError::expected(
+            self.errors.push(SyphonError::expected(
                 self.lexer.cursor.at,
                 "function parameters starts with '('",
             ));
@@ -115,7 +111,7 @@ impl<'a> Parser<'a> {
             }
 
             if !self.eat(Token::Delimiter(Delimiter::RParen)) {
-                self.errors.push(EvaluateError::expected(
+                self.errors.push(SyphonError::expected(
                     self.lexer.cursor.at,
                     "function parameters ends with ')'",
                 ));
@@ -132,7 +128,7 @@ impl<'a> Parser<'a> {
             Token::Identifier(name) => name,
 
             _ => {
-                self.errors.push(EvaluateError::expected(
+                self.errors.push(SyphonError::expected(
                     self.lexer.cursor.at,
                     "function parameter name",
                 ));
@@ -151,7 +147,7 @@ impl<'a> Parser<'a> {
         let mut body = ThinVec::new();
 
         if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
-            self.errors.push(EvaluateError::expected(
+            self.errors.push(SyphonError::expected(
                 self.lexer.cursor.at,
                 "function body starts with '{'",
             ));

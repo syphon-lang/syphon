@@ -7,8 +7,12 @@ pub struct ErrorHandler {}
 impl ErrorHandler {
     pub fn handle_errors(file_path: String, errors: ThinVec<SyphonError>) {
         for error in errors {
-            eprintln!("{} {}", file_path, error)
+            ErrorHandler::handle_error(file_path.clone(), error);
         }
+    }
+
+    pub fn handle_error(file_path: String, error: SyphonError) {
+        eprintln!("{} {}", file_path, error)
     }
 }
 

@@ -1,6 +1,9 @@
+use syphon_bytecode::assembler::Assembler;
+use syphon_bytecode::values::Value;
 use syphon_errors::ErrorHandler;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
+use syphon_vm::VirtualMachine;
 
 use io::{BufRead, BufReader, Write};
 use std::io;
@@ -30,6 +33,29 @@ pub fn start() -> io::Result<()> {
         if !parser.errors.is_empty() {
             ErrorHandler::handle_errors(String::from("<stdin>"), parser.errors);
             continue;
+        }
+
+        let mut assembler = Assembler::new();
+
+        assembler.assemble(module);
+
+        if !assembler.errors.is_empty() {
+            ErrorHandler::handle_errors(String::from("<stdin>"), assembler.errors);
+            continue;
+        }
+
+        let mut vm = VirtualMachine::new(assembler.to_chunk());
+
+        match vm.run() {
+            Ok(value) => {
+                if value != Value::None {
+                    println!("{}", value)
+                }
+            }
+            Err(error) => {
+                ErrorHandler::handle_error(String::from("<stdin>"), error);
+                continue;
+            }
         }
     }
 }

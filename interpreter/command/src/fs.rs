@@ -1,6 +1,9 @@
+use syphon_bytecode::assembler::Assembler;
+use syphon_bytecode::values::Value;
 use syphon_errors::ErrorHandler;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
+use syphon_vm::VirtualMachine;
 
 use io::{BufRead, BufReader};
 use std::io;
@@ -40,6 +43,32 @@ pub fn run_file(file_path: PathBuf) -> io::Result<()> {
             parser.errors,
         );
         exit(1);
+    }
+
+    let mut assembler = Assembler::new();
+
+    assembler.assemble(module);
+
+    if !assembler.errors.is_empty() {
+        ErrorHandler::handle_errors(
+            file_path.to_str().unwrap_or_default().to_string(),
+            assembler.errors,
+        );
+        exit(1);
+    }
+
+    let mut vm = VirtualMachine::new(assembler.to_chunk());
+
+    match vm.run() {
+        Ok(value) => {
+            if value != Value::None {
+                println!("{}", value)
+            }
+        }
+        Err(error) => {
+            ErrorHandler::handle_error(file_path.to_str().unwrap_or_default().to_string(), error);
+            exit(1)
+        }
     }
 
     Ok(())

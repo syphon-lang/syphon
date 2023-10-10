@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 clap = { workspace = true }
 
+syphon_bytecode = { path = "../bytecode" }
 syphon_errors = { path = "../errors" }
 syphon_lexer = { path = "../lexer" }
 syphon_parser = { path = "../parser" }
+syphon_vm = { path = "../vm" }

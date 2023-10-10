@@ -187,9 +187,11 @@ name = "syphon"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "syphon_bytecode",
  "syphon_errors",
  "syphon_lexer",
  "syphon_parser",
+ "syphon_vm",
 ]
 
 [[package]]

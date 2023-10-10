@@ -1,5 +1,4 @@
 use syphon_bytecode::assembler::Assembler;
-use syphon_bytecode::values::Value;
 use syphon_errors::ErrorHandler;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
@@ -60,16 +59,10 @@ pub fn run_file(file_path: PathBuf) -> io::Result<()> {
     let mut vm = VirtualMachine::new(assembler.to_chunk());
 
     match vm.run() {
-        Ok(value) => {
-            if value != Value::None {
-                println!("{}", value)
-            }
-        }
+        Ok(_) => Ok(()),
         Err(error) => {
             ErrorHandler::handle_error(file_path.to_str().unwrap_or_default().to_string(), error);
             exit(1)
         }
     }
-
-    Ok(())
 }

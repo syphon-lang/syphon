@@ -1,18 +1,11 @@
-use std::fmt::Display;
+use derive_more::Display;
 
-#[derive(Clone)]
+#[derive(Display, Clone)]
 pub enum Value {
+    #[display(fmt = "{}", _0)]
     Int(u64),
+    #[display(fmt = "{}", _0)]
     Float(f64),
+    #[display(fmt = "none")]
     None,
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Int(value) => write!(f, "{}", value),
-            Value::Float(value) => write!(f, "{}", value),
-            Value::None => write!(f, "None"),
-        }
-    }
 }

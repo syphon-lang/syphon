@@ -1,7 +1,6 @@
 use thin_vec::ThinVec;
 
-use std::error::Error;
-use std::fmt::Display;
+use derive_more::{Error, Display};
 
 pub struct ErrorHandler {}
 
@@ -13,10 +12,12 @@ impl ErrorHandler {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Error, Display, Debug, Clone)]
 pub enum SyphonError {
+    #[display(fmt = "at {}:{}: {}", "at.0", "at.1", message)]
     AssemblingError { at: (usize, usize), message: String },
 
+    #[display(fmt = "at {}:{}: {}", "at.0", "at.1", message)]
     RuntimeError { at: (usize, usize), message: String },
 }
 
@@ -61,19 +62,3 @@ impl SyphonError {
         SyphonError::new_runtime_error(at, format!("mismatched {}", stmt))
     }
 }
-
-impl Display for SyphonError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SyphonError::AssemblingError { at, message } => {
-                write!(f, "at {}:{}: {}", at.0, at.1, message)
-            }
-
-            SyphonError::RuntimeError { at, message } => {
-                write!(f, "at {}:{}: {}", at.0, at.1, message)
-            }
-        }
-    }
-}
-
-impl Error for SyphonError {}

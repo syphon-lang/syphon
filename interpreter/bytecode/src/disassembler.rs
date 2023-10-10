@@ -17,13 +17,20 @@ pub fn disassmeble(label: &str, chunk: &Chunk) -> String {
 
 fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
     match instruction {
-        Instruction::UnaryOperation { operator, .. } => {
-            format!("UnaryOperation ({})", operator)
-        }
+        Instruction::Neg { .. } => "Neg".to_string(),
+        Instruction::LogicalNot { .. } => "LogicalNot".to_string(),
 
-        Instruction::BinaryOperation { operator, .. } => {
-            format!("BinaryOperation ({})", operator)
-        }
+        Instruction::Add { .. } => "Add".to_string(),
+        Instruction::Sub { .. } => "Sub".to_string(),
+        Instruction::Div { .. } => "Div".to_string(),
+        Instruction::Mult { .. } => "Mult".to_string(),
+        Instruction::Exponent { .. } => "Exponent".to_string(),
+        Instruction::Modulo { .. } => "Modulo".to_string(),
+        
+        Instruction::Equals { .. } => "Equals".to_string(),
+        Instruction::NotEquals { .. } => "NotEquals".to_string(),
+        Instruction::LessThan { .. } => "LessThan".to_string(),
+        Instruction::GreaterThan { .. } => "GreaterThan".to_string(),
 
         Instruction::LoadConstant { index } => {
             format!(

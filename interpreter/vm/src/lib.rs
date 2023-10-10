@@ -22,200 +22,286 @@ impl VirtualMachine {
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         for instruction in self.chunk.code.iter() {
             match instruction {
-                Instruction::UnaryOperation { operator, at } => {
+                Instruction::Neg { at } => {
                     let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(*at, "a value"));
                     };
 
-                    self.stack.push(match operator {
-                        '!' => match right {
-                            Value::Int(value) => Value::Bool(value == 0),
-                            Value::Float(value) => Value::Bool(value == 0.0),
-                            Value::Bool(value) => Value::Bool(!value),
-                            _ => Value::Bool(false),
-                        },
+                    self.stack.push(match right {
+                        Value::Int(value) => Value::Int(-value),
+                        Value::Float(value) => Value::Float(-value),
 
-                        '-' => match right {
-                            Value::Int(value) => Value::Int(-value),
-                            Value::Float(value) => Value::Float(-value),
-
-                            _ => {
-                                return Err(SyphonError::unable_to(*at, "apply '-' unary operator"))
-                            }
-                        },
-
-                        _ => unreachable!(),
+                        _ => return Err(SyphonError::unable_to(*at, "apply '-' unary operator")),
                     })
                 }
 
-                Instruction::BinaryOperation { operator, at } => {
-                    let Some(lhs) = self.stack.pop() else {
+                Instruction::LogicalNot { at } => {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(*at, "a value"));
                     };
 
-                    let Some(rhs) = self.stack.pop() else {
+                    self.stack.push(match right {
+                        Value::Int(value) => Value::Bool(value == 0),
+                        Value::Float(value) => Value::Bool(value == 0.0),
+                        Value::Bool(value) => Value::Bool(!value),
+                        _ => Value::Bool(false),
+                    })
+                }
+
+                Instruction::Add { at } => {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(*at, "a value"));
                     };
 
-                    self.stack.push(match operator.as_str() {
-                        "+" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs + rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 + rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs + rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs + rhs),
-                            (Value::Str(lhs), Value::Str(rhs)) => Value::Str(lhs + rhs.as_str()),
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '+' binary operator",
-                                ));
-                            }
-                        },
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => Value::Int(left + right),
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Float(left as f64 + right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Float(left + right as f64)
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Float(left + right),
+                        (Value::Str(left), Value::Str(right)) => Value::Str(left + right.as_str()),
 
-                        "-" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs - rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 - rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs - rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs - rhs),
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '+' binary operator"));
+                        }
+                    })
+                }
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '-' binary operator",
-                                ));
-                            }
-                        },
+                Instruction::Sub { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                        "/" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => {
-                                Value::Float(lhs as f64 / rhs as f64)
-                            }
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 / rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs / rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs / rhs),
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '/' binary operator",
-                                ));
-                            }
-                        },
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => Value::Int(left - right),
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Float(left as f64 - right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Float(left - right as f64)
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Float(left - right),
 
-                        "*" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs * rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 * rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs * rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs * rhs),
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '-' binary operator"));
+                        }
+                    })
+                }
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '*' binary operator",
-                                ));
-                            }
-                        },
+                Instruction::Div { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                        "**" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => {
-                                Value::Float((lhs as f64).powf(rhs as f64))
-                            }
-                            (Value::Int(lhs), Value::Float(rhs)) => {
-                                Value::Float((lhs as f64).powf(rhs))
-                            }
-                            (Value::Float(lhs), Value::Int(rhs)) => {
-                                Value::Float((lhs).powf(rhs as f64))
-                            }
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs.powf(rhs)),
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '**' binary operator",
-                                ));
-                            }
-                        },
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => {
+                            Value::Float(left as f64 / right as f64)
+                        }
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Float(left as f64 / right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Float(left / right as f64)
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Float(left / right),
 
-                        "%" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Int(lhs % rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Float(lhs as f64 % rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Float(lhs % rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Float(lhs % rhs),
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '/' binary operator"));
+                        }
+                    })
+                }
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '%' binary operator",
-                                ));
-                            }
-                        },
+                Instruction::Mult { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                        ">" => match (rhs, lhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs > rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Bool(lhs as f64 > rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs > rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs > rhs),
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '>' binary operator",
-                                ));
-                            }
-                        },
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => Value::Int(left * right),
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Float(left as f64 * right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Float(left * right as f64)
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Float(left * right),
 
-                        "<" => match (rhs, lhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs < rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Bool((lhs as f64) < rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs < rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs < rhs),
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '*' binary operator"));
+                        }
+                    })
+                }
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '<' binary operator",
-                                ));
-                            }
-                        },
+                Instruction::Exponent { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                        "==" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs == rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Bool(lhs as f64 == rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs == rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs == rhs),
-                            (Value::Str(lhs), Value::Str(rhs)) => Value::Bool(lhs == rhs),
-                            (Value::None, Value::None) => Value::Bool(true),
-                            (Value::None, ..) => Value::Bool(false),
-                            (.., Value::None) => Value::Bool(false),
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '==' binary operator",
-                                ));
-                            }
-                        },
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => {
+                            Value::Float((left as f64).powf(right as f64))
+                        }
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Float((left as f64).powf(right))
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Float((left).powf(right as f64))
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Float(left.powf(right)),
 
-                        "!=" => match (lhs, rhs) {
-                            (Value::Int(lhs), Value::Int(rhs)) => Value::Bool(lhs != rhs),
-                            (Value::Int(lhs), Value::Float(rhs)) => Value::Bool(lhs as f64 != rhs),
-                            (Value::Float(lhs), Value::Int(rhs)) => Value::Bool(lhs != rhs as f64),
-                            (Value::Float(lhs), Value::Float(rhs)) => Value::Bool(lhs != rhs),
-                            (Value::Str(lhs), Value::Str(rhs)) => Value::Bool(lhs != rhs),
-                            (Value::None, Value::None) => Value::Bool(false),
-                            (Value::None, ..) => Value::Bool(true),
-                            (.., Value::None) => Value::Bool(true),
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '**' binary operator"));
+                        }
+                    })
+                }
 
-                            _ => {
-                                return Err(SyphonError::unable_to(
-                                    *at,
-                                    "apply '!=' binary operator",
-                                ));
-                            }
-                        },
+                Instruction::Modulo { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
 
-                        _ => unreachable!(),
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => Value::Int(left % right),
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Float(left as f64 % right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Float(left % right as f64)
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Float(left % right),
+
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '%' binary operator"));
+                        }
+                    })
+                }
+
+                Instruction::LessThan { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    self.stack.push(match (right, left) {
+                        (Value::Int(left), Value::Int(right)) => Value::Bool(left < right),
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Bool((left as f64) < right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => Value::Bool(left < right as f64),
+                        (Value::Float(left), Value::Float(right)) => Value::Bool(left < right),
+
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '<' binary operator"));
+                        }
+                    })
+                }
+
+                Instruction::GreaterThan { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    self.stack.push(match (right, left) {
+                        (Value::Int(left), Value::Int(right)) => Value::Bool(left > right),
+                        (Value::Int(left), Value::Float(right)) => Value::Bool(left as f64 > right),
+                        (Value::Float(left), Value::Int(right)) => Value::Bool(left > right as f64),
+                        (Value::Float(left), Value::Float(right)) => Value::Bool(left > right),
+
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '>' binary operator"));
+                        }
+                    })
+                }
+
+                Instruction::Equals { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => Value::Bool(left == right),
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Bool(left as f64 == right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Bool(left == right as f64)
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Bool(left == right),
+                        (Value::Str(left), Value::Str(right)) => Value::Bool(left == right),
+                        (Value::None, Value::None) => Value::Bool(true),
+                        (Value::None, ..) => Value::Bool(false),
+                        (.., Value::None) => Value::Bool(false),
+
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '==' binary operator"));
+                        }
+                    })
+                }
+
+                Instruction::NotEquals { at } => {
+                    let Some(left) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    let Some(right) = self.stack.pop() else {
+                        return Err(SyphonError::expected(*at, "a value"));
+                    };
+
+                    self.stack.push(match (left, right) {
+                        (Value::Int(left), Value::Int(right)) => Value::Bool(left != right),
+                        (Value::Int(left), Value::Float(right)) => {
+                            Value::Bool(left as f64 != right)
+                        }
+                        (Value::Float(left), Value::Int(right)) => {
+                            Value::Bool(left != right as f64)
+                        }
+                        (Value::Float(left), Value::Float(right)) => Value::Bool(left != right),
+                        (Value::Str(left), Value::Str(right)) => Value::Bool(left != right),
+                        (Value::None, Value::None) => Value::Bool(false),
+                        (Value::None, ..) => Value::Bool(true),
+                        (.., Value::None) => Value::Bool(true),
+
+                        _ => {
+                            return Err(SyphonError::unable_to(*at, "apply '!=' binary operator"));
+                        }
                     })
                 }
 

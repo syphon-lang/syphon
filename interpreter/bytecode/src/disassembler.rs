@@ -16,7 +16,7 @@ pub fn disassmeble(label: &str, chunk: &Chunk) -> String {
 
 fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
     match instruction {
-        Instruction::LoadConstant { index, .. } => {
+        Instruction::LoadConstant { index } => {
             format!(
                 "LoadConstant {} ({})",
                 index,

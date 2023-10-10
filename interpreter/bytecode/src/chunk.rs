@@ -9,7 +9,7 @@ pub struct Chunk {
 
 #[repr(u8)]
 pub enum Instruction {
-    LoadConstant { index: usize, at: (usize, usize) },
+    LoadConstant { index: usize },
     Return,
 }
 

@@ -21,10 +21,7 @@ impl VirtualMachine {
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         for instruction in self.chunk.code.iter() {
             match instruction {
-                Instruction::LoadConstant { index, at } => match self.chunk.get_constant(*index) {
-                    Some(constant) => self.stack.push(constant.clone()),
-                    None => return Err(SyphonError::invalid(*at, "constant")),
-                },
+                Instruction::LoadConstant { index } => self.stack.push(self.chunk.get_constant(*index).unwrap().clone()),
 
                 Instruction::Return => match self.stack.pop() {
                     Some(value) => return Ok(value),

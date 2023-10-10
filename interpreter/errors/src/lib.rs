@@ -1,6 +1,6 @@
 use thin_vec::ThinVec;
 
-use derive_more::{Error, Display};
+use derive_more::{Display, Error};
 
 pub struct ErrorHandler {}
 

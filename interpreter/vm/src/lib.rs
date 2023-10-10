@@ -18,7 +18,7 @@ impl VirtualMachine {
         }
     }
 
-    fn run(&mut self) -> Result<Value, SyphonError> {
+    pub fn run(&mut self) -> Result<Value, SyphonError> {
         for instruction in self.chunk.code.iter() {
             match instruction {
                 Instruction::LoadConstant { index, at } => match self.chunk.get_constant(*index) {

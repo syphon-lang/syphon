@@ -15,19 +15,15 @@ pub fn disassmeble(label: &str, chunk: &Chunk) -> String {
 }
 
 fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
-    let disassmebled_instruction: String;
-
     match instruction {
         Instruction::LoadConstant { index, .. } => {
-            disassmebled_instruction = format!(
+            format!(
                 "LoadConstant {} ({})",
                 index,
                 chunk.get_constant(*index).unwrap_or(&Value::None)
             )
         }
 
-        Instruction::Return => disassmebled_instruction = format!("Return"),
+        Instruction::Return => "Return".to_string(),
     }
-
-    disassmebled_instruction
 }

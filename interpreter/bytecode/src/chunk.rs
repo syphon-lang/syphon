@@ -1,3 +1,4 @@
+use crate::instructions::Instruction;
 use crate::values::Value;
 
 use thin_vec::ThinVec;
@@ -5,12 +6,6 @@ use thin_vec::ThinVec;
 pub struct Chunk {
     pub code: ThinVec<Instruction>,
     constants: ThinVec<Value>,
-}
-
-#[repr(u8)]
-pub enum Instruction {
-    LoadConstant { index: usize },
-    Return,
 }
 
 impl Chunk {

@@ -1,4 +1,5 @@
 use crate::chunk::*;
+use crate::instructions::Instruction;
 use crate::values::Value;
 
 pub fn disassmeble(label: &str, chunk: &Chunk) -> String {
@@ -16,6 +17,14 @@ pub fn disassmeble(label: &str, chunk: &Chunk) -> String {
 
 fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
     match instruction {
+        Instruction::UnaryOperation { operator, .. } => {
+            format!("UnaryOperation ({})", operator)
+        }
+
+        Instruction::BinaryOperation { operator, .. } => {
+            format!("BinaryOperation ({})", operator)
+        }
+
         Instruction::LoadConstant { index } => {
             format!(
                 "LoadConstant {} ({})",

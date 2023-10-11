@@ -35,7 +35,6 @@ impl<'a> Lexer<'a> {
             };
         }
 
-        self.skip_comment();
         self.skip_whitespace();
 
         let ch = match self.cursor.consume() {
@@ -79,6 +78,12 @@ impl<'a> Lexer<'a> {
             '{' => Token::Delimiter(Delimiter::LBrace),
             '}' => Token::Delimiter(Delimiter::RBrace),
 
+            '#' => {
+                self.skip_comment();
+
+                self.next_token()
+            }
+
             '"' | '\'' => self.read_string(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(ch),
             '0'..='9' => self.read_number(ch),
@@ -101,10 +106,12 @@ impl<'a> Lexer<'a> {
     }
 
     fn skip_comment(&mut self) {
-        if self.cursor.peek().is_some_and(|ch| ch == '#') {
-            while self.cursor.peek().is_some_and(|ch| ch != '\n') {
-                self.cursor.consume();
-            }
+        while self.cursor.peek().is_some_and(|ch| ch != '\n') {
+            self.cursor.consume();
+        }
+
+        if self.cursor.peek().is_some_and(|ch| ch == '\n') {
+            self.cursor.consume();
         }
     }
 

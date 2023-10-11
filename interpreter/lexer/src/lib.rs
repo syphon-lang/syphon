@@ -78,11 +78,7 @@ impl<'a> Lexer<'a> {
             '{' => Token::Delimiter(Delimiter::LBrace),
             '}' => Token::Delimiter(Delimiter::RBrace),
 
-            '#' => {
-                self.skip_comment();
-
-                self.next_token()
-            }
+            '#' => self.skip_comment(),
 
             '"' | '\'' => self.read_string(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(ch),
@@ -105,14 +101,12 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn skip_comment(&mut self) {
+    fn skip_comment(&mut self) -> Token {
         while self.cursor.peek().is_some_and(|ch| ch != '\n') {
             self.cursor.consume();
         }
 
-        if self.cursor.peek().is_some_and(|ch| ch == '\n') {
-            self.cursor.consume();
-        }
+        self.next_token()
     }
 
     fn read_string(&mut self) -> Token {

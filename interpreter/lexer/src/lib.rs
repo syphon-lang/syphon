@@ -35,9 +35,8 @@ impl<'a> Lexer<'a> {
             };
         }
 
-        self.skip_whitespace();
-
         self.skip_comment();
+        self.skip_whitespace();
 
         let ch = match self.cursor.consume() {
             Some(ch) => ch,

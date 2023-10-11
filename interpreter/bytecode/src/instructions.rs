@@ -1,3 +1,4 @@
+#[derive(Clone)]
 #[repr(u8)]
 pub enum Instruction {
     Neg { at: (usize, usize) },

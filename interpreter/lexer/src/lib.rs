@@ -37,6 +37,8 @@ impl<'a> Lexer<'a> {
 
         self.skip_whitespace();
 
+        self.skip_comment();
+
         let ch = match self.cursor.consume() {
             Some(ch) => ch,
             None => return Token::EOF,
@@ -96,6 +98,14 @@ impl<'a> Lexer<'a> {
     fn skip_whitespace(&mut self) {
         while self.cursor.peek().is_some_and(|ch| ch.is_whitespace()) {
             self.cursor.consume();
+        }
+    }
+
+    fn skip_comment(&mut self) {
+        if self.cursor.peek().is_some_and(|ch| ch == '#') {
+            while self.cursor.peek().is_some_and(|ch| ch != '\n') {
+                self.cursor.consume();
+            }
         }
     }
 

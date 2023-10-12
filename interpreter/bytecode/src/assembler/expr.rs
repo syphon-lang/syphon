@@ -5,7 +5,7 @@ use crate::values::Value;
 impl Assembler {
     pub(crate) fn assemble_expr(&mut self, kind: ExprKind) {
         match kind {
-            ExprKind::Identifier { .. } => todo!(),
+            ExprKind::Identifier { symbol, at } => self.assemble_identifer(symbol, at),
             ExprKind::Str { value, .. } => self.assemble_string(value),
             ExprKind::Int { value, .. } => self.assemble_integer(value),
             ExprKind::Float { value, .. } => self.assemble_float(value),
@@ -24,6 +24,11 @@ impl Assembler {
             ExprKind::Call { .. } => todo!(),
             ExprKind::Unknown => (),
         }
+    }
+
+    fn assemble_identifer(&mut self, symbol: String, at: (usize, usize)) {
+        self.chunk
+            .write_instruction(Instruction::LoadVariable { name: symbol, at })
     }
 
     fn assemble_string(&mut self, value: String) {

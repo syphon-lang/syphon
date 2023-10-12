@@ -33,7 +33,7 @@ impl Assembler {
     fn assemble_node(&mut self, node: Node) {
         match node {
             Node::Module { body } => self.assemble_nodes(body),
-            Node::Stmt(_) => todo!(),
+            Node::Stmt(kind) => self.assemble_stmt(*kind),
             Node::Expr(kind) => self.assemble_expr(*kind),
         }
     }

@@ -4,18 +4,22 @@ use syphon_bytecode::values::Value;
 
 use syphon_errors::SyphonError;
 
+use rustc_hash::FxHashMap;
+
 use thin_vec::ThinVec;
 
-pub struct VirtualMachine {
+pub struct VirtualMachine<'a> {
     chunk: Chunk,
     stack: ThinVec<Value>,
+    names: &'a mut FxHashMap<String, Value>,
 }
 
-impl VirtualMachine {
-    pub fn new(chunk: Chunk) -> VirtualMachine {
+impl<'a> VirtualMachine<'a> {
+    pub fn new(chunk: Chunk, globals: &mut FxHashMap<String, Value>) -> VirtualMachine {
         VirtualMachine {
             chunk,
             stack: ThinVec::new(),
+            names: globals,
         }
     }
 
@@ -303,6 +307,20 @@ impl VirtualMachine {
                             return Err(SyphonError::unable_to(at, "apply '!=' binary operator"));
                         }
                     })
+                }
+
+                Instruction::StoreAs { name } => {
+                    let value = self.stack.pop().unwrap();
+
+                    self.names.insert(name, value);
+                }
+
+                Instruction::LoadVariable { name, at } => {
+                    let Some(value) = self.names.get(&name) else {
+                        return Err(SyphonError::undefined(at, "value", &name));
+                    };
+
+                    self.stack.push(value.clone());
                 }
 
                 Instruction::LoadConstant { index } => self

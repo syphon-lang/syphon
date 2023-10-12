@@ -16,8 +16,11 @@ pub enum Instruction {
     LessThan { at: (usize, usize) },
     GreaterThan { at: (usize, usize) },
 
-    LoadConstant {
-        index: usize,
-    },
+    StoreAs { name: String },
+
+    LoadVariable { name: String, at: (usize, usize) },
+
+    LoadConstant { index: usize },
+
     Return,
 }

@@ -26,11 +26,19 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
         Instruction::Mult { .. } => "Mult".to_string(),
         Instruction::Exponent { .. } => "Exponent".to_string(),
         Instruction::Modulo { .. } => "Modulo".to_string(),
-        
+
         Instruction::Equals { .. } => "Equals".to_string(),
         Instruction::NotEquals { .. } => "NotEquals".to_string(),
         Instruction::LessThan { .. } => "LessThan".to_string(),
         Instruction::GreaterThan { .. } => "GreaterThan".to_string(),
+
+        Instruction::StoreAs { name } => {
+            format!("StoreAs ({})", name)
+        }
+
+        Instruction::LoadVariable { name, .. } => {
+            format!("LoadVariable ({})", name)
+        }
 
         Instruction::LoadConstant { index } => {
             format!(

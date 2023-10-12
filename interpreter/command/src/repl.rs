@@ -5,10 +5,14 @@ use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 use syphon_vm::VirtualMachine;
 
+use rustc_hash::FxHashMap;
+
 use io::{BufRead, BufReader, Write};
 use std::io;
 
 pub fn start() -> io::Result<()> {
+    let mut globals = FxHashMap::default();
+
     let mut reader = BufReader::new(io::stdin());
 
     loop {
@@ -44,7 +48,7 @@ pub fn start() -> io::Result<()> {
             continue;
         }
 
-        let mut vm = VirtualMachine::new(assembler.to_chunk());
+        let mut vm = VirtualMachine::new(assembler.to_chunk(), &mut globals);
 
         match vm.run() {
             Ok(value) => {

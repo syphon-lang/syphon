@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { workspace = true }
+rustc-hash = { workspace = true }
 
 syphon_bytecode = { path = "../bytecode" }
 syphon_errors = { path = "../errors" }

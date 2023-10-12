@@ -4,6 +4,8 @@ use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 use syphon_vm::VirtualMachine;
 
+use rustc_hash::FxHashMap;
+
 use io::{BufRead, BufReader};
 use std::io;
 
@@ -56,7 +58,9 @@ pub fn run_file(file_path: PathBuf) -> io::Result<()> {
         exit(1);
     }
 
-    let mut vm = VirtualMachine::new(assembler.to_chunk());
+    let mut globals = FxHashMap::default();
+
+    let mut vm = VirtualMachine::new(assembler.to_chunk(), &mut globals);
 
     match vm.run() {
         Ok(_) => Ok(()),

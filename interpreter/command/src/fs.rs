@@ -1,4 +1,7 @@
+use crate::cli::Arguments;
+
 use syphon_bytecode::assembler::Assembler;
+use syphon_bytecode::disassembler::disassmeble;
 use syphon_errors::ErrorHandler;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
@@ -15,7 +18,7 @@ use std::fs::File;
 
 use std::process::exit;
 
-pub fn run_file(file_path: PathBuf) -> io::Result<()> {
+pub fn run_file(file_path: PathBuf, args: Arguments) -> io::Result<()> {
     let file = File::open(file_path.clone())?;
     let reader = BufReader::new(file);
 
@@ -58,9 +61,21 @@ pub fn run_file(file_path: PathBuf) -> io::Result<()> {
         exit(1);
     }
 
+    let chunk = assembler.to_chunk();
+
+    if args.emit_bytecode {
+        println!("------------------------------------");
+        println!(
+            "{}",
+            disassmeble(file_path.to_str().unwrap_or_default(), &chunk)
+        );
+        println!("------------------------------------");
+        println!();
+    }
+
     let mut globals = FxHashMap::default();
 
-    let mut vm = VirtualMachine::new(assembler.to_chunk(), &mut globals);
+    let mut vm = VirtualMachine::new(chunk, &mut globals);
 
     match vm.run() {
         Ok(_) => Ok(()),

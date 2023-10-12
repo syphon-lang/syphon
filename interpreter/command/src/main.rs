@@ -11,9 +11,9 @@ use std::process::exit;
 fn main() -> io::Result<()> {
     let args = Arguments::parse();
 
-    match args.file_path {
+    match args.file_path.clone() {
         Some(file_path) => {
-            fs::run_file(file_path.clone()).unwrap_or_else(|err| {
+            fs::run_file(file_path.clone(), args).unwrap_or_else(|err| {
                 eprintln!("{}: {}", file_path.display(), err);
                 exit(1)
             });
@@ -21,6 +21,6 @@ fn main() -> io::Result<()> {
             Ok(())
         }
 
-        None => repl::start(),
+        None => repl::start(args),
     }
 }

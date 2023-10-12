@@ -28,7 +28,7 @@ impl Assembler {
 
     fn assemble_identifer(&mut self, symbol: String, at: (usize, usize)) {
         self.chunk
-            .write_instruction(Instruction::LoadVariable { name: symbol, at })
+            .write_instruction(Instruction::LoadName { name: symbol, at })
     }
 
     fn assemble_string(&mut self, value: String) {

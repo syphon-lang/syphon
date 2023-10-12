@@ -21,6 +21,6 @@ impl Assembler {
         };
 
         self.chunk
-            .write_instruction(Instruction::StoreAs { name: var.name });
+            .write_instruction(Instruction::StoreName { name: var.name });
     }
 }

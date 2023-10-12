@@ -309,13 +309,13 @@ impl<'a> VirtualMachine<'a> {
                     })
                 }
 
-                Instruction::StoreAs { name } => {
+                Instruction::StoreName { name } => {
                     let value = self.stack.pop().unwrap();
 
                     self.names.insert(name, value);
                 }
 
-                Instruction::LoadVariable { name, at } => {
+                Instruction::LoadName { name, at } => {
                     let Some(value) = self.names.get(&name) else {
                         return Err(SyphonError::undefined(at, "value", &name));
                     };

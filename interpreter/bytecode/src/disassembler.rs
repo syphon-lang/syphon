@@ -32,12 +32,12 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
         Instruction::LessThan { .. } => "LessThan".to_string(),
         Instruction::GreaterThan { .. } => "GreaterThan".to_string(),
 
-        Instruction::StoreAs { name } => {
-            format!("StoreAs ({})", name)
+        Instruction::StoreName { name } => {
+            format!("StoreName ({})", name)
         }
 
-        Instruction::LoadVariable { name, .. } => {
-            format!("LoadVariable ({})", name)
+        Instruction::LoadName { name, .. } => {
+            format!("LoadName ({})", name)
         }
 
         Instruction::LoadConstant { index } => {

@@ -110,6 +110,8 @@ impl<'a> Parser<'a> {
                 _ => left,
             },
 
+            Token::Delimiter(Delimiter::Assign) => self.parse_edit_name(left),
+
             Token::Delimiter(Delimiter::LParen) => self.parse_function_call(left),
 
             _ => left,
@@ -126,6 +128,28 @@ impl<'a> Parser<'a> {
             left: left.into(),
             operator: operator.to_string(),
             right: right.into(),
+            at: self.lexer.cursor.at,
+        }
+    }
+
+    fn parse_edit_name(&mut self, name: ExprKind) -> ExprKind {
+        let name = match name {
+            ExprKind::Identifier { symbol, .. } => symbol,
+            _ => {
+                self.errors
+                    .push(SyphonError::expected(self.lexer.cursor.at, "a name"));
+
+                "".to_string()
+            }
+        };
+
+        self.eat(Token::Delimiter(Delimiter::Assign));
+
+        let new_value = self.parse_expr_kind(Precedence::Lowest);
+
+        ExprKind::EditName {
+            name,
+            new_value: new_value.into(),
             at: self.lexer.cursor.at,
         }
     }

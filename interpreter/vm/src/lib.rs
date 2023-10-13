@@ -1,6 +1,6 @@
 use syphon_bytecode::chunk::*;
 use syphon_bytecode::instructions::Instruction;
-use syphon_bytecode::values::Value;
+use syphon_bytecode::values::*;
 
 use syphon_errors::SyphonError;
 
@@ -11,11 +11,11 @@ use thin_vec::ThinVec;
 pub struct VirtualMachine<'a> {
     chunk: Chunk,
     stack: ThinVec<Value>,
-    names: &'a mut FxHashMap<String, Value>,
+    names: &'a mut FxHashMap<String, ValueInfo>,
 }
 
 impl<'a> VirtualMachine<'a> {
-    pub fn new(chunk: Chunk, globals: &mut FxHashMap<String, Value>) -> VirtualMachine {
+    pub fn new(chunk: Chunk, globals: &mut FxHashMap<String, ValueInfo>) -> VirtualMachine {
         VirtualMachine {
             chunk,
             stack: ThinVec::new(),
@@ -309,18 +309,42 @@ impl<'a> VirtualMachine<'a> {
                     })
                 }
 
-                Instruction::StoreName { name } => {
+                Instruction::StoreName { name, mutable } => {
                     let value = self.stack.pop().unwrap();
 
-                    self.names.insert(name, value);
+                    self.names.insert(name, ValueInfo { value, mutable });
                 }
 
                 Instruction::LoadName { name, at } => {
-                    let Some(value) = self.names.get(&name) else {
-                        return Err(SyphonError::undefined(at, "value", &name));
+                    let Some(value_info) = self.names.get(&name) else {
+                        return Err(SyphonError::undefined(at, "name", &name));
                     };
 
-                    self.stack.push(value.clone());
+                    self.stack.push(value_info.value.clone());
+                }
+
+                Instruction::EditName { name, at } => {
+                    let Some(past_value_info) = self.names.get(&name) else {
+                        return Err(SyphonError::undefined(at, "name", &name));
+                    };
+
+                    let Some(new_value) = self.stack.pop() else {
+                        return Err(SyphonError::expected(at, "a new value"));
+                    };
+
+                    if !past_value_info.mutable {
+                        return Err(SyphonError::unable_to(at, "edit a constant name"));
+                    }
+
+                    self.stack.push(new_value.clone());
+
+                    self.names.insert(
+                        name,
+                        ValueInfo {
+                            value: new_value,
+                            mutable: past_value_info.mutable,
+                        },
+                    );
                 }
 
                 Instruction::LoadConstant { index } => self

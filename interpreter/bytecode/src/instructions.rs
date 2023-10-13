@@ -16,7 +16,9 @@ pub enum Instruction {
     LessThan { at: (usize, usize) },
     GreaterThan { at: (usize, usize) },
 
-    StoreName { name: String },
+    StoreName { name: String, mutable: bool },
+
+    EditName { name: String, at: (usize, usize) },
 
     LoadName { name: String, at: (usize, usize) },
 

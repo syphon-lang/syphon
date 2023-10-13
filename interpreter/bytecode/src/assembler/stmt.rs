@@ -20,7 +20,9 @@ impl Assembler {
             }
         };
 
-        self.chunk
-            .write_instruction(Instruction::StoreName { name: var.name });
+        self.chunk.write_instruction(Instruction::StoreName {
+            name: var.name,
+            mutable: var.mutable,
+        });
     }
 }

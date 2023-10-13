@@ -9,3 +9,8 @@ pub enum Value {
     #[display(fmt = "none")]
     None,
 }
+
+pub struct ValueInfo {
+    pub value: Value,
+    pub mutable: bool,
+}

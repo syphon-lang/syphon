@@ -5,8 +5,8 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_stmt(&mut self) -> Node {
         match self.peek() {
             Token::Identifier(symbol) => match symbol.as_str() {
-                "const" => self.parse_variable_declaration(true),
-                "let" => self.parse_variable_declaration(false),
+                "const" => self.parse_variable_declaration(false),
+                "let" => self.parse_variable_declaration(true),
                 "def" => self.parse_function_definition(),
                 "return" => self.parse_return(),
                 _ => self.parse_expr(),
@@ -15,7 +15,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_variable_declaration(&mut self, is_constant: bool) -> Node {
+    fn parse_variable_declaration(&mut self, mutable: bool) -> Node {
         self.next_token();
 
         let name = match self.next_token() {
@@ -46,7 +46,7 @@ impl<'a> Parser<'a> {
 
         Node::Stmt(
             StmtKind::VariableDeclaration(Variable {
-                is_constant,
+                mutable,
                 name,
                 value,
                 at: self.lexer.cursor.at,

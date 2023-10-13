@@ -21,7 +21,15 @@ impl Assembler {
                 right,
                 at,
             } => self.assemble_binary_operation(*left, operator, *right, at),
+
+            ExprKind::EditName {
+                name,
+                new_value,
+                at,
+            } => self.assemble_edit_name(name, *new_value, at),
+
             ExprKind::Call { .. } => todo!(),
+
             ExprKind::Unknown => (),
         }
     }
@@ -95,5 +103,12 @@ impl Assembler {
                 .write_instruction(Instruction::GreaterThan { at }),
             _ => unreachable!(),
         }
+    }
+
+    fn assemble_edit_name(&mut self, name: String, new_value: ExprKind, at: (usize, usize)) {
+        self.assemble_expr(new_value);
+
+        self.chunk
+            .write_instruction(Instruction::EditName { name, at })
     }
 }

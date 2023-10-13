@@ -53,11 +53,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::Add { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -79,11 +79,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::Sub { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -104,11 +104,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::Div { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -131,11 +131,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::Mult { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -156,11 +156,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::Exponent { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -183,11 +183,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::Modulo { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -208,11 +208,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::LessThan { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -231,11 +231,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::GreaterThan { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -252,11 +252,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::Equals { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
@@ -281,11 +281,11 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::NotEquals { at } => {
-                    let Some(left) = self.stack.pop() else {
+                    let Some(right) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 
-                    let Some(right) = self.stack.pop() else {
+                    let Some(left) = self.stack.pop() else {
                         return Err(SyphonError::expected(at, "a value"));
                     };
 

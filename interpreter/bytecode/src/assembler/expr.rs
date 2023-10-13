@@ -76,8 +76,8 @@ impl Assembler {
         right: ExprKind,
         at: (usize, usize),
     ) {
-        self.assemble_expr(right);
         self.assemble_expr(left);
+        self.assemble_expr(right);
 
         match operator.as_str() {
             "+" => self.chunk.write_instruction(Instruction::Add { at }),

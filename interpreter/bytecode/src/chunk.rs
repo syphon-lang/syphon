@@ -21,8 +21,10 @@ impl Chunk {
     }
 
     pub fn add_constant(&mut self, value: Value) -> usize {
-        self.constants.push(value);
-        self.constants.len() - 1
+        self.constants.iter().position(|c| c == &value).unwrap_or({
+            self.constants.push(value);
+            self.constants.len() - 1
+        })
     }
 
     pub fn get_constant(&self, index: usize) -> Option<&Value> {

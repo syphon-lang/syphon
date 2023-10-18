@@ -323,25 +323,25 @@ impl<'a> VirtualMachine<'a> {
                     self.stack.push(value_info.value.clone());
                 }
 
-                Instruction::EditName { name, at } => {
+                Instruction::Assign { name, at } => {
                     let Some(past_value_info) = self.names.get(&name) else {
                         return Err(SyphonError::undefined(at, "name", &name));
                     };
 
-                    let Some(new_value) = self.stack.pop() else {
-                        return Err(SyphonError::expected(at, "a new value"));
+                    let Some(value) = self.stack.pop() else {
+                        return Err(SyphonError::expected(at, "a value"));
                     };
 
                     if !past_value_info.mutable {
-                        return Err(SyphonError::unable_to(at, "edit a constant name"));
+                        return Err(SyphonError::unable_to(at, "assign to a constant"));
                     }
 
-                    self.stack.push(new_value.clone());
+                    self.stack.push(value.clone());
 
                     self.names.insert(
                         name,
                         ValueInfo {
-                            value: new_value,
+                            value,
                             mutable: past_value_info.mutable,
                         },
                     );

@@ -18,7 +18,7 @@ pub enum Instruction {
 
     StoreName { name: String, mutable: bool },
 
-    EditName { name: String, at: (usize, usize) },
+    Assign { name: String, at: (usize, usize) },
 
     LoadName { name: String, at: (usize, usize) },
 

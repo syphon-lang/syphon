@@ -22,11 +22,7 @@ impl Assembler {
                 at,
             } => self.assemble_binary_operation(*left, operator, *right, at),
 
-            ExprKind::EditName {
-                name,
-                new_value,
-                at,
-            } => self.assemble_edit_name(name, *new_value, at),
+            ExprKind::Assign { name, value, at } => self.assemble_assign(name, *value, at),
 
             ExprKind::Call { .. } => todo!(),
 
@@ -105,10 +101,10 @@ impl Assembler {
         }
     }
 
-    fn assemble_edit_name(&mut self, name: String, new_value: ExprKind, at: (usize, usize)) {
-        self.assemble_expr(new_value);
+    fn assemble_assign(&mut self, name: String, value: ExprKind, at: (usize, usize)) {
+        self.assemble_expr(value);
 
         self.chunk
-            .write_instruction(Instruction::EditName { name, at })
+            .write_instruction(Instruction::Assign { name, at })
     }
 }

@@ -36,8 +36,8 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
             format!("StoreName ({})", name)
         }
 
-        Instruction::EditName { name, .. } => {
-            format!("EditName ({})", name)
+        Instruction::Assign { name, .. } => {
+            format!("Assign ({})", name)
         }
 
         Instruction::LoadName { name, .. } => {

@@ -79,9 +79,9 @@ pub enum ExprKind {
         at: (usize, usize),
     },
 
-    EditName {
+    Assign {
         name: String,
-        new_value: Box<ExprKind>,
+        value: Box<ExprKind>,
         at: (usize, usize),
     },
 

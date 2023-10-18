@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
                 _ => left,
             },
 
-            Token::Delimiter(Delimiter::Assign) => self.parse_edit_name(left),
+            Token::Delimiter(Delimiter::Assign) => self.parse_assign(left),
 
             Token::Delimiter(Delimiter::LParen) => self.parse_function_call(left),
 
@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_edit_name(&mut self, name: ExprKind) -> ExprKind {
+    fn parse_assign(&mut self, name: ExprKind) -> ExprKind {
         let name = match name {
             ExprKind::Identifier { symbol, .. } => symbol,
             _ => {
@@ -145,11 +145,11 @@ impl<'a> Parser<'a> {
 
         self.eat(Token::Delimiter(Delimiter::Assign));
 
-        let new_value = self.parse_expr_kind(Precedence::Lowest);
+        let value = self.parse_expr_kind(Precedence::Lowest);
 
-        ExprKind::EditName {
+        ExprKind::Assign {
             name,
-            new_value: new_value.into(),
+            value: value.into(),
             at: self.lexer.cursor.at,
         }
     }

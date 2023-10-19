@@ -5,7 +5,9 @@ impl Assembler {
     pub(crate) fn assemble_stmt(&mut self, kind: StmtKind) {
         match kind {
             StmtKind::VariableDeclaration(var) => self.assemble_variable(var),
-            _ => todo!(),
+            StmtKind::FunctionDefinition(function) => self.assemble_function(function),
+            StmtKind::Return(_) => todo!(),
+            StmtKind::Unknown => ()
         }
     }
 
@@ -24,5 +26,25 @@ impl Assembler {
             name: var.name,
             mutable: var.mutable,
         });
+    }
+
+    fn assemble_function(&mut self, function: Function) {
+        let index = self.chunk.add_constant(Value::Function {
+            name: function.name.clone(),
+            parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
+            body: {
+                let mut assembler = Assembler::new();
+
+                for node in function.body {
+                    assembler.assemble(node);
+                }
+
+                assembler.to_chunk()
+            }
+        });
+
+        self.chunk.write_instruction(Instruction::LoadConstant { index });
+
+        self.chunk.write_instruction(Instruction::StoreName { name: function.name, mutable: false });
     }
 }

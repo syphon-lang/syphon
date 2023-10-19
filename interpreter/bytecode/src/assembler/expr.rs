@@ -24,7 +24,7 @@ impl Assembler {
 
             ExprKind::Assign { name, value, at } => self.assemble_assign(name, *value, at),
 
-            ExprKind::Call { .. } => todo!(),
+            ExprKind::Call { function_name, arguments, at} => self.assemble_call(function_name, arguments, at),
 
             ExprKind::Unknown => (),
         }
@@ -106,5 +106,13 @@ impl Assembler {
 
         self.chunk
             .write_instruction(Instruction::Assign { name, at })
+    }
+
+    fn assemble_call(&mut self, function_name: String, arguments: ThinVec<ExprKind>, at: (usize, usize)) {
+        for argument in arguments.clone() {
+            self.assemble_expr(argument);
+        }
+
+        self.chunk.write_instruction(Instruction::Call { function_name, arguments_count: arguments.len(), at });
     }
 }

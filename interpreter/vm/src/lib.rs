@@ -351,6 +351,59 @@ impl<'a> VirtualMachine<'a> {
                     .stack
                     .push(self.chunk.get_constant(index).unwrap().clone()),
 
+                Instruction::Call {
+                    function_name,
+                    arguments_count,
+                    at,
+                } => {
+                    let Some(value_info) = self.names.get(&function_name) else {
+                        return Err(SyphonError::undefined(at, "name", &function_name));
+                    };
+
+                    let Value::Function {
+                        parameters, body, ..
+                    } = value_info.value.clone()
+                    else {
+                        return Err(SyphonError::expected(at, "function"));
+                    };
+
+                    if arguments_count != parameters.len() {
+                        return Err(SyphonError::expected(
+                            at,
+                            match parameters.len() {
+                                1 => format!("{} argument", parameters.len()),
+                                _ => format!("{} arguments", parameters.len()),
+                            }
+                            .as_str(),
+                        ));
+                    }
+
+                    let mut arguments = ThinVec::new();
+
+                    for _ in 0..arguments_count {
+                        arguments.push(self.stack.pop().unwrap());
+                    }
+
+                    let mut names = self.names.clone();
+
+                    for (index, value) in arguments.iter().enumerate() {
+                        names.insert(
+                            parameters[index].clone(),
+                            ValueInfo {
+                                value: value.clone(),
+                                mutable: true,
+                            },
+                        );
+                    }
+
+                    let mut vm = VirtualMachine::new(body, &mut names);
+
+                    match vm.run() {
+                        Ok(value) => self.stack.push(value),
+                        Err(err) => return Err(err),
+                    }
+                }
+
                 Instruction::Return => match self.stack.pop() {
                     Some(value) => return Ok(value),
                     None => return Ok(Value::None),

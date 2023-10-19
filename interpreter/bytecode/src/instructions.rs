@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 #[repr(u8)]
 pub enum Instruction {
     Neg { at: (usize, usize) },
@@ -21,6 +21,8 @@ pub enum Instruction {
     Assign { name: String, at: (usize, usize) },
 
     LoadName { name: String, at: (usize, usize) },
+
+    Call { function_name: String, arguments_count: usize, at: (usize, usize) },
 
     LoadConstant { index: usize },
 

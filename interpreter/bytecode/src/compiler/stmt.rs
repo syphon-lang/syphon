@@ -1,19 +1,19 @@
-use crate::assembler::*;
+use crate::compiler::*;
 use crate::values::Value;
 
-impl Assembler {
-    pub(crate) fn assemble_stmt(&mut self, kind: StmtKind) {
+impl Compiler {
+    pub(crate) fn compile_stmt(&mut self, kind: StmtKind) {
         match kind {
-            StmtKind::VariableDeclaration(var) => self.assemble_variable(var),
-            StmtKind::FunctionDefinition(function) => self.assemble_function(function),
+            StmtKind::VariableDeclaration(var) => self.declare_variable(var),
+            StmtKind::FunctionDefinition(function) => self.compile_function(function),
             StmtKind::Return(_) => todo!(),
             StmtKind::Unknown => (),
         }
     }
 
-    fn assemble_variable(&mut self, var: Variable) {
+    fn declare_variable(&mut self, var: Variable) {
         match var.value {
-            Some(value) => self.assemble_expr(value),
+            Some(value) => self.compile_expr(value),
             None => {
                 let index = self.chunk.add_constant(Value::None);
 
@@ -28,18 +28,18 @@ impl Assembler {
         });
     }
 
-    fn assemble_function(&mut self, function: Function) {
+    fn compile_function(&mut self, function: Function) {
         let index = self.chunk.add_constant(Value::Function {
             name: function.name.clone(),
             parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
             body: {
-                let mut assembler = Assembler::new();
+                let mut compiler = Compiler::new();
 
                 for node in function.body {
-                    assembler.assemble(node);
+                    compiler.compile(node);
                 }
 
-                assembler.to_chunk()
+                compiler.to_chunk()
             },
         });
 

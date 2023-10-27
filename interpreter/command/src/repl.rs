@@ -1,6 +1,6 @@
 use crate::cli::Arguments;
 
-use syphon_bytecode::assembler::Assembler;
+use syphon_bytecode::compiler::Compiler;
 use syphon_bytecode::disassembler::disassmeble;
 use syphon_bytecode::values::Value;
 use syphon_errors::ErrorHandler;
@@ -42,16 +42,16 @@ pub fn start(args: Arguments) -> io::Result<()> {
             continue;
         }
 
-        let mut assembler = Assembler::new();
+        let mut compiler = Compiler::new();
 
-        assembler.assemble(module);
+        compiler.compile(module);
 
-        if !assembler.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), assembler.errors);
+        if !compiler.errors.is_empty() {
+            ErrorHandler::handle_errors(String::from("<stdin>"), compiler.errors);
             continue;
         }
 
-        let chunk = assembler.to_chunk();
+        let chunk = compiler.to_chunk();
 
         if args.emit_bytecode {
             println!("------------------------------------");

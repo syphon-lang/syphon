@@ -9,38 +9,38 @@ use syphon_errors::SyphonError;
 
 use thin_vec::ThinVec;
 
-pub struct Assembler {
+pub struct Compiler {
     chunk: Chunk,
 
     pub errors: ThinVec<SyphonError>,
 }
 
-impl Assembler {
-    pub fn new() -> Assembler {
-        Assembler {
+impl Compiler {
+    pub fn new() -> Compiler {
+        Compiler {
             chunk: Chunk::new(),
 
             errors: ThinVec::new(),
         }
     }
 
-    pub fn assemble(&mut self, module: Node) {
-        self.assemble_node(module);
+    pub fn compile(&mut self, module: Node) {
+        self.compile_node(module);
 
         self.chunk.write_instruction(Instruction::Return);
     }
 
-    fn assemble_node(&mut self, node: Node) {
+    fn compile_node(&mut self, node: Node) {
         match node {
-            Node::Module { body } => self.assemble_nodes(body),
-            Node::Stmt(kind) => self.assemble_stmt(*kind),
-            Node::Expr(kind) => self.assemble_expr(*kind),
+            Node::Module { body } => self.compile_nodes(body),
+            Node::Stmt(kind) => self.compile_stmt(*kind),
+            Node::Expr(kind) => self.compile_expr(*kind),
         }
     }
 
-    fn assemble_nodes(&mut self, nodes: ThinVec<Node>) {
+    fn compile_nodes(&mut self, nodes: ThinVec<Node>) {
         for node in nodes {
-            self.assemble_node(node)
+            self.compile_node(node)
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::cli::Arguments;
 
-use syphon_bytecode::assembler::Assembler;
+use syphon_bytecode::compiler::Compiler;
 use syphon_bytecode::disassembler::disassmeble;
 use syphon_errors::ErrorHandler;
 use syphon_lexer::Lexer;
@@ -49,19 +49,19 @@ pub fn run_file(file_path: PathBuf, args: Arguments) -> io::Result<()> {
         exit(1);
     }
 
-    let mut assembler = Assembler::new();
+    let mut compiler = Compiler::new();
 
-    assembler.assemble(module);
+    compiler.compile(module);
 
-    if !assembler.errors.is_empty() {
+    if !compiler.errors.is_empty() {
         ErrorHandler::handle_errors(
             file_path.to_str().unwrap_or_default().to_string(),
-            assembler.errors,
+            compiler.errors,
         );
         exit(1);
     }
 
-    let chunk = assembler.to_chunk();
+    let chunk = compiler.to_chunk();
 
     if args.emit_bytecode {
         println!("------------------------------------");

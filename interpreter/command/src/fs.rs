@@ -1,6 +1,6 @@
 use crate::cli::Arguments;
 
-use syphon_bytecode::compiler::Compiler;
+use syphon_bytecode::compiler::*;
 use syphon_bytecode::disassembler::disassmeble;
 use syphon_errors::ErrorHandler;
 use syphon_lexer::Lexer;
@@ -49,7 +49,7 @@ pub fn run_file(file_path: PathBuf, args: Arguments) -> io::Result<()> {
         exit(1);
     }
 
-    let mut compiler = Compiler::new();
+    let mut compiler = Compiler::new(CompilerMode::Script);
 
     compiler.compile(module);
 

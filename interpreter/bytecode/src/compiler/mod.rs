@@ -9,16 +9,26 @@ use syphon_errors::SyphonError;
 
 use thin_vec::ThinVec;
 
+#[derive(PartialEq)]
+pub enum CompilerMode {
+    Script,
+    Function,
+}
+
 pub struct Compiler {
     chunk: Chunk,
+
+    mode: CompilerMode,
 
     pub errors: ThinVec<SyphonError>,
 }
 
 impl Compiler {
-    pub fn new() -> Compiler {
+    pub fn new(mode: CompilerMode) -> Compiler {
         Compiler {
             chunk: Chunk::new(),
+
+            mode,
 
             errors: ThinVec::new(),
         }
@@ -27,7 +37,9 @@ impl Compiler {
     pub fn compile(&mut self, module: Node) {
         self.compile_node(module);
 
-        self.chunk.write_instruction(Instruction::Return);
+        if self.mode == CompilerMode::Script {
+            self.chunk.write_instruction(Instruction::Return);
+        }
     }
 
     fn compile_node(&mut self, node: Node) {

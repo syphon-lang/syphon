@@ -6,7 +6,7 @@ impl Compiler {
         match kind {
             StmtKind::VariableDeclaration(var) => self.declare_variable(var),
             StmtKind::FunctionDefinition(function) => self.compile_function(function),
-            StmtKind::Return(_) => todo!(),
+            StmtKind::Return(return_stmt) => self.compiler_return(return_stmt),
             StmtKind::Unknown => (),
         }
     }
@@ -33,7 +33,7 @@ impl Compiler {
             name: function.name.clone(),
             parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
             body: {
-                let mut compiler = Compiler::new();
+                let mut compiler = Compiler::new(CompilerMode::Function);
 
                 for node in function.body {
                     compiler.compile(node);
@@ -50,5 +50,26 @@ impl Compiler {
             name: function.name,
             mutable: false,
         });
+    }
+
+    fn compiler_return(&mut self, return_stmt: Return) {
+        if self.mode != CompilerMode::Function {
+            self.errors.push(SyphonError::unable_to(
+                return_stmt.at,
+                "return outside a function",
+            ));
+        }
+
+        match return_stmt.value {
+            Some(value) => self.compile_expr(value),
+            None => {
+                let index = self.chunk.add_constant(Value::None);
+
+                self.chunk
+                    .write_instruction(Instruction::LoadConstant { index });
+            }
+        };
+
+        self.chunk.write_instruction(Instruction::Return)
     }
 }

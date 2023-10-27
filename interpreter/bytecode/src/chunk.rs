@@ -6,7 +6,7 @@ use thin_vec::ThinVec;
 #[derive(Clone, PartialEq)]
 pub struct Chunk {
     pub code: ThinVec<Instruction>,
-    constants: ThinVec<Value>,
+    pub constants: ThinVec<Value>,
 }
 
 impl Chunk {

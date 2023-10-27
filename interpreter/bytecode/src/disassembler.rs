@@ -12,6 +12,16 @@ pub fn disassmeble(label: &str, chunk: &Chunk) -> String {
         disassmebled.push('\n');
     }
 
+    for constant in chunk.constants.iter() {
+        match constant {
+            Value::Function { name, body, .. } => {
+                disassmebled.push_str(disassmeble(name, body).as_str());
+            }
+
+            _ => (),
+        }
+    }
+
     disassmebled
 }
 

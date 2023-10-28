@@ -1,12 +1,9 @@
 use crate::cli::Arguments;
 
-use syphon_bytecode::compiler::*;
+use crate::runner;
+
 use syphon_bytecode::disassembler::disassmeble;
 use syphon_bytecode::values::Value;
-use syphon_errors::ErrorHandler;
-use syphon_lexer::Lexer;
-use syphon_parser::Parser;
-use syphon_vm::VirtualMachine;
 
 use rustc_hash::FxHashMap;
 
@@ -14,9 +11,9 @@ use io::{BufRead, BufReader, Write};
 use std::io;
 
 pub fn start(args: Arguments) -> io::Result<()> {
-    let mut globals = FxHashMap::default();
-
     let mut reader = BufReader::new(io::stdin());
+
+    let mut globals = FxHashMap::default();
 
     loop {
         let mut input = String::new();
@@ -28,30 +25,9 @@ pub fn start(args: Arguments) -> io::Result<()> {
 
         input = input.trim_end_matches('\n').to_string();
 
-        let lexer = Lexer::new(&input);
-        let mut parser = Parser::new(lexer);
-        let module = parser.module();
-
-        if !parser.lexer.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), parser.lexer.errors);
+        let Ok((value, chunk)) = runner::run("<stdin>".to_string(), input, &mut globals) else {
             continue;
-        }
-
-        if !parser.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), parser.errors);
-            continue;
-        }
-
-        let mut compiler = Compiler::new(CompilerMode::Script);
-
-        compiler.compile(module);
-
-        if !compiler.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), compiler.errors);
-            continue;
-        }
-
-        let chunk = compiler.to_chunk();
+        };
 
         if args.emit_bytecode {
             println!("------------------------------------");
@@ -60,18 +36,9 @@ pub fn start(args: Arguments) -> io::Result<()> {
             println!();
         }
 
-        let mut vm = VirtualMachine::new(chunk, &mut globals);
-
-        match vm.run() {
-            Ok(value) => {
-                if value != Value::None {
-                    println!("{}", value)
-                }
-            }
-            Err(error) => {
-                ErrorHandler::handle_error(String::from("<stdin>"), error);
-                continue;
-            }
+        match value {
+            Value::None => (),
+            _ => println!("{}", value),
         }
     }
 }

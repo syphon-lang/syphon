@@ -19,15 +19,15 @@ impl ErrorHandler {
 #[derive(Error, Display, Debug, Clone)]
 pub enum SyphonError {
     #[display(fmt = "at {}:{}: {}", "at.0", "at.1", message)]
-    AssemblingError { at: (usize, usize), message: String },
+    CompileError { at: (usize, usize), message: String },
 
     #[display(fmt = "at {}:{}: {}", "at.0", "at.1", message)]
     RuntimeError { at: (usize, usize), message: String },
 }
 
 impl SyphonError {
-    pub fn new_assembling_error(at: (usize, usize), message: String) -> SyphonError {
-        SyphonError::AssemblingError { at, message }
+    pub fn new_compile_error(at: (usize, usize), message: String) -> SyphonError {
+        SyphonError::CompileError { at, message }
     }
 
     pub fn new_runtime_error(at: (usize, usize), message: String) -> SyphonError {
@@ -35,7 +35,7 @@ impl SyphonError {
     }
 
     pub fn invalid(at: (usize, usize), stmt: &str) -> SyphonError {
-        SyphonError::new_assembling_error(at, format!("invalid {}", stmt))
+        SyphonError::new_compile_error(at, format!("invalid {}", stmt))
     }
 
     pub fn unsupported(at: (usize, usize), stmt: &str) -> SyphonError {
@@ -47,19 +47,19 @@ impl SyphonError {
     }
 
     pub fn unexpected(at: (usize, usize), stmt: &str, got: &str) -> SyphonError {
-        SyphonError::new_assembling_error(at, format!("unexpected {} '{}'", stmt, got))
+        SyphonError::new_compile_error(at, format!("unexpected {} '{}'", stmt, got))
     }
 
     pub fn expected(at: (usize, usize), expected: &str) -> SyphonError {
-        SyphonError::new_assembling_error(at, format!("expected {}", expected))
+        SyphonError::new_compile_error(at, format!("expected {}", expected))
     }
 
     pub fn expected_got(at: (usize, usize), expected: &str, got: &str) -> SyphonError {
-        SyphonError::new_assembling_error(at, format!("expected {} got {}", expected, got))
+        SyphonError::new_compile_error(at, format!("expected {} got {}", expected, got))
     }
 
     pub fn unable_to(at: (usize, usize), stmt: &str) -> SyphonError {
-        SyphonError::new_assembling_error(at, format!("unable to {}", stmt))
+        SyphonError::new_compile_error(at, format!("unable to {}", stmt))
     }
 
     pub fn mismatched(at: (usize, usize), stmt: &str) -> SyphonError {

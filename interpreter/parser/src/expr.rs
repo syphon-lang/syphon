@@ -6,7 +6,10 @@ impl<'a> Parser<'a> {
         Ok(Node::Expr(self.parse_expr_kind(Precedence::Lowest)?.into()))
     }
 
-    pub(crate) fn parse_expr_kind(&mut self, precedence: Precedence) -> Result<ExprKind, SyphonError> {
+    pub(crate) fn parse_expr_kind(
+        &mut self,
+        precedence: Precedence,
+    ) -> Result<ExprKind, SyphonError> {
         let mut left = self.parse_unary_expression()?;
 
         while !self.eat(Token::Delimiter(Delimiter::Semicolon))
@@ -22,6 +25,7 @@ impl<'a> Parser<'a> {
         Ok(match self.peek() {
             Token::Operator(Operator::Minus) => self.parse_unary_operation()?,
             Token::Operator(Operator::Bang) => self.parse_unary_operation()?,
+            Token::Delimiter(Delimiter::LParen) => self.parse_parentheses_expression()?,
             Token::Identifier(symbol) => self.parse_identifier(symbol),
             Token::Str(value) => self.parse_string(value),
             Token::Int(value) => self.parse_integer(value),
@@ -46,6 +50,28 @@ impl<'a> Parser<'a> {
             right: right.into(),
             at: self.lexer.cursor.at,
         })
+    }
+
+    fn parse_parentheses_expression(&mut self) -> Result<ExprKind, SyphonError> {
+        self.next_token();
+
+        if self.eat(Token::Delimiter(Delimiter::RParen)) {
+            return Err(SyphonError::expected(
+                self.lexer.cursor.at,
+                "expression inside '()'",
+            ));
+        }
+
+        let value = self.parse_expr_kind(Precedence::Lowest)?;
+
+        if !self.eat(Token::Delimiter(Delimiter::RParen)) {
+            return Err(SyphonError::expected(
+                self.lexer.cursor.at,
+                "to close '(' with ')'",
+            ));
+        }
+
+        Ok(value)
     }
 
     fn parse_identifier(&mut self, symbol: String) -> ExprKind {
@@ -135,7 +161,7 @@ impl<'a> Parser<'a> {
     fn parse_assign(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
         let name = match expr {
             ExprKind::Identifier { symbol, .. } => symbol,
-            _ => return Err(SyphonError::expected(self.lexer.cursor.at, "a name"))
+            _ => return Err(SyphonError::expected(self.lexer.cursor.at, "a name")),
         };
 
         self.eat(Token::Delimiter(Delimiter::Assign));
@@ -152,7 +178,12 @@ impl<'a> Parser<'a> {
     fn parse_function_call(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
         let function_name = match expr {
             ExprKind::Identifier { symbol, .. } => symbol,
-            _ => return Err(SyphonError::expected(self.lexer.cursor.at, "a function name"))
+            _ => {
+                return Err(SyphonError::expected(
+                    self.lexer.cursor.at,
+                    "a function name",
+                ))
+            }
         };
 
         let arguments = self.parse_function_call_arguments()?;

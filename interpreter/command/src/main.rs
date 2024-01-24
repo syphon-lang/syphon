@@ -1,6 +1,4 @@
 use syphon::cli::Arguments;
-use syphon::fs;
-use syphon::repl;
 
 use clap::Parser;
 
@@ -13,7 +11,7 @@ fn main() -> io::Result<()> {
 
     match args.file_path.clone() {
         Some(file_path) => {
-            fs::run_file(file_path.clone(), args).unwrap_or_else(|err| {
+            syphon::run_file(file_path.to_str().unwrap_or_default(), args).unwrap_or_else(|err| {
                 eprintln!("{}: {}", file_path.display(), err);
                 exit(1)
             });
@@ -21,6 +19,6 @@ fn main() -> io::Result<()> {
             Ok(())
         }
 
-        None => repl::start(args),
+        None => syphon::repl::start(args),
     }
 }

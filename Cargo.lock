@@ -224,16 +224,11 @@ name = "syphon_errors"
 version = "0.1.0"
 dependencies = [
  "derive_more",
- "thin-vec",
 ]
 
 [[package]]
 name = "syphon_lexer"
 version = "0.1.0"
-dependencies = [
- "syphon_errors",
- "thin-vec",
-]
 
 [[package]]
 name = "syphon_parser"

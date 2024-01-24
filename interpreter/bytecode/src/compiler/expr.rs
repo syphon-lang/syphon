@@ -2,6 +2,8 @@ use crate::compiler::*;
 use crate::instructions::Instruction;
 use crate::values::Value;
 
+use thin_vec::ThinVec;
+
 impl Compiler {
     pub(crate) fn compile_expr(&mut self, kind: ExprKind) {
         match kind {

@@ -1,7 +1,6 @@
 use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::compiler::*;
 use syphon_bytecode::values::*;
-use syphon_errors::ErrorHandler;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 use syphon_vm::VirtualMachine;
@@ -9,36 +8,33 @@ use syphon_vm::VirtualMachine;
 use rustc_hash::FxHashMap;
 
 pub fn run(
-    file_path: String,
+    file_path: &str,
     input: String,
     globals: &mut FxHashMap<String, ValueInfo>,
 ) -> Result<(Value, Chunk), ()> {
     let lexer = Lexer::new(&input);
 
     let mut parser = Parser::new(lexer);
-    let module = parser.module();
 
-    if !parser.lexer.errors.is_empty() {
-        ErrorHandler::handle_errors(file_path, parser.lexer.errors);
+    let module = match parser.parse() {
+        Ok(module) => module,
+        Err(err) => {
+            eprintln!("{} {}", file_path, err);
 
-        return Err(());
-    }
-
-    if !parser.errors.is_empty() {
-        ErrorHandler::handle_errors(file_path, parser.errors);
-
-        return Err(());
-    }
+            return Err(());
+        }
+    };
 
     let mut compiler = Compiler::new(CompilerMode::Script);
 
-    compiler.compile(module);
+    match compiler.compile(module) {
+        Ok(()) => (),
+        Err(err) => {
+            eprintln!("{} {}", file_path, err);
 
-    if !compiler.errors.is_empty() {
-        ErrorHandler::handle_errors(file_path, compiler.errors);
-
-        return Err(());
-    }
+            return Err(());
+        }
+    };
 
     let chunk = compiler.to_chunk();
 
@@ -47,7 +43,7 @@ pub fn run(
     match vm.run() {
         Ok(value) => Ok((value, chunk)),
         Err(err) => {
-            ErrorHandler::handle_error(file_path, err);
+            eprintln!("{} {}", file_path, err);
 
             Err(())
         }

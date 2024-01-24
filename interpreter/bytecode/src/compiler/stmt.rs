@@ -2,12 +2,12 @@ use crate::compiler::*;
 use crate::values::Value;
 
 impl Compiler {
-    pub(crate) fn compile_stmt(&mut self, kind: StmtKind) {
+    pub(crate) fn compile_stmt(&mut self, kind: StmtKind) -> Result<(), SyphonError> {
         match kind {
-            StmtKind::VariableDeclaration(var) => self.compile_variable_declaration(var),
+            StmtKind::VariableDeclaration(var) => Ok(self.compile_variable_declaration(var)),
             StmtKind::FunctionDefinition(function) => self.compile_function_definition(function),
             StmtKind::Return(return_stmt) => self.compile_return(return_stmt),
-            StmtKind::Unknown => (),
+            StmtKind::Unknown => Ok(()),
         }
     }
 
@@ -28,7 +28,7 @@ impl Compiler {
         });
     }
 
-    fn compile_function_definition(&mut self, function: Function) {
+    fn compile_function_definition(&mut self, function: Function) -> Result<(), SyphonError> {
         let index = self.chunk.add_constant(Value::Function {
             name: function.name.clone(),
             parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
@@ -36,7 +36,7 @@ impl Compiler {
                 let mut compiler = Compiler::new(CompilerMode::Function);
 
                 for node in function.body {
-                    compiler.compile(node);
+                    compiler.compile(node)?;
                 }
 
                 compiler.to_chunk()
@@ -50,11 +50,13 @@ impl Compiler {
             name: function.name,
             mutable: false,
         });
+        
+        Ok(())
     }
 
-    fn compile_return(&mut self, return_stmt: Return) {
+    fn compile_return(&mut self, return_stmt: Return) -> Result<(), SyphonError> {
         if self.mode != CompilerMode::Function {
-            self.errors.push(SyphonError::unable_to(
+            return Err(SyphonError::unable_to(
                 return_stmt.at,
                 "return outside a function",
             ));
@@ -70,6 +72,8 @@ impl Compiler {
             }
         };
 
-        self.chunk.write_instruction(Instruction::Return)
+        self.chunk.write_instruction(Instruction::Return);
+
+        Ok(())
     }
 }

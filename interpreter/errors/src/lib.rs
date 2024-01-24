@@ -1,20 +1,4 @@
-use thin_vec::ThinVec;
-
 use derive_more::{Display, Error};
-
-pub struct ErrorHandler {}
-
-impl ErrorHandler {
-    pub fn handle_errors(file_path: String, errors: ThinVec<SyphonError>) {
-        for error in errors {
-            ErrorHandler::handle_error(file_path.clone(), error);
-        }
-    }
-
-    pub fn handle_error(file_path: String, error: SyphonError) {
-        eprintln!("{} {}", file_path, error)
-    }
-}
 
 #[derive(Error, Display, Debug, Clone)]
 pub enum SyphonError {

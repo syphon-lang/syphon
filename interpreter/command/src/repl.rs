@@ -25,7 +25,7 @@ pub fn start(args: Arguments) -> io::Result<()> {
 
         input = input.trim_end_matches('\n').to_string();
 
-        let Ok((value, chunk)) = runner::run("<stdin>".to_string(), input, &mut globals) else {
+        let Ok((value, chunk)) = runner::run("<stdin>", input, &mut globals) else {
             continue;
         };
 

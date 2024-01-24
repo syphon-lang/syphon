@@ -19,8 +19,6 @@ pub struct Compiler {
     chunk: Chunk,
 
     mode: CompilerMode,
-
-    pub errors: ThinVec<SyphonError>,
 }
 
 impl Compiler {
@@ -29,31 +27,33 @@ impl Compiler {
             chunk: Chunk::new(),
 
             mode,
-
-            errors: ThinVec::new(),
         }
     }
 
-    pub fn compile(&mut self, module: Node) {
-        self.compile_node(module);
+    pub fn compile(&mut self, module: Node) -> Result<(), SyphonError> {
+        self.compile_node(module)?;
 
         if self.mode == CompilerMode::Script {
             self.chunk.write_instruction(Instruction::Return);
         }
+
+        Ok(())
     }
 
-    fn compile_node(&mut self, node: Node) {
+    fn compile_node(&mut self, node: Node) -> Result<(), SyphonError> {
         match node {
             Node::Module { body } => self.compile_nodes(body),
             Node::Stmt(kind) => self.compile_stmt(*kind),
-            Node::Expr(kind) => self.compile_expr(*kind),
+            Node::Expr(kind) => Ok(self.compile_expr(*kind)),
         }
     }
 
-    fn compile_nodes(&mut self, nodes: ThinVec<Node>) {
+    fn compile_nodes(&mut self, nodes: ThinVec<Node>) -> Result<(), SyphonError> {
         for node in nodes {
-            self.compile_node(node)
+            self.compile_node(node)?;
         }
+
+        Ok(())
     }
 
     pub fn to_chunk(self) -> Chunk {

@@ -2,7 +2,7 @@ use crate::*;
 use precedence::Precedence;
 
 impl<'a> Parser<'a> {
-    pub(crate) fn parse_stmt(&mut self) -> Node {
+    pub(crate) fn parse_stmt(&mut self) -> Result<Node, SyphonError> {
         match self.peek() {
             Token::Identifier(symbol) => match symbol.as_str() {
                 "const" => self.parse_variable_declaration(false),
@@ -15,36 +15,28 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_variable_declaration(&mut self, mutable: bool) -> Node {
+    fn parse_variable_declaration(&mut self, mutable: bool) -> Result<Node, SyphonError> {
         self.next_token();
 
-        let name = match self.next_token() {
-            Token::Identifier(name) => name,
-            _ => {
-                self.errors
-                    .push(SyphonError::expected(self.lexer.cursor.at, "variable name"));
-
-                String::new()
-            }
+        let Token::Identifier(name) = self.next_token() else {
+            return Err(SyphonError::expected(self.lexer.cursor.at, "variable name"));
         };
 
         let value = match self.next_token() {
-            Token::Delimiter(Delimiter::Assign) => Some(self.parse_expr_kind(Precedence::Lowest)),
+            Token::Delimiter(Delimiter::Assign) => Some(self.parse_expr_kind(Precedence::Lowest)?),
             Token::Delimiter(Delimiter::Semicolon) => None,
             _ => {
-                self.errors.push(SyphonError::unexpected(
+                return Err(SyphonError::unexpected(
                     self.lexer.cursor.at,
                     "token",
                     self.peek().to_string().as_str(),
                 ));
-
-                None
             }
         };
 
         self.eat(Token::Delimiter(Delimiter::Semicolon));
 
-        Node::Stmt(
+        Ok(Node::Stmt(
             StmtKind::VariableDeclaration(Variable {
                 mutable,
                 name,
@@ -52,27 +44,21 @@ impl<'a> Parser<'a> {
                 at: self.lexer.cursor.at,
             })
             .into(),
-        )
+        ))
     }
 
-    fn parse_function_definition(&mut self) -> Node {
+    fn parse_function_definition(&mut self) -> Result<Node, SyphonError> {
         self.next_token();
 
-        let name = match self.next_token() {
-            Token::Identifier(name) => name,
-            _ => {
-                self.errors
-                    .push(SyphonError::expected(self.lexer.cursor.at, "function name"));
-
-                String::new()
-            }
+        let Token::Identifier(name) = self.next_token() else {
+            return Err(SyphonError::expected(self.lexer.cursor.at, "function name"));
         };
 
-        let parameters = self.parse_function_parameters();
+        let parameters = self.parse_function_parameters()?;
 
-        let body = self.parse_function_body();
+        let body = self.parse_function_body()?;
 
-        Node::Stmt(
+        Ok(Node::Stmt(
             StmtKind::FunctionDefinition(Function {
                 name,
                 parameters,
@@ -80,23 +66,21 @@ impl<'a> Parser<'a> {
                 at: self.lexer.cursor.at,
             })
             .into(),
-        )
+        ))
     }
 
-    fn parse_function_parameters(&mut self) -> ThinVec<FunctionParameter> {
+    fn parse_function_parameters(&mut self) -> Result<ThinVec<FunctionParameter>, SyphonError> {
         let mut parameters = ThinVec::new();
 
         if !self.eat(Token::Delimiter(Delimiter::LParen)) {
-            self.errors.push(SyphonError::expected(
+            return Err(SyphonError::expected(
                 self.lexer.cursor.at,
                 "function parameters starts with '('",
             ));
-
-            return parameters;
         }
 
         if !self.eat(Token::Delimiter(Delimiter::RParen)) {
-            let mut parameter = self.parse_function_parameter();
+            let mut parameter = self.parse_function_parameter()?;
 
             parameters.push(parameter);
 
@@ -105,64 +89,58 @@ impl<'a> Parser<'a> {
                     break;
                 }
 
-                parameter = self.parse_function_parameter();
+                parameter = self.parse_function_parameter()?;
 
                 parameters.push(parameter);
             }
 
             if !self.eat(Token::Delimiter(Delimiter::RParen)) {
-                self.errors.push(SyphonError::expected(
+                return Err(SyphonError::expected(
                     self.lexer.cursor.at,
                     "function parameters ends with ')'",
                 ));
-
-                return parameters;
             }
         }
 
-        parameters
+        Ok(parameters)
     }
 
-    fn parse_function_parameter(&mut self) -> FunctionParameter {
+    fn parse_function_parameter(&mut self) -> Result<FunctionParameter, SyphonError> {
         let name = match self.next_token() {
             Token::Identifier(name) => name,
 
             _ => {
-                self.errors.push(SyphonError::expected(
+                return Err(SyphonError::expected(
                     self.lexer.cursor.at,
                     "function parameter name",
                 ));
-
-                String::new()
             }
         };
 
-        FunctionParameter {
+        Ok(FunctionParameter {
             name,
             at: self.lexer.cursor.at,
-        }
+        })
     }
 
-    fn parse_function_body(&mut self) -> ThinVec<Node> {
+    fn parse_function_body(&mut self) -> Result<ThinVec<Node>, SyphonError> {
         let mut body = ThinVec::new();
 
         if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
-            self.errors.push(SyphonError::expected(
+            return Err(SyphonError::expected(
                 self.lexer.cursor.at,
                 "function body starts with '{'",
             ));
-
-            return body;
         }
 
         while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
-            body.push(self.parse_stmt())
+            body.push(self.parse_stmt()?)
         }
 
-        body
+        Ok(body)
     }
 
-    fn parse_return(&mut self) -> Node {
+    fn parse_return(&mut self) -> Result<Node, SyphonError> {
         let at = self.lexer.cursor.at;
 
         self.next_token();
@@ -174,9 +152,9 @@ impl<'a> Parser<'a> {
                 None
             }
 
-            _ => Some(self.parse_expr_kind(Precedence::Lowest)),
+            _ => Some(self.parse_expr_kind(Precedence::Lowest)?),
         };
 
-        Node::Stmt(StmtKind::Return(Return { value, at }).into())
+        Ok(Node::Stmt(StmtKind::Return(Return { value, at }).into()))
     }
 }

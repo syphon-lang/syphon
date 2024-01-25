@@ -2,26 +2,30 @@ use crate::*;
 use precedence::Precedence;
 
 impl<'a> Parser<'a> {
-    pub(crate) fn parse_expr(&mut self) -> Node {
-        Node::Expr(self.parse_expr_kind(Precedence::Lowest).into())
+    pub(crate) fn parse_expr(&mut self) -> Result<Node, SyphonError> {
+        Ok(Node::Expr(self.parse_expr_kind(Precedence::Lowest)?.into()))
     }
 
-    pub(crate) fn parse_expr_kind(&mut self, precedence: Precedence) -> ExprKind {
-        let mut left = self.parse_unary_expression();
+    pub(crate) fn parse_expr_kind(
+        &mut self,
+        precedence: Precedence,
+    ) -> Result<ExprKind, SyphonError> {
+        let mut left = self.parse_unary_expression()?;
 
         while !self.eat(Token::Delimiter(Delimiter::Semicolon))
             && precedence < Precedence::from(&self.peek())
         {
-            left = self.parse_binary_expression(left);
+            left = self.parse_binary_expression(left)?;
         }
 
-        left
+        Ok(left)
     }
 
-    fn parse_unary_expression(&mut self) -> ExprKind {
-        match self.peek() {
-            Token::Operator(Operator::Minus) => self.parse_unary_operation(),
-            Token::Operator(Operator::Bang) => self.parse_unary_operation(),
+    fn parse_unary_expression(&mut self) -> Result<ExprKind, SyphonError> {
+        Ok(match self.peek() {
+            Token::Operator(Operator::Minus) => self.parse_unary_operation()?,
+            Token::Operator(Operator::Bang) => self.parse_unary_operation()?,
+            Token::Delimiter(Delimiter::LParen) => self.parse_parentheses_expression()?,
             Token::Identifier(symbol) => self.parse_identifier(symbol),
             Token::Str(value) => self.parse_string(value),
             Token::Int(value) => self.parse_integer(value),
@@ -33,19 +37,41 @@ impl<'a> Parser<'a> {
 
                 ExprKind::Unknown
             }
-        }
+        })
     }
 
-    fn parse_unary_operation(&mut self) -> ExprKind {
+    fn parse_unary_operation(&mut self) -> Result<ExprKind, SyphonError> {
         let operator = self.next_token();
 
-        let right = self.parse_expr_kind(Precedence::Prefix);
+        let right = self.parse_expr_kind(Precedence::Prefix)?;
 
-        ExprKind::UnaryOperation {
+        Ok(ExprKind::UnaryOperation {
             operator: operator.as_char(),
             right: right.into(),
             at: self.lexer.cursor.at,
+        })
+    }
+
+    fn parse_parentheses_expression(&mut self) -> Result<ExprKind, SyphonError> {
+        self.next_token();
+
+        if self.eat(Token::Delimiter(Delimiter::RParen)) {
+            return Err(SyphonError::expected(
+                self.lexer.cursor.at,
+                "expression inside '()'",
+            ));
         }
+
+        let value = self.parse_expr_kind(Precedence::Lowest)?;
+
+        if !self.eat(Token::Delimiter(Delimiter::RParen)) {
+            return Err(SyphonError::expected(
+                self.lexer.cursor.at,
+                "to close '(' with ')'",
+            ));
+        }
+
+        Ok(value)
     }
 
     fn parse_identifier(&mut self, symbol: String) -> ExprKind {
@@ -93,7 +119,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_binary_expression(&mut self, left: ExprKind) -> ExprKind {
+    fn parse_binary_expression(&mut self, left: ExprKind) -> Result<ExprKind, SyphonError> {
         match self.peek() {
             Token::Operator(operator) => match operator {
                 Operator::Equals => self.parse_binary_operation(left),
@@ -107,51 +133,75 @@ impl<'a> Parser<'a> {
                 Operator::DoubleStar => self.parse_binary_operation(left),
                 Operator::Percent => self.parse_binary_operation(left),
 
-                _ => left,
+                _ => Ok(left),
             },
+
+            Token::Delimiter(Delimiter::Assign) => self.parse_assign(left),
 
             Token::Delimiter(Delimiter::LParen) => self.parse_function_call(left),
 
-            _ => left,
+            _ => Ok(left),
         }
     }
 
-    fn parse_binary_operation(&mut self, left: ExprKind) -> ExprKind {
+    fn parse_binary_operation(&mut self, left: ExprKind) -> Result<ExprKind, SyphonError> {
         let operator = self.next_token();
         let precedence = Precedence::from(&operator);
 
-        let right = self.parse_expr_kind(precedence);
+        let right = self.parse_expr_kind(precedence)?;
 
-        ExprKind::BinaryOperation {
+        Ok(ExprKind::BinaryOperation {
             left: left.into(),
             operator: operator.to_string(),
             right: right.into(),
             at: self.lexer.cursor.at,
-        }
+        })
     }
 
-    fn parse_function_call(&mut self, function_name: ExprKind) -> ExprKind {
-        let function_name = match function_name {
+    fn parse_assign(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
+        let name = match expr {
             ExprKind::Identifier { symbol, .. } => symbol,
-            _ => "".to_string(),
+            _ => return Err(SyphonError::expected(self.lexer.cursor.at, "a name")),
         };
 
-        let arguments = self.parse_function_call_arguments();
+        self.eat(Token::Delimiter(Delimiter::Assign));
 
-        ExprKind::Call {
+        let value = self.parse_expr_kind(Precedence::Lowest)?;
+
+        Ok(ExprKind::Assign {
+            name,
+            value: value.into(),
+            at: self.lexer.cursor.at,
+        })
+    }
+
+    fn parse_function_call(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
+        let function_name = match expr {
+            ExprKind::Identifier { symbol, .. } => symbol,
+            _ => {
+                return Err(SyphonError::expected(
+                    self.lexer.cursor.at,
+                    "a function name",
+                ))
+            }
+        };
+
+        let arguments = self.parse_function_call_arguments()?;
+
+        Ok(ExprKind::Call {
             function_name,
             arguments,
             at: self.lexer.cursor.at,
-        }
+        })
     }
 
-    fn parse_function_call_arguments(&mut self) -> ThinVec<ExprKind> {
+    fn parse_function_call_arguments(&mut self) -> Result<ThinVec<ExprKind>, SyphonError> {
         let mut arguments = ThinVec::new();
 
         self.eat(Token::Delimiter(Delimiter::LParen));
 
         if !self.eat(Token::Delimiter(Delimiter::RParen)) {
-            let mut argument = self.parse_expr_kind(Precedence::Lowest);
+            let mut argument = self.parse_expr_kind(Precedence::Lowest)?;
             arguments.push(argument);
 
             while self.eat(Token::Delimiter(Delimiter::Comma)) {
@@ -159,12 +209,12 @@ impl<'a> Parser<'a> {
                     break;
                 }
 
-                argument = self.parse_expr_kind(Precedence::Lowest);
+                argument = self.parse_expr_kind(Precedence::Lowest)?;
                 arguments.push(argument);
             }
 
             if !self.eat(Token::Delimiter(Delimiter::RParen)) {
-                self.errors.push(EvaluateError::expected(
+                return Err(SyphonError::expected(
                     self.lexer.cursor.at,
                     "function call ends with ')'",
                 ));
@@ -173,6 +223,6 @@ impl<'a> Parser<'a> {
 
         self.eat(Token::Delimiter(Delimiter::Semicolon));
 
-        arguments
+        Ok(arguments)
     }
 }

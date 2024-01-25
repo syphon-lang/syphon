@@ -24,6 +24,7 @@ impl From<&Token> for Precedence {
                 Operator::Minus => Precedence::Sum,
                 Operator::ForwardSlash => Precedence::Product,
                 Operator::Star => Precedence::Product,
+                Operator::Percent => Precedence::Product,
                 Operator::DoubleStar => Precedence::Exponent,
                 _ => Precedence::Lowest,
             },

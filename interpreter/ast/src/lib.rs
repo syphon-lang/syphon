@@ -18,7 +18,7 @@ pub enum StmtKind {
 
 #[derive(Debug, Clone)]
 pub struct Variable {
-    pub is_constant: bool,
+    pub mutable: bool,
     pub name: String,
     pub value: Option<ExprKind>,
     pub at: (usize, usize),
@@ -76,6 +76,12 @@ pub enum ExprKind {
         left: Box<ExprKind>,
         operator: String,
         right: Box<ExprKind>,
+        at: (usize, usize),
+    },
+
+    Assign {
+        name: String,
+        value: Box<ExprKind>,
         at: (usize, usize),
     },
 

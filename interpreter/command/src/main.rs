@@ -1,6 +1,4 @@
 use syphon::cli::Arguments;
-use syphon::fs;
-use syphon::repl;
 
 use clap::Parser;
 
@@ -11,9 +9,9 @@ use std::process::exit;
 fn main() -> io::Result<()> {
     let args = Arguments::parse();
 
-    match args.file_path {
+    match args.file_path.clone() {
         Some(file_path) => {
-            fs::run_file(file_path.clone()).unwrap_or_else(|err| {
+            syphon::run_file(file_path.to_str().unwrap_or_default(), args).unwrap_or_else(|err| {
                 eprintln!("{}: {}", file_path.display(), err);
                 exit(1)
             });
@@ -21,6 +19,6 @@ fn main() -> io::Result<()> {
             Ok(())
         }
 
-        None => repl::start(),
+        None => syphon::repl::start(args),
     }
 }

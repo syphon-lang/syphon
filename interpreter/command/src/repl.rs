@@ -1,15 +1,19 @@
-use syphon_errors::ErrorHandler;
-use syphon_evaluator::*;
-use syphon_lexer::Lexer;
-use syphon_parser::Parser;
+use crate::cli::Arguments;
+
+use crate::runner;
+
+use syphon_bytecode::disassembler::disassmeble;
+use syphon_bytecode::values::Value;
+
+use rustc_hash::FxHashMap;
 
 use io::{BufRead, BufReader, Write};
 use std::io;
 
-pub fn start() -> io::Result<()> {
+pub fn start(args: Arguments) -> io::Result<()> {
     let mut reader = BufReader::new(io::stdin());
 
-    let mut env = Environment::new(None);
+    let mut globals = FxHashMap::default();
 
     loop {
         let mut input = String::new();
@@ -21,31 +25,19 @@ pub fn start() -> io::Result<()> {
 
         input = input.trim_end_matches('\n').to_string();
 
-        let lexer = Lexer::new(&input);
-        let mut parser = Parser::new(lexer);
-        let module = parser.module();
-
-        if !parser.lexer.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), parser.lexer.errors);
+        let Ok((value, chunk)) = runner::run("<stdin>", input, &mut globals) else {
             continue;
-        }
+        };
 
-        if !parser.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), parser.errors);
-            continue;
-        }
-
-        let mut evaluator = Evaluator::new(&mut env);
-
-        let value = evaluator.eval(module);
-
-        if !evaluator.errors.is_empty() {
-            ErrorHandler::handle_errors(String::from("<stdin>"), evaluator.errors);
-            continue;
+        if args.emit_bytecode {
+            println!("------------------------------------");
+            println!("{}", disassmeble("<stdin>", &chunk));
+            println!("------------------------------------");
+            println!();
         }
 
         match value {
-            Value::None => continue,
+            Value::None => (),
             _ => println!("{}", value),
         }
     }

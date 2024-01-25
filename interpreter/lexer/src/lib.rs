@@ -4,21 +4,15 @@ pub mod token;
 use cursor::Cursor;
 use token::*;
 
-use syphon_errors::EvaluateError;
-
-use thin_vec::ThinVec;
-
 #[derive(Clone)]
 pub struct Lexer<'a> {
     pub cursor: Cursor<'a>,
-    pub errors: ThinVec<EvaluateError>,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(source_code: &'a str) -> Lexer {
         Lexer {
             cursor: Cursor::new(source_code.chars()),
-            errors: ThinVec::new(),
         }
     }
 
@@ -77,18 +71,12 @@ impl<'a> Lexer<'a> {
             '{' => Token::Delimiter(Delimiter::LBrace),
             '}' => Token::Delimiter(Delimiter::RBrace),
 
+            '#' => self.skip_comment(),
+
             '"' | '\'' => self.read_string(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(ch),
             '0'..='9' => self.read_number(ch),
-            _ => {
-                self.errors.push(EvaluateError::unexpected(
-                    self.cursor.at,
-                    "character",
-                    ch.to_string().as_str(),
-                ));
-
-                Token::Unknown
-            }
+            _ => Token::Invalid,
         }
     }
 
@@ -96,6 +84,14 @@ impl<'a> Lexer<'a> {
         while self.cursor.peek().is_some_and(|ch| ch.is_whitespace()) {
             self.cursor.consume();
         }
+    }
+
+    fn skip_comment(&mut self) -> Token {
+        while self.cursor.peek().is_some_and(|ch| ch != '\n') {
+            self.cursor.consume();
+        }
+
+        self.next_token()
     }
 
     fn read_string(&mut self) -> Token {
@@ -147,12 +143,7 @@ impl<'a> Lexer<'a> {
         } else if let Ok(float) = literal.parse::<f64>() {
             Token::Float(float)
         } else {
-            self.errors.push(EvaluateError::unable_to(
-                self.cursor.at,
-                "parse integer or float",
-            ));
-
-            Token::Int(0)
+            Token::Invalid
         }
     }
 }

@@ -1,11 +1,12 @@
 [package]
-name = "syphon_evaluator"
+name = "syphon_bytecode"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rustc-hash = { workspace = true }
 thin-vec = { workspace = true }
+derive_more = { workspace = true }
 
 syphon_ast = { path = "../ast" }
 syphon_errors = { path = "../errors" }
+syphon_parser = { path = "../parser" }

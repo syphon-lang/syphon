@@ -1,14 +1,11 @@
 [package]
-name = "syphon"
+name = "syphon_vm"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { workspace = true }
 rustc-hash = { workspace = true }
+thin-vec = { workspace = true }
 
 syphon_bytecode = { path = "../bytecode" }
 syphon_errors = { path = "../errors" }
-syphon_lexer = { path = "../lexer" }
-syphon_parser = { path = "../parser" }
-syphon_vm = { path = "../vm" }

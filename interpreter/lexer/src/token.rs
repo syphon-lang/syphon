@@ -14,7 +14,7 @@ pub enum Token {
     Delimiter(Delimiter),
 
     // Special
-    Unknown,
+    Invalid,
     EOF,
 }
 
@@ -128,7 +128,7 @@ impl ToString for Token {
                 Delimiter::RBrace => String::from("}"),
             },
 
-            Token::Unknown => String::from("unknown"),
+            Token::Invalid => String::from("invalid token"),
             Token::EOF => String::from("EOF"),
         }
     }

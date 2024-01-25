@@ -3,7 +3,10 @@ members = [
     "interpreter/*"
 ]
 
+resolver = "2"
+
 [workspace.dependencies]
 clap = { version = "4", features = ["derive"] }
+derive_more = "0.99"
 rustc-hash = "1"
 thin-vec = "0.2"

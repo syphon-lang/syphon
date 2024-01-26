@@ -7,6 +7,9 @@ pub enum Token {
     Float(f64),
     Bool(bool),
 
+    // Keywords
+    Keyword(Keyword),
+
     // Operators
     Operator(Operator),
 
@@ -16,6 +19,15 @@ pub enum Token {
     // Special
     Invalid,
     EOF,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Keyword {
+    Def,
+    Let,
+    Const,
+    Return,
+    None,
 }
 
 #[derive(Debug, PartialEq)]
@@ -73,6 +85,7 @@ impl Token {
 
                 _ => '\0',
             },
+
             Token::Delimiter(delimiter) => match delimiter {
                 Delimiter::Assign => '=',
                 Delimiter::Colon => ':',
@@ -100,6 +113,14 @@ impl ToString for Token {
             Token::Int(value) => value.to_string(),
             Token::Float(value) => value.to_string(),
             Token::Bool(value) => value.to_string(),
+
+            Token::Keyword(keyword) => match keyword {
+                Keyword::Def => String::from("def"),
+                Keyword::Let => String::from("let"),
+                Keyword::Const => String::from("const"),
+                Keyword::Return => String::from("return"),
+                Keyword::None => String::from("none"),
+            },
 
             Token::Operator(operator) => match operator {
                 Operator::Plus => String::from("+"),

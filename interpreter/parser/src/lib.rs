@@ -16,9 +16,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(lexer: Lexer) -> Parser {
-        Parser {
-            lexer,
-        }
+        Parser { lexer }
     }
 
     pub fn parse(&mut self) -> Result<Node, SyphonError> {

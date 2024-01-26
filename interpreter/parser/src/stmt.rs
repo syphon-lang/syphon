@@ -4,47 +4,17 @@ use precedence::Precedence;
 impl<'a> Parser<'a> {
     pub(crate) fn parse_stmt(&mut self) -> Result<Node, SyphonError> {
         match self.peek() {
-            Token::Identifier(symbol) => match symbol.as_str() {
-                "const" => self.parse_variable_declaration(false),
-                "let" => self.parse_variable_declaration(true),
-                "def" => self.parse_function_definition(),
-                "return" => self.parse_return(),
+            Token::Keyword(keyword) => match keyword {
+                Keyword::Def => self.parse_function_definition(),
+                Keyword::Let => self.parse_variable_declaration(true),
+                Keyword::Const => self.parse_variable_declaration(false),
+                Keyword::Return => self.parse_return(),
+
                 _ => self.parse_expr(),
             },
+
             _ => self.parse_expr(),
         }
-    }
-
-    fn parse_variable_declaration(&mut self, mutable: bool) -> Result<Node, SyphonError> {
-        self.next_token();
-
-        let Token::Identifier(name) = self.next_token() else {
-            return Err(SyphonError::expected(self.lexer.cursor.at, "variable name"));
-        };
-
-        let value = match self.next_token() {
-            Token::Delimiter(Delimiter::Assign) => Some(self.parse_expr_kind(Precedence::Lowest)?),
-            Token::Delimiter(Delimiter::Semicolon) => None,
-            _ => {
-                return Err(SyphonError::unexpected(
-                    self.lexer.cursor.at,
-                    "token",
-                    self.peek().to_string().as_str(),
-                ));
-            }
-        };
-
-        self.eat(Token::Delimiter(Delimiter::Semicolon));
-
-        Ok(Node::Stmt(
-            StmtKind::VariableDeclaration(Variable {
-                mutable,
-                name,
-                value,
-                at: self.lexer.cursor.at,
-            })
-            .into(),
-        ))
     }
 
     fn parse_function_definition(&mut self) -> Result<Node, SyphonError> {
@@ -138,6 +108,38 @@ impl<'a> Parser<'a> {
         }
 
         Ok(body)
+    }
+
+    fn parse_variable_declaration(&mut self, mutable: bool) -> Result<Node, SyphonError> {
+        self.next_token();
+
+        let Token::Identifier(name) = self.next_token() else {
+            return Err(SyphonError::expected(self.lexer.cursor.at, "variable name"));
+        };
+
+        let value = match self.next_token() {
+            Token::Delimiter(Delimiter::Assign) => Some(self.parse_expr_kind(Precedence::Lowest)?),
+            Token::Delimiter(Delimiter::Semicolon) => None,
+            _ => {
+                return Err(SyphonError::unexpected(
+                    self.lexer.cursor.at,
+                    "token",
+                    self.peek().to_string().as_str(),
+                ));
+            }
+        };
+
+        self.eat(Token::Delimiter(Delimiter::Semicolon));
+
+        Ok(Node::Stmt(
+            StmtKind::VariableDeclaration(Variable {
+                mutable,
+                name,
+                value,
+                at: self.lexer.cursor.at,
+            })
+            .into(),
+        ))
     }
 
     fn parse_return(&mut self) -> Result<Node, SyphonError> {

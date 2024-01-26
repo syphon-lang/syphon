@@ -66,6 +66,9 @@ pub enum ExprKind {
         value: bool,
         at: (usize, usize),
     },
+    None {
+        at: (usize, usize),
+    },
 
     UnaryOperation {
         operator: char,

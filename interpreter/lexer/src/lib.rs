@@ -119,11 +119,17 @@ impl<'a> Lexer<'a> {
             self.cursor.consume();
         }
 
-        if &literal == "true" || &literal == "false" {
-            return Token::Bool(literal.parse().unwrap());
-        }
+        match literal.as_str() {
+            "true" | "false" => Token::Bool(literal.parse().unwrap()),
 
-        Token::Identifier(literal)
+            "def" => Token::Keyword(Keyword::Def),
+            "let" => Token::Keyword(Keyword::Let),
+            "const" => Token::Keyword(Keyword::Const),
+            "return" => Token::Keyword(Keyword::Return),
+            "none" => Token::Keyword(Keyword::None),
+
+            _ => Token::Identifier(literal),
+        }
     }
 
     fn read_number(&mut self, ch: char) -> Token {

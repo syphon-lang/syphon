@@ -50,7 +50,7 @@ impl Compiler {
             name: function.name,
             mutable: false,
         });
-        
+
         Ok(())
     }
 

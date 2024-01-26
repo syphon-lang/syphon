@@ -4,7 +4,9 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 pub struct Arguments {
-    #[arg(help = "The file path of the program to run, If not provided the interpreter will work as a REPL")]
+    #[arg(
+        help = "The file path of the program to run, If not provided the interpreter will work as a REPL"
+    )]
     pub file_path: Option<PathBuf>,
 
     #[arg(

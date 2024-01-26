@@ -230,7 +230,9 @@ impl<'a> VirtualMachine<'a> {
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left.rem_euclid(right)),
-            (Value::Int(left), Value::Float(right)) => Value::Float((left as f64).rem_euclid(right)),
+            (Value::Int(left), Value::Float(right)) => {
+                Value::Float((left as f64).rem_euclid(right))
+            }
             (Value::Float(left), Value::Int(right)) => Value::Float(left.rem_euclid(right as f64)),
             (Value::Float(left), Value::Float(right)) => Value::Float(left.rem_euclid(right)),
 

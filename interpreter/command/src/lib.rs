@@ -28,20 +28,13 @@ pub fn run_file(file_path: &str, args: Arguments) -> io::Result<()> {
 
     let mut globals = FxHashMap::default();
 
-    let Ok((_, chunk)) = runner::run(
-        file_path,
-        file_content,
-        &mut globals,
-    ) else {
+    let Ok((_, chunk)) = runner::run(file_path, file_content, &mut globals) else {
         exit(1);
     };
 
     if args.emit_bytecode {
         println!("------------------------------------");
-        println!(
-            "{}",
-            disassembler::disassmeble(file_path, &chunk)
-        );
+        println!("{}", disassembler::disassmeble(file_path, &chunk));
         println!("------------------------------------");
         println!();
     }

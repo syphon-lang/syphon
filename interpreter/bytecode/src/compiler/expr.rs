@@ -12,6 +12,8 @@ impl Compiler {
             ExprKind::Int { value, .. } => self.compile_integer(value),
             ExprKind::Float { value, .. } => self.compile_float(value),
             ExprKind::Bool { value, .. } => self.compile_boolean(value),
+            ExprKind::None { .. } => self.compile_none(),
+
             ExprKind::UnaryOperation {
                 operator,
                 right,
@@ -64,6 +66,13 @@ impl Compiler {
 
     fn compile_boolean(&mut self, value: bool) {
         let index = self.chunk.add_constant(Value::Bool(value));
+
+        self.chunk
+            .write_instruction(Instruction::LoadConstant { index })
+    }
+
+    fn compile_none(&mut self) {
+        let index = self.chunk.add_constant(Value::None);
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index })

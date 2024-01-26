@@ -32,6 +32,8 @@ impl<'a> Parser<'a> {
             Token::Float(value) => self.parse_float(value),
             Token::Bool(value) => self.parse_boolean(value),
 
+            Token::Keyword(Keyword::None) => self.parse_none(),
+
             _ => {
                 self.next_token();
 
@@ -115,6 +117,14 @@ impl<'a> Parser<'a> {
 
         ExprKind::Bool {
             value,
+            at: self.lexer.cursor.at,
+        }
+    }
+
+    fn parse_none(&mut self) -> ExprKind {
+        self.next_token();
+
+        ExprKind::None {
             at: self.lexer.cursor.at,
         }
     }

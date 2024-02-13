@@ -2,12 +2,14 @@ use crate::compiler::*;
 use crate::instructions::Instruction;
 use crate::values::Value;
 
+use syphon_location::Location;
+
 use thin_vec::ThinVec;
 
 impl Compiler {
     pub(crate) fn compile_expr(&mut self, kind: ExprKind) {
         match kind {
-            ExprKind::Identifier { symbol, at } => self.compile_identifer(symbol, at),
+            ExprKind::Identifier { symbol, location } => self.compile_identifer(symbol, location),
             ExprKind::Str { value, .. } => self.compile_string(value),
             ExprKind::Int { value, .. } => self.compile_integer(value),
             ExprKind::Float { value, .. } => self.compile_float(value),
@@ -17,30 +19,37 @@ impl Compiler {
             ExprKind::UnaryOperation {
                 operator,
                 right,
-                at,
-            } => self.compile_unary_operation(operator, *right, at),
+                location,
+            } => self.compile_unary_operation(operator, *right, location),
+
             ExprKind::BinaryOperation {
                 left,
                 operator,
                 right,
-                at,
-            } => self.compile_binary_operation(*left, operator, *right, at),
+                location,
+            } => self.compile_binary_operation(*left, operator, *right, location),
 
-            ExprKind::Assign { name, value, at } => self.compile_assign(name, *value, at),
+            ExprKind::Assign {
+                name,
+                value,
+                location,
+            } => self.compile_assign(name, *value, location),
 
             ExprKind::Call {
                 function_name,
                 arguments,
-                at,
-            } => self.compile_call(function_name, arguments, at),
+                location,
+            } => self.compile_call(function_name, arguments, location),
 
             ExprKind::Unknown => (),
         }
     }
 
-    fn compile_identifer(&mut self, symbol: String, at: (usize, usize)) {
-        self.chunk
-            .write_instruction(Instruction::LoadName { name: symbol, at })
+    fn compile_identifer(&mut self, symbol: String, location: Location) {
+        self.chunk.write_instruction(Instruction::LoadName {
+            name: symbol,
+            location,
+        })
     }
 
     fn compile_string(&mut self, value: String) {
@@ -78,12 +87,14 @@ impl Compiler {
             .write_instruction(Instruction::LoadConstant { index })
     }
 
-    fn compile_unary_operation(&mut self, operator: char, right: ExprKind, at: (usize, usize)) {
+    fn compile_unary_operation(&mut self, operator: char, right: ExprKind, location: Location) {
         self.compile_expr(right);
 
         match operator {
-            '-' => self.chunk.write_instruction(Instruction::Neg { at }),
-            '!' => self.chunk.write_instruction(Instruction::LogicalNot { at }),
+            '-' => self.chunk.write_instruction(Instruction::Neg { location }),
+            '!' => self
+                .chunk
+                .write_instruction(Instruction::LogicalNot { location }),
             _ => unreachable!(),
         }
     }
@@ -93,41 +104,51 @@ impl Compiler {
         left: ExprKind,
         operator: String,
         right: ExprKind,
-        at: (usize, usize),
+        location: Location,
     ) {
         self.compile_expr(left);
         self.compile_expr(right);
 
         match operator.as_str() {
-            "+" => self.chunk.write_instruction(Instruction::Add { at }),
-            "-" => self.chunk.write_instruction(Instruction::Sub { at }),
-            "/" => self.chunk.write_instruction(Instruction::Div { at }),
-            "*" => self.chunk.write_instruction(Instruction::Mult { at }),
-            "**" => self.chunk.write_instruction(Instruction::Exponent { at }),
-            "%" => self.chunk.write_instruction(Instruction::Modulo { at }),
+            "+" => self.chunk.write_instruction(Instruction::Add { location }),
+            "-" => self.chunk.write_instruction(Instruction::Sub { location }),
+            "/" => self.chunk.write_instruction(Instruction::Div { location }),
+            "*" => self.chunk.write_instruction(Instruction::Mult { location }),
+            "**" => self
+                .chunk
+                .write_instruction(Instruction::Exponent { location }),
+            "%" => self
+                .chunk
+                .write_instruction(Instruction::Modulo { location }),
 
-            "==" => self.chunk.write_instruction(Instruction::Equals { at }),
-            "!=" => self.chunk.write_instruction(Instruction::NotEquals { at }),
-            "<" => self.chunk.write_instruction(Instruction::LessThan { at }),
+            "==" => self
+                .chunk
+                .write_instruction(Instruction::Equals { location }),
+            "!=" => self
+                .chunk
+                .write_instruction(Instruction::NotEquals { location }),
+            "<" => self
+                .chunk
+                .write_instruction(Instruction::LessThan { location }),
             ">" => self
                 .chunk
-                .write_instruction(Instruction::GreaterThan { at }),
+                .write_instruction(Instruction::GreaterThan { location }),
             _ => unreachable!(),
         }
     }
 
-    fn compile_assign(&mut self, name: String, value: ExprKind, at: (usize, usize)) {
+    fn compile_assign(&mut self, name: String, value: ExprKind, location: Location) {
         self.compile_expr(value);
 
         self.chunk
-            .write_instruction(Instruction::Assign { name, at })
+            .write_instruction(Instruction::Assign { name, location })
     }
 
     fn compile_call(
         &mut self,
         function_name: String,
         arguments: ThinVec<ExprKind>,
-        at: (usize, usize),
+        location: Location,
     ) {
         for argument in arguments.clone() {
             self.compile_expr(argument);
@@ -136,7 +157,7 @@ impl Compiler {
         self.chunk.write_instruction(Instruction::Call {
             function_name,
             arguments_count: arguments.len(),
-            at,
+            location,
         });
     }
 }

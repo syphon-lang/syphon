@@ -1,43 +1,45 @@
+use syphon_location::Location;
+
 #[derive(Clone, PartialEq)]
 #[repr(u8)]
 pub enum Instruction {
     Neg {
-        at: (usize, usize),
+        location: Location,
     },
     LogicalNot {
-        at: (usize, usize),
+        location: Location,
     },
 
     Add {
-        at: (usize, usize),
+        location: Location,
     },
     Sub {
-        at: (usize, usize),
+        location: Location,
     },
     Div {
-        at: (usize, usize),
+        location: Location,
     },
     Mult {
-        at: (usize, usize),
+        location: Location,
     },
     Exponent {
-        at: (usize, usize),
+        location: Location,
     },
     Modulo {
-        at: (usize, usize),
+        location: Location,
     },
 
     Equals {
-        at: (usize, usize),
+        location: Location,
     },
     NotEquals {
-        at: (usize, usize),
+        location: Location,
     },
     LessThan {
-        at: (usize, usize),
+        location: Location,
     },
     GreaterThan {
-        at: (usize, usize),
+        location: Location,
     },
 
     StoreName {
@@ -47,18 +49,18 @@ pub enum Instruction {
 
     Assign {
         name: String,
-        at: (usize, usize),
+        location: Location,
     },
 
     LoadName {
         name: String,
-        at: (usize, usize),
+        location: Location,
     },
 
     Call {
         function_name: String,
         arguments_count: usize,
-        at: (usize, usize),
+        location: Location,
     },
 
     LoadConstant {

@@ -1,23 +1,29 @@
+use syphon_location::Location;
+
 use std::str::Chars;
 
 #[derive(Clone)]
 pub struct Cursor<'a> {
     chars: Chars<'a>,
-    pub at: (usize, usize),
+    pub location: Location,
 }
 
 impl<'a> Cursor<'a> {
     pub fn new(chars: Chars) -> Cursor {
-        Cursor { chars, at: (1, 0) }
+        Cursor {
+            chars,
+            location: Location::default(),
+        }
     }
 
     pub fn consume(&mut self) -> Option<char> {
         let ch = self.chars.next();
 
         if ch.is_some_and(|ch| ch == '\n') {
-            self.at.0 += 1
+            self.location.line += 1;
+            self.location.column = 1;
         } else if ch.is_some() {
-            self.at.1 += 1
+            self.location.column += 1;
         }
 
         ch

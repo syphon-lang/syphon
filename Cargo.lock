@@ -205,6 +205,7 @@ dependencies = [
 name = "syphon_ast"
 version = "0.1.0"
 dependencies = [
+ "syphon_location",
  "thin-vec",
 ]
 
@@ -215,6 +216,7 @@ dependencies = [
  "derive_more",
  "syphon_ast",
  "syphon_errors",
+ "syphon_location",
  "syphon_parser",
  "thin-vec",
 ]
@@ -224,11 +226,22 @@ name = "syphon_errors"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "syphon_location",
 ]
 
 [[package]]
 name = "syphon_lexer"
 version = "0.1.0"
+dependencies = [
+ "syphon_location",
+]
+
+[[package]]
+name = "syphon_location"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+]
 
 [[package]]
 name = "syphon_parser"
@@ -247,6 +260,7 @@ dependencies = [
  "rustc-hash",
  "syphon_bytecode",
  "syphon_errors",
+ "syphon_location",
  "thin-vec",
 ]
 

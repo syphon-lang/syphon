@@ -3,6 +3,7 @@ use syphon_bytecode::instructions::Instruction;
 use syphon_bytecode::values::*;
 
 use syphon_errors::SyphonError;
+use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
@@ -26,35 +27,35 @@ impl<'a> VirtualMachine<'a> {
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         for instruction in self.chunk.code.clone() {
             match instruction {
-                Instruction::Neg { at } => self.negative(at)?,
+                Instruction::Neg { location } => self.negative(location)?,
 
-                Instruction::LogicalNot { at } => self.logical_not(at)?,
+                Instruction::LogicalNot { location } => self.logical_not(location)?,
 
-                Instruction::Add { at } => self.add(at)?,
+                Instruction::Add { location } => self.add(location)?,
 
-                Instruction::Sub { at } => self.subtract(at)?,
+                Instruction::Sub { location } => self.subtract(location)?,
 
-                Instruction::Div { at } => self.divide(at)?,
+                Instruction::Div { location } => self.divide(location)?,
 
-                Instruction::Mult { at } => self.multiply(at)?,
+                Instruction::Mult { location } => self.multiply(location)?,
 
-                Instruction::Exponent { at } => self.exponent(at)?,
+                Instruction::Exponent { location } => self.exponent(location)?,
 
-                Instruction::Modulo { at } => self.modulo(at)?,
+                Instruction::Modulo { location } => self.modulo(location)?,
 
-                Instruction::LessThan { at } => self.less_than(at)?,
+                Instruction::LessThan { location } => self.less_than(location)?,
 
-                Instruction::GreaterThan { at } => self.greater_than(at)?,
+                Instruction::GreaterThan { location } => self.greater_than(location)?,
 
-                Instruction::Equals { at } => self.equals(at)?,
+                Instruction::Equals { location } => self.equals(location)?,
 
-                Instruction::NotEquals { at } => self.not_equals(at)?,
+                Instruction::NotEquals { location } => self.not_equals(location)?,
 
                 Instruction::StoreName { name, mutable } => self.store_name(name, mutable),
 
-                Instruction::LoadName { name, at } => self.load_name(name, at)?,
+                Instruction::LoadName { name, location } => self.load_name(name, location)?,
 
-                Instruction::Assign { name, at } => self.assign(name, at)?,
+                Instruction::Assign { name, location } => self.assign(name, location)?,
 
                 Instruction::LoadConstant { index } => self
                     .stack
@@ -63,8 +64,8 @@ impl<'a> VirtualMachine<'a> {
                 Instruction::Call {
                     function_name,
                     arguments_count,
-                    at,
-                } => self.call_function(function_name, arguments_count, at)?,
+                    location,
+                } => self.call_function(function_name, arguments_count, location)?,
 
                 Instruction::Return => return Ok(self.stack_top()),
             }
@@ -73,24 +74,24 @@ impl<'a> VirtualMachine<'a> {
         Ok(Value::None)
     }
 
-    fn negative(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn negative(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match right {
             Value::Int(value) => Value::Int(-value),
             Value::Float(value) => Value::Float(-value),
 
-            _ => return Err(SyphonError::unable_to(at, "apply '-' unary operator")),
+            _ => return Err(SyphonError::unable_to(location, "apply '-' unary operator")),
         });
 
         Ok(())
     }
 
-    fn logical_not(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn logical_not(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match right {
@@ -103,13 +104,13 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
-    fn add(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn add(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -120,20 +121,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Str(left), Value::Str(right)) => Value::Str(left + right.as_str()),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '+' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '+' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn subtract(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn subtract(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -143,20 +144,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left - right),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '-' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '-' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn divide(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn divide(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -166,20 +167,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left / right),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '/' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '/' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn multiply(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn multiply(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -189,20 +190,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left * right),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '*' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '*' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn exponent(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn exponent(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -212,20 +213,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left.powf(right)),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '**' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '**' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn modulo(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn modulo(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -237,20 +238,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left.rem_euclid(right)),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '%' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '%' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn greater_than(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn greater_than(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (right, left) {
@@ -260,20 +261,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Bool(left > right),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '>' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '>' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn less_than(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn less_than(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (right, left) {
@@ -283,20 +284,20 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Bool(left < right),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '<' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '<' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn equals(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn equals(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -310,20 +311,20 @@ impl<'a> VirtualMachine<'a> {
             (.., Value::None) => Value::Bool(false),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '==' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '==' binary operator"));
             }
         });
 
         Ok(())
     }
 
-    fn not_equals(&mut self, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn not_equals(&mut self, location: Location) -> Result<(), SyphonError> {
         let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         self.stack.push(match (left, right) {
@@ -337,7 +338,7 @@ impl<'a> VirtualMachine<'a> {
             (.., Value::None) => Value::Bool(true),
 
             _ => {
-                return Err(SyphonError::unable_to(at, "apply '!=' binary operator"));
+                return Err(SyphonError::unable_to(location, "apply '!=' binary operator"));
             }
         });
 
@@ -350,9 +351,9 @@ impl<'a> VirtualMachine<'a> {
         self.names.insert(name, ValueInfo { value, mutable });
     }
 
-    fn load_name(&mut self, name: String, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn load_name(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
         let Some(value_info) = self.names.get(&name) else {
-            return Err(SyphonError::undefined(at, "name", &name));
+            return Err(SyphonError::undefined(location, "name", &name));
         };
 
         self.stack.push(value_info.value.clone());
@@ -360,17 +361,17 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
-    fn assign(&mut self, name: String, at: (usize, usize)) -> Result<(), SyphonError> {
+    fn assign(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
         let Some(past_value_info) = self.names.get(&name) else {
-            return Err(SyphonError::undefined(at, "name", &name));
+            return Err(SyphonError::undefined(location, "name", &name));
         };
 
         let Some(value) = self.stack.pop() else {
-            return Err(SyphonError::expected(at, "a value"));
+            return Err(SyphonError::expected(location, "a value"));
         };
 
         if !past_value_info.mutable {
-            return Err(SyphonError::unable_to(at, "assign to a constant"));
+            return Err(SyphonError::unable_to(location, "assign to a constant"));
         }
 
         self.stack.push(value.clone());
@@ -390,22 +391,22 @@ impl<'a> VirtualMachine<'a> {
         &mut self,
         function_name: String,
         arguments_count: usize,
-        at: (usize, usize),
+        location: Location,
     ) -> Result<(), SyphonError> {
         let Some(value_info) = self.names.get(&function_name) else {
-            return Err(SyphonError::undefined(at, "name", &function_name));
+            return Err(SyphonError::undefined(location, "name", &function_name));
         };
 
         let Value::Function {
             parameters, body, ..
         } = value_info.value.clone()
         else {
-            return Err(SyphonError::expected(at, "function"));
+            return Err(SyphonError::expected(location, "function"));
         };
 
         if arguments_count != parameters.len() {
             return Err(SyphonError::expected(
-                at,
+                location,
                 match parameters.len() {
                     1 => format!("{} argument", parameters.len()),
                     _ => format!("{} arguments", parameters.len()),

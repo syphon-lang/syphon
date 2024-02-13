@@ -1,52 +1,48 @@
+use syphon_location::Location;
+
 use derive_more::{Display, Error};
 
 #[derive(Error, Display, Debug, Clone)]
-pub enum SyphonError {
-    #[display(fmt = "at {}:{}: {}", "at.0", "at.1", message)]
-    CompileError { at: (usize, usize), message: String },
-
-    #[display(fmt = "at {}:{}: {}", "at.0", "at.1", message)]
-    RuntimeError { at: (usize, usize), message: String },
+#[display(fmt = "at {location}: {message}")]
+pub struct SyphonError {
+    location: Location,
+    message: String,
 }
 
 impl SyphonError {
-    pub fn new_compile_error(at: (usize, usize), message: String) -> SyphonError {
-        SyphonError::CompileError { at, message }
+    pub fn new(location: Location, message: String) -> SyphonError {
+        SyphonError { location, message }
     }
 
-    pub fn new_runtime_error(at: (usize, usize), message: String) -> SyphonError {
-        SyphonError::RuntimeError { at, message }
+    pub fn invalid(location: Location, stmt: &str) -> SyphonError {
+        SyphonError::new(location, format!("invalid {}", stmt))
     }
 
-    pub fn invalid(at: (usize, usize), stmt: &str) -> SyphonError {
-        SyphonError::new_compile_error(at, format!("invalid {}", stmt))
+    pub fn unsupported(location: Location, stmt: &str) -> SyphonError {
+        SyphonError::new(location, format!("unsupported {}", stmt))
     }
 
-    pub fn unsupported(at: (usize, usize), stmt: &str) -> SyphonError {
-        SyphonError::new_runtime_error(at, format!("unsupported {}", stmt))
+    pub fn undefined(location: Location, stmt: &str, identifier: &str) -> SyphonError {
+        SyphonError::new(location, format!("undefined {} '{}'", stmt, identifier))
     }
 
-    pub fn undefined(at: (usize, usize), stmt: &str, identifier: &str) -> SyphonError {
-        SyphonError::new_runtime_error(at, format!("undefined {} '{}'", stmt, identifier))
+    pub fn unexpected(location: Location, stmt: &str, got: &str) -> SyphonError {
+        SyphonError::new(location, format!("unexpected {} '{}'", stmt, got))
     }
 
-    pub fn unexpected(at: (usize, usize), stmt: &str, got: &str) -> SyphonError {
-        SyphonError::new_compile_error(at, format!("unexpected {} '{}'", stmt, got))
+    pub fn expected(location: Location, expected: &str) -> SyphonError {
+        SyphonError::new(location, format!("expected {}", expected))
     }
 
-    pub fn expected(at: (usize, usize), expected: &str) -> SyphonError {
-        SyphonError::new_compile_error(at, format!("expected {}", expected))
+    pub fn expected_got(location: Location, expected: &str, got: &str) -> SyphonError {
+        SyphonError::new(location, format!("expected {} got {}", expected, got))
     }
 
-    pub fn expected_got(at: (usize, usize), expected: &str, got: &str) -> SyphonError {
-        SyphonError::new_compile_error(at, format!("expected {} got {}", expected, got))
+    pub fn unable_to(location: Location, stmt: &str) -> SyphonError {
+        SyphonError::new(location, format!("unable to {}", stmt))
     }
 
-    pub fn unable_to(at: (usize, usize), stmt: &str) -> SyphonError {
-        SyphonError::new_compile_error(at, format!("unable to {}", stmt))
-    }
-
-    pub fn mismatched(at: (usize, usize), stmt: &str) -> SyphonError {
-        SyphonError::new_runtime_error(at, format!("mismatched {}", stmt))
+    pub fn mismatched(location: Location, stmt: &str) -> SyphonError {
+        SyphonError::new(location, format!("mismatched {}", stmt))
     }
 }

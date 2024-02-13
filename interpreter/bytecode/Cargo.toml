@@ -9,4 +9,5 @@ derive_more = { workspace = true }
 
 syphon_ast = { path = "../ast" }
 syphon_errors = { path = "../errors" }
+syphon_location = { path = "../location" }
 syphon_parser = { path = "../parser" }

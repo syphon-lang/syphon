@@ -57,7 +57,7 @@ impl Compiler {
     fn compile_return(&mut self, return_stmt: Return) -> Result<(), SyphonError> {
         if self.mode != CompilerMode::Function {
             return Err(SyphonError::unable_to(
-                return_stmt.at,
+                return_stmt.location,
                 "return outside a function",
             ));
         }

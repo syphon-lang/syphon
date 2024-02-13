@@ -1,3 +1,5 @@
+use syphon_location::Location;
+
 use thin_vec::ThinVec;
 
 #[derive(Debug, Clone)]
@@ -21,7 +23,7 @@ pub struct Variable {
     pub mutable: bool,
     pub name: String,
     pub value: Option<ExprKind>,
-    pub at: (usize, usize),
+    pub location: Location,
 }
 
 #[derive(Debug, Clone)]
@@ -29,69 +31,75 @@ pub struct Function {
     pub name: String,
     pub parameters: ThinVec<FunctionParameter>,
     pub body: ThinVec<Node>,
-    pub at: (usize, usize),
+    pub location: Location,
 }
 
 #[derive(Debug, Clone)]
 pub struct FunctionParameter {
     pub name: String,
-    pub at: (usize, usize),
+    pub location: Location,
 }
 
 #[derive(Debug, Clone)]
 pub struct Return {
     pub value: Option<ExprKind>,
-    pub at: (usize, usize),
+    pub location: Location,
 }
 
 #[derive(Debug, Clone)]
 pub enum ExprKind {
     Identifier {
         symbol: String,
-        at: (usize, usize),
+        location: Location,
     },
+
     Str {
         value: String,
-        at: (usize, usize),
+        location: Location,
     },
+
     Int {
         value: i64,
-        at: (usize, usize),
+        location: Location,
     },
+
     Float {
         value: f64,
-        at: (usize, usize),
+        location: Location,
     },
+
     Bool {
         value: bool,
-        at: (usize, usize),
+        location: Location,
     },
+
     None {
-        at: (usize, usize),
+        location: Location,
     },
 
     UnaryOperation {
         operator: char,
         right: Box<ExprKind>,
-        at: (usize, usize),
+        location: Location,
     },
+
     BinaryOperation {
         left: Box<ExprKind>,
         operator: String,
         right: Box<ExprKind>,
-        at: (usize, usize),
+        location: Location,
     },
 
     Assign {
         name: String,
         value: Box<ExprKind>,
-        at: (usize, usize),
+        location: Location,
     },
 
     Call {
         function_name: String,
         arguments: ThinVec<ExprKind>,
-        at: (usize, usize),
+        location: Location,
     },
 
     Unknown,

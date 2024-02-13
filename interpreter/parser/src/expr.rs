@@ -1,4 +1,5 @@
 use crate::*;
+
 use precedence::Precedence;
 
 impl<'a> Parser<'a> {
@@ -50,7 +51,7 @@ impl<'a> Parser<'a> {
         Ok(ExprKind::UnaryOperation {
             operator: operator.as_char(),
             right: right.into(),
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         })
     }
 
@@ -59,7 +60,7 @@ impl<'a> Parser<'a> {
 
         if self.eat(Token::Delimiter(Delimiter::RParen)) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.at,
+                self.lexer.cursor.location,
                 "expression inside '()'",
             ));
         }
@@ -68,7 +69,7 @@ impl<'a> Parser<'a> {
 
         if !self.eat(Token::Delimiter(Delimiter::RParen)) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.at,
+                self.lexer.cursor.location,
                 "to close '(' with ')'",
             ));
         }
@@ -81,7 +82,7 @@ impl<'a> Parser<'a> {
 
         ExprKind::Identifier {
             symbol,
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         }
     }
 
@@ -90,7 +91,7 @@ impl<'a> Parser<'a> {
 
         ExprKind::Str {
             value,
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         }
     }
 
@@ -99,7 +100,7 @@ impl<'a> Parser<'a> {
 
         ExprKind::Int {
             value,
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         }
     }
 
@@ -108,7 +109,7 @@ impl<'a> Parser<'a> {
 
         ExprKind::Float {
             value,
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         }
     }
 
@@ -117,7 +118,7 @@ impl<'a> Parser<'a> {
 
         ExprKind::Bool {
             value,
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         }
     }
 
@@ -125,7 +126,7 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         ExprKind::None {
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         }
     }
 
@@ -164,14 +165,14 @@ impl<'a> Parser<'a> {
             left: left.into(),
             operator: operator.to_string(),
             right: right.into(),
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         })
     }
 
     fn parse_assign(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
         let name = match expr {
             ExprKind::Identifier { symbol, .. } => symbol,
-            _ => return Err(SyphonError::expected(self.lexer.cursor.at, "a name")),
+            _ => return Err(SyphonError::expected(self.lexer.cursor.location, "a name")),
         };
 
         self.eat(Token::Delimiter(Delimiter::Assign));
@@ -181,7 +182,7 @@ impl<'a> Parser<'a> {
         Ok(ExprKind::Assign {
             name,
             value: value.into(),
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         })
     }
 
@@ -190,7 +191,7 @@ impl<'a> Parser<'a> {
             ExprKind::Identifier { symbol, .. } => symbol,
             _ => {
                 return Err(SyphonError::expected(
-                    self.lexer.cursor.at,
+                    self.lexer.cursor.location,
                     "a function name",
                 ))
             }
@@ -201,7 +202,7 @@ impl<'a> Parser<'a> {
         Ok(ExprKind::Call {
             function_name,
             arguments,
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         })
     }
 
@@ -225,7 +226,7 @@ impl<'a> Parser<'a> {
 
             if !self.eat(Token::Delimiter(Delimiter::RParen)) {
                 return Err(SyphonError::expected(
-                    self.lexer.cursor.at,
+                    self.lexer.cursor.location,
                     "function call ends with ')'",
                 ));
             }

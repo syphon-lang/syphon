@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 thin-vec = { workspace = true }
+
+syphon_location = { path = "../location" }

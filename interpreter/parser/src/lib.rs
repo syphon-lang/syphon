@@ -37,9 +37,10 @@ impl<'a> Parser<'a> {
         self.lexer.clone().next_token()
     }
 
-    fn eat(&mut self, expects: Token) -> bool {
-        if self.peek() == expects {
+    fn eat(&mut self, expected: Token) -> bool {
+        if self.peek() == expected {
             self.next_token();
+
             true
         } else {
             false

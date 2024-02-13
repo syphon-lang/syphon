@@ -21,7 +21,7 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         let Token::Identifier(name) = self.next_token() else {
-            return Err(SyphonError::expected(self.lexer.cursor.at, "function name"));
+            return Err(SyphonError::expected(self.lexer.cursor.location, "function name"));
         };
 
         let parameters = self.parse_function_parameters()?;
@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
                 name,
                 parameters,
                 body,
-                at: self.lexer.cursor.at,
+                location: self.lexer.cursor.location,
             })
             .into(),
         ))
@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
 
         if !self.eat(Token::Delimiter(Delimiter::LParen)) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.at,
+                self.lexer.cursor.location,
                 "function parameters starts with '('",
             ));
         }
@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
 
             if !self.eat(Token::Delimiter(Delimiter::RParen)) {
                 return Err(SyphonError::expected(
-                    self.lexer.cursor.at,
+                    self.lexer.cursor.location,
                     "function parameters ends with ')'",
                 ));
             }
@@ -81,7 +81,7 @@ impl<'a> Parser<'a> {
 
             _ => {
                 return Err(SyphonError::expected(
-                    self.lexer.cursor.at,
+                    self.lexer.cursor.location,
                     "function parameter name",
                 ));
             }
@@ -89,7 +89,7 @@ impl<'a> Parser<'a> {
 
         Ok(FunctionParameter {
             name,
-            at: self.lexer.cursor.at,
+            location: self.lexer.cursor.location,
         })
     }
 
@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
 
         if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.at,
+                self.lexer.cursor.location,
                 "function body starts with '{'",
             ));
         }
@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         let Token::Identifier(name) = self.next_token() else {
-            return Err(SyphonError::expected(self.lexer.cursor.at, "variable name"));
+            return Err(SyphonError::expected(self.lexer.cursor.location, "variable name"));
         };
 
         let value = match self.next_token() {
@@ -122,7 +122,7 @@ impl<'a> Parser<'a> {
             Token::Delimiter(Delimiter::Semicolon) => None,
             _ => {
                 return Err(SyphonError::unexpected(
-                    self.lexer.cursor.at,
+                    self.lexer.cursor.location,
                     "token",
                     self.peek().to_string().as_str(),
                 ));
@@ -136,14 +136,14 @@ impl<'a> Parser<'a> {
                 mutable,
                 name,
                 value,
-                at: self.lexer.cursor.at,
+                location: self.lexer.cursor.location,
             })
             .into(),
         ))
     }
 
     fn parse_return(&mut self) -> Result<Node, SyphonError> {
-        let at = self.lexer.cursor.at;
+        let location = self.lexer.cursor.location;
 
         self.next_token();
 
@@ -157,6 +157,6 @@ impl<'a> Parser<'a> {
             _ => Some(self.parse_expr_kind(Precedence::Lowest)?),
         };
 
-        Ok(Node::Stmt(StmtKind::Return(Return { value, at }).into()))
+        Ok(Node::Stmt(StmtKind::Return(Return { value, location }).into()))
     }
 }

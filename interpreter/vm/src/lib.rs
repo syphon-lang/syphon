@@ -121,7 +121,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Str(left), Value::Str(right)) => Value::Str(left + right.as_str()),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '+' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '+' binary operator",
+                ));
             }
         });
 
@@ -144,7 +147,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left - right),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '-' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '-' binary operator",
+                ));
             }
         });
 
@@ -167,7 +173,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left / right),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '/' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '/' binary operator",
+                ));
             }
         });
 
@@ -190,7 +199,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left * right),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '*' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '*' binary operator",
+                ));
             }
         });
 
@@ -213,7 +225,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left.powf(right)),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '**' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '**' binary operator",
+                ));
             }
         });
 
@@ -238,7 +253,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Float(left.rem_euclid(right)),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '%' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '%' binary operator",
+                ));
             }
         });
 
@@ -261,7 +279,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Bool(left > right),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '>' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '>' binary operator",
+                ));
             }
         });
 
@@ -284,7 +305,10 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Float(right)) => Value::Bool(left < right),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '<' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '<' binary operator",
+                ));
             }
         });
 
@@ -311,7 +335,10 @@ impl<'a> VirtualMachine<'a> {
             (.., Value::None) => Value::Bool(false),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '==' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '==' binary operator",
+                ));
             }
         });
 
@@ -338,7 +365,10 @@ impl<'a> VirtualMachine<'a> {
             (.., Value::None) => Value::Bool(true),
 
             _ => {
-                return Err(SyphonError::unable_to(location, "apply '!=' binary operator"));
+                return Err(SyphonError::unable_to(
+                    location,
+                    "apply '!=' binary operator",
+                ));
             }
         });
 

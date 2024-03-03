@@ -23,7 +23,10 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         let Token::Identifier(name) = self.next_token() else {
-            return Err(SyphonError::expected(self.lexer.cursor.location, "function name"));
+            return Err(SyphonError::expected(
+                self.lexer.cursor.location,
+                "function name",
+            ));
         };
 
         let parameters = self.parse_function_parameters()?;
@@ -116,7 +119,10 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         let Token::Identifier(name) = self.next_token() else {
-            return Err(SyphonError::expected(self.lexer.cursor.location, "variable name"));
+            return Err(SyphonError::expected(
+                self.lexer.cursor.location,
+                "variable name",
+            ));
         };
 
         let value = match self.next_token() {
@@ -159,6 +165,8 @@ impl<'a> Parser<'a> {
             _ => Some(self.parse_expr_kind(Precedence::Lowest)?),
         };
 
-        Ok(Node::Stmt(StmtKind::Return(Return { value, location }).into()))
+        Ok(Node::Stmt(
+            StmtKind::Return(Return { value, location }).into(),
+        ))
     }
 }

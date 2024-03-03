@@ -13,6 +13,8 @@ impl<'a> Parser<'a> {
                 _ => self.parse_expr(),
             },
 
+            Token::Invalid => Err(SyphonError::invalid(self.lexer.cursor.location, "token")),
+
             _ => self.parse_expr(),
         }
     }

@@ -3,7 +3,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-pub struct Arguments {
+pub struct CLI {
     #[arg(
         help = "The file path of the program to run, If not provided the interpreter will work as a REPL"
     )]

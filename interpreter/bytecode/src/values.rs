@@ -19,9 +19,3 @@ pub enum Value {
     #[display(fmt = "none")]
     None,
 }
-
-#[derive(Clone)]
-pub struct ValueInfo {
-    pub value: Value,
-    pub mutable: bool,
-}

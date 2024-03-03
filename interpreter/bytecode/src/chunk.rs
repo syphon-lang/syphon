@@ -31,4 +31,9 @@ impl Chunk {
     pub fn get_constant(&self, index: usize) -> Option<&Value> {
         self.constants.get(index)
     }
+
+    pub fn extend(&mut self, other: Chunk) {
+        self.constants.extend(other.constants);
+        self.code.extend(other.code);
+    }
 }

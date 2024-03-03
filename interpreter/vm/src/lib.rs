@@ -9,23 +9,40 @@ use rustc_hash::FxHashMap;
 
 use thin_vec::ThinVec;
 
-pub struct VirtualMachine<'a> {
-    chunk: Chunk,
-    stack: ThinVec<Value>,
-    names: &'a mut FxHashMap<String, ValueInfo>,
+#[derive(Clone)]
+pub struct NameInfo {
+    stack_index: usize,
+    mutable: bool,
 }
 
-impl<'a> VirtualMachine<'a> {
-    pub fn new(chunk: Chunk, globals: &mut FxHashMap<String, ValueInfo>) -> VirtualMachine {
+pub struct VirtualMachine {
+    chunk: Chunk,
+    stack: ThinVec<Value>,
+    names: FxHashMap<String, NameInfo>,
+    link: Option<usize>,
+    ip: usize,
+}
+
+impl VirtualMachine {
+    pub fn new() -> VirtualMachine {
         VirtualMachine {
-            chunk,
+            chunk: Chunk::new(),
             stack: ThinVec::new(),
-            names: globals,
+            names: FxHashMap::default(),
+            link: None,
+            ip: 0,
         }
     }
 
+    pub fn load_chunk(&mut self, chunk: Chunk) {
+        self.ip = 0;
+        self.chunk = chunk;
+    }
+
     pub fn run(&mut self) -> Result<Value, SyphonError> {
-        for instruction in self.chunk.code.clone() {
+        while self.ip < self.chunk.code.len() {
+            let instruction = self.chunk.code[self.ip].clone();
+
             match instruction {
                 Instruction::Neg { location } => self.negative(location)?,
 
@@ -67,8 +84,19 @@ impl<'a> VirtualMachine<'a> {
                     location,
                 } => self.call_function(function_name, arguments_count, location)?,
 
-                Instruction::Return => return Ok(self.stack_top()),
+                Instruction::Return => {
+                    if let Some(link) = self.link {
+                        self.ip = link;
+                    }
+
+                    return Ok(match self.stack.pop() {
+                        Some(value) => value,
+                        None => Value::None,
+                    });
+                }
             }
+
+            self.ip += 1;
         }
 
         Ok(Value::None)
@@ -376,41 +404,53 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn store_name(&mut self, name: String, mutable: bool) {
-        let value = self.stack.pop().unwrap();
+        let stack_index = self.stack.len() - 1;
 
-        self.names.insert(name, ValueInfo { value, mutable });
+        self.names.insert(
+            name,
+            NameInfo {
+                stack_index,
+                mutable,
+            },
+        );
     }
 
     fn load_name(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
-        let Some(value_info) = self.names.get(&name) else {
+        let Some(name_info) = self.names.get(&name) else {
             return Err(SyphonError::undefined(location, "name", &name));
         };
 
-        self.stack.push(value_info.value.clone());
+        let value = self.stack.get(name_info.stack_index).unwrap().clone();
+
+        self.stack.push(value);
 
         Ok(())
     }
 
     fn assign(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
-        let Some(past_value_info) = self.names.get(&name) else {
+        let Some(past_name_info) = self.names.get(&name) else {
             return Err(SyphonError::undefined(location, "name", &name));
         };
 
-        let Some(value) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
+        let Some(new_value) = self.stack.pop() else {
+            return Err(SyphonError::expected(location, "a new value"));
         };
 
-        if !past_value_info.mutable {
+        if !past_name_info.mutable {
             return Err(SyphonError::unable_to(location, "assign to a constant"));
         }
 
-        self.stack.push(value.clone());
+        self.stack.remove(past_name_info.stack_index);
+
+        self.stack.push(new_value.clone());
+
+        let stack_index = self.stack.len() - 1;
 
         self.names.insert(
             name,
-            ValueInfo {
-                value,
-                mutable: past_value_info.mutable,
+            NameInfo {
+                stack_index,
+                mutable: past_name_info.mutable,
             },
         );
 
@@ -423,13 +463,15 @@ impl<'a> VirtualMachine<'a> {
         arguments_count: usize,
         location: Location,
     ) -> Result<(), SyphonError> {
-        let Some(value_info) = self.names.get(&function_name) else {
+        let Some(name_info) = self.names.get(&function_name) else {
             return Err(SyphonError::undefined(location, "name", &function_name));
         };
 
+        let value = self.stack.get(name_info.stack_index).unwrap().clone();
+
         let Value::Function {
             parameters, body, ..
-        } = value_info.value.clone()
+        } = value
         else {
             return Err(SyphonError::expected(location, "function"));
         };
@@ -445,38 +487,46 @@ impl<'a> VirtualMachine<'a> {
             ));
         }
 
-        let mut arguments = ThinVec::new();
+        let previous_stack_len = self.stack.len();
 
-        for _ in 0..arguments_count {
-            arguments.push(self.stack.pop().unwrap());
-        }
+        let previous_names = self.names.clone();
 
-        let mut names = self.names.clone();
+        for i in 0..arguments_count {
+            let argument_stack_index = self.stack.len() - 1 - i;
 
-        for (index, value) in arguments.iter().enumerate() {
-            names.insert(
-                parameters[index].clone(),
-                ValueInfo {
-                    value: value.clone(),
+            self.names.insert(
+                parameters[i].clone(),
+                NameInfo {
+                    stack_index: argument_stack_index,
                     mutable: true,
                 },
             );
         }
 
-        let mut vm = VirtualMachine::new(body, &mut names);
+        self.link = Some(self.ip);
 
-        match vm.run() {
-            Ok(value) => self.stack.push(value),
-            Err(err) => return Err(err),
+        let body_instructions_len = body.code.len();
+
+        self.chunk.extend(body);
+
+        self.ip = self.chunk.code.len() - body_instructions_len;
+
+        let value = self.run()?;
+
+        self.link = None;
+
+        for _ in 0..self.stack.len() - previous_stack_len {
+            self.stack.pop().unwrap();
         }
+
+        for _ in 0..body_instructions_len {
+            self.chunk.code.pop().unwrap();
+        }
+
+        self.names = previous_names;
+
+        self.stack.push(value);
 
         Ok(())
-    }
-
-    fn stack_top(&mut self) -> Value {
-        match self.stack.pop() {
-            Some(value) => value,
-            None => Value::None,
-        }
     }
 }

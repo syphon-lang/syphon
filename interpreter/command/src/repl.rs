@@ -1,19 +1,19 @@
-use crate::cli::Arguments;
+use crate::cli::CLI;
 
 use crate::runner;
 
 use syphon_bytecode::disassembler::disassmeble;
 use syphon_bytecode::values::Value;
 
-use rustc_hash::FxHashMap;
+use syphon_vm::VirtualMachine;
 
 use io::{BufRead, BufReader, Write};
 use std::io;
 
-pub fn start(args: Arguments) -> io::Result<()> {
+pub fn start(cli: CLI) -> io::Result<()> {
     let mut reader = BufReader::new(io::stdin());
 
-    let mut globals = FxHashMap::default();
+    let mut vm = VirtualMachine::new();
 
     loop {
         let mut input = String::new();
@@ -25,11 +25,15 @@ pub fn start(args: Arguments) -> io::Result<()> {
 
         input = input.trim_end_matches('\n').to_string();
 
-        let Ok((value, chunk)) = runner::run("<stdin>", input, &mut globals) else {
+        if input.is_empty() {
+            continue;
+        }
+
+        let Some((value, chunk)) = runner::run("<stdin>", input, &mut vm) else {
             continue;
         };
 
-        if args.emit_bytecode {
+        if cli.emit_bytecode {
             println!("------------------------------------");
             println!("{}", disassmeble("<stdin>", &chunk));
             println!("------------------------------------");

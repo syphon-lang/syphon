@@ -4,7 +4,10 @@ use crate::values::Value;
 impl Compiler {
     pub(crate) fn compile_stmt(&mut self, kind: StmtKind) -> Result<(), SyphonError> {
         match kind {
-            StmtKind::VariableDeclaration(var) => Ok(self.compile_variable_declaration(var)),
+            StmtKind::VariableDeclaration(var) => {
+                self.compile_variable_declaration(var);
+                Ok(())
+            }
             StmtKind::FunctionDefinition(function) => self.compile_function_definition(function),
             StmtKind::Return(return_stmt) => self.compile_return(return_stmt),
             StmtKind::Unknown => Ok(()),
@@ -26,6 +29,13 @@ impl Compiler {
             name: var.name,
             mutable: var.mutable,
         });
+
+        if self.mode == CompilerMode::Script {
+            let index = self.chunk.add_constant(Value::None);
+
+            self.chunk
+                .write_instruction(Instruction::LoadConstant { index });
+        }
     }
 
     fn compile_function_definition(&mut self, function: Function) -> Result<(), SyphonError> {
@@ -50,6 +60,13 @@ impl Compiler {
             name: function.name,
             mutable: false,
         });
+
+        if self.mode == CompilerMode::Script {
+            let index = self.chunk.add_constant(Value::None);
+
+            self.chunk
+                .write_instruction(Instruction::LoadConstant { index });
+        }
 
         Ok(())
     }

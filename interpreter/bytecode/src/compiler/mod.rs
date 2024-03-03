@@ -44,7 +44,10 @@ impl Compiler {
         match node {
             Node::Module { body } => self.compile_nodes(body),
             Node::Stmt(kind) => self.compile_stmt(*kind),
-            Node::Expr(kind) => Ok(self.compile_expr(*kind)),
+            Node::Expr(kind) => {
+                self.compile_expr(*kind);
+                Ok(())
+            }
         }
     }
 

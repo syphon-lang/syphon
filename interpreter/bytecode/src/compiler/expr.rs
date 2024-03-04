@@ -140,8 +140,13 @@ impl Compiler {
     fn compile_assign(&mut self, name: String, value: ExprKind, location: Location) {
         self.compile_expr(value);
 
+        self.chunk.write_instruction(Instruction::Assign {
+            name: name.clone(),
+            location,
+        });
+
         self.chunk
-            .write_instruction(Instruction::Assign { name, location })
+            .write_instruction(Instruction::LoadName { name, location });
     }
 
     fn compile_call(

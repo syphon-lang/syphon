@@ -442,7 +442,7 @@ impl VirtualMachine {
 
         self.stack.remove(past_name_info.stack_index);
 
-        self.stack.push(new_value.clone());
+        self.stack.push(new_value);
 
         let stack_index = self.stack.len() - 1;
 
@@ -453,8 +453,6 @@ impl VirtualMachine {
                 mutable: past_name_info.mutable,
             },
         );
-
-        self.stack.push(new_value);
 
         Ok(())
     }

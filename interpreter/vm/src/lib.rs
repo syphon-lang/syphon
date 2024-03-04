@@ -454,6 +454,8 @@ impl VirtualMachine {
             },
         );
 
+        self.stack.push(new_value);
+
         Ok(())
     }
 

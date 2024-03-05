@@ -3,7 +3,7 @@ use crate::cli::CLI;
 use crate::runner;
 
 use syphon_bytecode::disassembler::disassmeble;
-use syphon_bytecode::values::Value;
+use syphon_bytecode::value::Value;
 
 use syphon_vm::VirtualMachine;
 

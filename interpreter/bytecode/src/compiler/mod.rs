@@ -1,7 +1,7 @@
 mod expr;
 mod stmt;
 
-use crate::chunk::*;
+use crate::chunk::Chunk;
 use crate::instructions::Instruction;
 
 use syphon_ast::*;

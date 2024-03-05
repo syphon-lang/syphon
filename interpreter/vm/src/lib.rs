@@ -1,6 +1,6 @@
-use syphon_bytecode::chunk::*;
+use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::instructions::Instruction;
-use syphon_bytecode::values::*;
+use syphon_bytecode::value::Value;
 
 use syphon_errors::SyphonError;
 use syphon_location::Location;

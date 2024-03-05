@@ -1,7 +1,8 @@
-use crate::compiler::*;
+use crate::compiler::Compiler;
 use crate::instructions::Instruction;
-use crate::values::Value;
+use crate::value::Value;
 
+use syphon_ast::*;
 use syphon_location::Location;
 
 use thin_vec::ThinVec;

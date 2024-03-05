@@ -1,7 +1,7 @@
 use syphon_bytecode::chunk::Chunk;
-use syphon_bytecode::compiler::*;
+use syphon_bytecode::compiler::{Compiler, CompilerMode};
 use syphon_bytecode::disassembler;
-use syphon_bytecode::values::*;
+use syphon_bytecode::value::Value;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 use syphon_vm::VirtualMachine;

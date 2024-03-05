@@ -1,5 +1,10 @@
-use crate::compiler::*;
-use crate::values::Value;
+use crate::compiler::{Compiler, CompilerMode};
+use crate::instructions::Instruction;
+use crate::value::Value;
+
+use syphon_ast::*;
+use syphon_errors::SyphonError;
+
 
 impl Compiler {
     pub(crate) fn compile_stmt(&mut self, kind: StmtKind) -> Result<(), SyphonError> {

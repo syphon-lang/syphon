@@ -1,5 +1,5 @@
 use crate::instructions::Instruction;
-use crate::values::Value;
+use crate::value::Value;
 
 use thin_vec::ThinVec;
 

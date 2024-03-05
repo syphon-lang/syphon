@@ -1,6 +1,6 @@
-use crate::chunk::*;
+use crate::chunk::Chunk;
 use crate::instructions::Instruction;
-use crate::values::Value;
+use crate::value::Value;
 
 pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {
     let mut disassmebled = String::new();

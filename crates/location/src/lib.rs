@@ -9,6 +9,6 @@ pub struct Location {
 
 impl Default for Location {
     fn default() -> Self {
-        Self { line: 1, column: 0 }
+        Self { line: 1, column: 1 }
     }
 }

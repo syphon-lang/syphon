@@ -189,19 +189,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "syphon"
-version = "0.1.0"
-dependencies = [
- "clap",
- "rustc-hash",
- "syphon_bytecode",
- "syphon_errors",
- "syphon_lexer",
- "syphon_parser",
- "syphon_vm",
-]
-
-[[package]]
 name = "syphon_ast"
 version = "0.1.0"
 dependencies = [
@@ -219,6 +206,19 @@ dependencies = [
  "syphon_location",
  "syphon_parser",
  "thin-vec",
+]
+
+[[package]]
+name = "syphon_core"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "rustc-hash",
+ "syphon_bytecode",
+ "syphon_errors",
+ "syphon_lexer",
+ "syphon_parser",
+ "syphon_vm",
 ]
 
 [[package]]

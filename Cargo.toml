@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "interpreter/*"
+    "crates/*"
 ]
 
 resolver = "2"

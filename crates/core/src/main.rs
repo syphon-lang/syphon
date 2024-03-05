@@ -1,4 +1,4 @@
-use syphon::cli::{Command, CLI};
+use syphon_core::cli::{Command, CLI};
 
 use clap::Parser;
 
@@ -11,7 +11,7 @@ fn main() -> io::Result<()> {
 
     match cli.clone().command {
         Command::Run { file_path } => {
-            syphon::runner::run_file(file_path.to_str().unwrap_or_default(), cli).unwrap_or_else(
+            syphon_core::runner::run_file(file_path.to_str().unwrap_or_default(), cli).unwrap_or_else(
                 |err| {
                     eprintln!("{}: {}", file_path.display(), err);
                     exit(1)
@@ -21,6 +21,6 @@ fn main() -> io::Result<()> {
             Ok(())
         }
 
-        Command::Repl => syphon::repl::start(cli),
+        Command::Repl => syphon_core::repl::start(cli),
     }
 }

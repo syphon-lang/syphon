@@ -1,7 +1,11 @@
 [package]
-name = "syphon"
+name = "syphon_core"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "syphon"
+path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true }

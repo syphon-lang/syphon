@@ -13,7 +13,7 @@ impl Compiler {
                 self.compile_variable_declaration(var);
                 Ok(())
             }
-            StmtKind::FunctionDefinition(function) => self.compile_function_definition(function),
+            StmtKind::FunctionDeclaration(function) => self.compile_function_definition(function),
             StmtKind::Return(return_stmt) => self.compile_return(return_stmt),
             StmtKind::Unknown => Ok(()),
         }

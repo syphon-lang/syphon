@@ -13,7 +13,7 @@ pub enum Node {
 #[derive(Debug, Clone)]
 pub enum StmtKind {
     VariableDeclaration(Variable),
-    FunctionDefinition(Function),
+    FunctionDeclaration(Function),
     Return(Return),
     Unknown,
 }

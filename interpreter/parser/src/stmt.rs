@@ -34,7 +34,7 @@ impl<'a> Parser<'a> {
         let body = self.parse_function_body()?;
 
         Ok(Node::Stmt(
-            StmtKind::FunctionDefinition(Function {
+            StmtKind::FunctionDeclaration(Function {
                 name,
                 parameters,
                 body,

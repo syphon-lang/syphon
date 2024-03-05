@@ -36,9 +36,11 @@ impl<'a> Parser<'a> {
             Token::Keyword(Keyword::None) => self.parse_none(),
 
             _ => {
-                self.next_token();
-
-                ExprKind::Unknown
+                return Err(SyphonError::unexpected(
+                    self.lexer.cursor.location,
+                    "token",
+                    self.peek().to_string().as_str(),
+                ))
             }
         })
     }

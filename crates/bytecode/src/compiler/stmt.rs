@@ -15,7 +15,6 @@ impl Compiler {
             }
             StmtKind::FunctionDeclaration(function) => self.compile_function_definition(function),
             StmtKind::Return(return_stmt) => self.compile_return(return_stmt),
-            StmtKind::Unknown => Ok(()),
         }
     }
 

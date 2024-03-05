@@ -15,7 +15,6 @@ pub enum StmtKind {
     VariableDeclaration(Variable),
     FunctionDeclaration(Function),
     Return(Return),
-    Unknown,
 }
 
 #[derive(Debug, Clone)]
@@ -101,6 +100,4 @@ pub enum ExprKind {
         arguments: ThinVec<ExprKind>,
         location: Location,
     },
-
-    Unknown,
 }

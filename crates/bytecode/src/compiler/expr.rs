@@ -41,8 +41,6 @@ impl Compiler {
                 arguments,
                 location,
             } => self.compile_call(function_name, arguments, location),
-
-            ExprKind::Unknown => (),
         }
     }
 

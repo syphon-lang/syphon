@@ -2,10 +2,10 @@ use crate::chunk::*;
 use crate::instructions::Instruction;
 use crate::values::Value;
 
-pub fn disassmeble(label: &str, chunk: &Chunk) -> String {
+pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {
     let mut disassmebled = String::new();
 
-    disassmebled.push_str(format!("\nDisassembly of label '{}'\n\n", label).as_str());
+    disassmebled.push_str(format!("\nDisassembly of '{}'\n\n", chunk_name).as_str());
 
     for instruction in chunk.code.iter() {
         disassmebled.push_str(disassmeble_instruction(chunk, instruction).as_str());

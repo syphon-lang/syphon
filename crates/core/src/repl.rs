@@ -7,11 +7,10 @@ use syphon_bytecode::value::Value;
 
 use syphon_vm::VirtualMachine;
 
-use io::{BufRead, BufReader, Write};
-use std::io;
+use std::io::{stdin, stdout, BufRead, BufReader, Write};
 
-pub fn start(cli: &CLI) -> io::Result<()> {
-    let mut reader = BufReader::new(io::stdin());
+pub fn start(cli: &CLI) {
+    let mut reader = BufReader::new(stdin());
 
     let mut vm = VirtualMachine::new();
 
@@ -19,9 +18,10 @@ pub fn start(cli: &CLI) -> io::Result<()> {
         let mut input = String::new();
 
         print!(">> ");
-        io::stdout().flush()?;
 
-        reader.read_line(&mut input)?;
+        stdout().flush().unwrap();
+
+        reader.read_line(&mut input).unwrap();
 
         input = input.trim_end_matches('\n').to_string();
 
@@ -43,6 +43,6 @@ pub fn start(cli: &CLI) -> io::Result<()> {
         match value {
             Value::None => (),
             _ => println!("{}", value),
-        }
+        };
     }
 }

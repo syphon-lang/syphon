@@ -60,7 +60,7 @@ impl From<char> for UnaryOperator {
             '-' => Self::Minus,
             '!' => Self::Bang,
 
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -95,7 +95,7 @@ impl From<String> for BinaryOperator {
             "==" => Self::Equals,
             "!=" => Self::NotEquals,
 
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }

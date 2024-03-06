@@ -1,15 +1,12 @@
-use crate::cli::CLI;
-
 use crate::runner;
 
-use syphon_bytecode::disassembler::disassmeble;
 use syphon_bytecode::value::Value;
 
 use syphon_vm::VirtualMachine;
 
 use std::io::{stdin, stdout, BufRead, BufReader, Write};
 
-pub fn start(cli: &CLI) {
+pub fn start() {
     let mut reader = BufReader::new(stdin());
 
     let mut vm = VirtualMachine::new();
@@ -29,16 +26,9 @@ pub fn start(cli: &CLI) {
             continue;
         }
 
-        let Some((value, chunk)) = runner::run("<stdin>", input, &mut vm) else {
+        let Some(value) = runner::run("<stdin>", input, &mut vm) else {
             continue;
         };
-
-        if cli.emit_bytecode {
-            println!("------------------------------------");
-            println!("{}", disassmeble("<stdin>", &chunk));
-            println!("------------------------------------");
-            println!();
-        }
 
         match value {
             Value::None => (),

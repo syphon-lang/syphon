@@ -86,7 +86,12 @@ impl Compiler {
             .write_instruction(Instruction::LoadConstant { index })
     }
 
-    fn compile_unary_operation(&mut self, operator: UnaryOperator, right: ExprKind, location: Location) {
+    fn compile_unary_operation(
+        &mut self,
+        operator: UnaryOperator,
+        right: ExprKind,
+        location: Location,
+    ) {
         self.compile_expr(right);
 
         match operator {
@@ -111,7 +116,9 @@ impl Compiler {
         match operator {
             BinaryOperator::Plus => self.chunk.write_instruction(Instruction::Add { location }),
             BinaryOperator::Minus => self.chunk.write_instruction(Instruction::Sub { location }),
-            BinaryOperator::ForwardSlash => self.chunk.write_instruction(Instruction::Div { location }),
+            BinaryOperator::ForwardSlash => {
+                self.chunk.write_instruction(Instruction::Div { location })
+            }
             BinaryOperator::Star => self.chunk.write_instruction(Instruction::Mult { location }),
             BinaryOperator::DoubleStar => self
                 .chunk

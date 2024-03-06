@@ -7,13 +7,16 @@ pub enum Node {
     Module { body: ThinVec<Node> },
 
     Stmt(Box<StmtKind>),
+
     Expr(Box<ExprKind>),
 }
 
 #[derive(Debug, Clone)]
 pub enum StmtKind {
     VariableDeclaration(Variable),
+
     FunctionDeclaration(Function),
+
     Return(Return),
 }
 
@@ -52,7 +55,7 @@ pub enum ExprKind {
         location: Location,
     },
 
-    Str {
+    String {
         value: String,
         location: Location,
     },

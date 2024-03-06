@@ -28,7 +28,7 @@ impl<'a> Parser<'a> {
             Token::Operator(Operator::Bang) => self.parse_unary_operation()?,
             Token::Delimiter(Delimiter::LParen) => self.parse_parentheses_expression()?,
             Token::Identifier(symbol) => self.parse_identifier(symbol),
-            Token::Str(value) => self.parse_string(value),
+            Token::String(value) => self.parse_string(value),
             Token::Int(value) => self.parse_integer(value),
             Token::Float(value) => self.parse_float(value),
             Token::Bool(value) => self.parse_boolean(value),
@@ -91,7 +91,7 @@ impl<'a> Parser<'a> {
     fn parse_string(&mut self, value: String) -> ExprKind {
         self.next_token();
 
-        ExprKind::Str {
+        ExprKind::String {
             value,
             location: self.lexer.cursor.location,
         }

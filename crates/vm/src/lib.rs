@@ -146,7 +146,7 @@ impl VirtualMachine {
             (Value::Int(left), Value::Float(right)) => Value::Float(left as f64 + right),
             (Value::Float(left), Value::Int(right)) => Value::Float(left + right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Float(left + right),
-            (Value::Str(left), Value::Str(right)) => Value::Str(left + right.as_str()),
+            (Value::String(left), Value::String(right)) => Value::String(left + right.as_str()),
 
             _ => {
                 return Err(SyphonError::unable_to(
@@ -357,7 +357,7 @@ impl VirtualMachine {
             (Value::Int(left), Value::Float(right)) => Value::Bool(left as f64 == right),
             (Value::Float(left), Value::Int(right)) => Value::Bool(left == right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Bool(left == right),
-            (Value::Str(left), Value::Str(right)) => Value::Bool(left == right),
+            (Value::String(left), Value::String(right)) => Value::Bool(left == right),
             (Value::None, Value::None) => Value::Bool(true),
             (Value::None, ..) => Value::Bool(false),
             (.., Value::None) => Value::Bool(false),
@@ -387,7 +387,7 @@ impl VirtualMachine {
             (Value::Int(left), Value::Float(right)) => Value::Bool(left as f64 != right),
             (Value::Float(left), Value::Int(right)) => Value::Bool(left != right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Bool(left != right),
-            (Value::Str(left), Value::Str(right)) => Value::Bool(left != right),
+            (Value::String(left), Value::String(right)) => Value::Bool(left != right),
             (Value::None, Value::None) => Value::Bool(false),
             (Value::None, ..) => Value::Bool(true),
             (.., Value::None) => Value::Bool(true),

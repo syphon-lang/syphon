@@ -104,7 +104,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Token::Str(literal)
+        Token::String(literal)
     }
 
     fn read_identifier(&mut self, ch: char) -> Token {

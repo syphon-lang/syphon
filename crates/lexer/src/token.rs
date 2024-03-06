@@ -2,7 +2,7 @@
 pub enum Token {
     // Literals
     Identifier(String),
-    Str(String),
+    String(String),
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -109,9 +109,13 @@ impl ToString for Token {
     fn to_string(&self) -> String {
         match self {
             Token::Identifier(symbol) => symbol.clone(),
-            Token::Str(value) => value.clone(),
+
+            Token::String(value) => value.clone(),
+
             Token::Int(value) => value.to_string(),
+
             Token::Float(value) => value.to_string(),
+
             Token::Bool(value) => value.to_string(),
 
             Token::Keyword(keyword) => match keyword {
@@ -135,6 +139,7 @@ impl ToString for Token {
                 Operator::NotEquals => String::from("!="),
                 Operator::Bang => String::from("!"),
             },
+
             Token::Delimiter(delimiter) => match delimiter {
                 Delimiter::Assign => String::from("="),
                 Delimiter::Colon => String::from(":"),
@@ -149,7 +154,8 @@ impl ToString for Token {
                 Delimiter::RBrace => String::from("}"),
             },
 
-            Token::Invalid => String::from("invalid token"),
+            Token::Invalid => String::from("invalid"),
+
             Token::EOF => String::from("EOF"),
         }
     }

@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 
 use std::path::PathBuf;
 
-#[derive(Parser, Clone)]
+#[derive(Parser)]
 pub struct CLI {
     #[command(subcommand)]
     pub command: Command,
@@ -15,7 +15,7 @@ pub struct CLI {
     pub emit_bytecode: bool,
 }
 
-#[derive(Subcommand, Clone)]
+#[derive(Subcommand)]
 pub enum Command {
     #[command(about = "Run a specific script")]
     Run { file_path: PathBuf },

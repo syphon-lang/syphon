@@ -59,7 +59,7 @@ impl Compiler {
         Ok(())
     }
 
-    pub fn to_chunk(self) -> Chunk {
+    pub fn get_chunk(self) -> Chunk {
         self.chunk
     }
 }

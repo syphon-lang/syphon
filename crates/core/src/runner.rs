@@ -39,7 +39,7 @@ pub fn run(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<(V
         }
     };
 
-    let chunk = compiler.to_chunk();
+    let chunk = compiler.get_chunk();
 
     vm.load_chunk(chunk.clone());
 

@@ -52,7 +52,7 @@ impl Compiler {
                     compiler.compile(node)?;
                 }
 
-                compiler.to_chunk()
+                compiler.get_chunk()
             },
         });
 

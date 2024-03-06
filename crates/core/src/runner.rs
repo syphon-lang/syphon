@@ -54,7 +54,7 @@ pub fn run(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<(V
     }
 }
 
-pub fn run_file(file_path: &str, cli: CLI) -> io::Result<()> {
+pub fn run_file(file_path: &str, cli: &CLI) -> io::Result<()> {
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
 

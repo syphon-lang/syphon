@@ -10,7 +10,7 @@ use syphon_vm::VirtualMachine;
 use io::{BufRead, BufReader, Write};
 use std::io;
 
-pub fn start(cli: CLI) -> io::Result<()> {
+pub fn start(cli: &CLI) -> io::Result<()> {
     let mut reader = BufReader::new(io::stdin());
 
     let mut vm = VirtualMachine::new();

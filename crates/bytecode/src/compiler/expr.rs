@@ -86,53 +86,52 @@ impl Compiler {
             .write_instruction(Instruction::LoadConstant { index })
     }
 
-    fn compile_unary_operation(&mut self, operator: char, right: ExprKind, location: Location) {
+    fn compile_unary_operation(&mut self, operator: UnaryOperator, right: ExprKind, location: Location) {
         self.compile_expr(right);
 
         match operator {
-            '-' => self.chunk.write_instruction(Instruction::Neg { location }),
-            '!' => self
+            UnaryOperator::Minus => self.chunk.write_instruction(Instruction::Neg { location }),
+
+            UnaryOperator::Bang => self
                 .chunk
                 .write_instruction(Instruction::LogicalNot { location }),
-            _ => unreachable!(),
         }
     }
 
     fn compile_binary_operation(
         &mut self,
         left: ExprKind,
-        operator: String,
+        operator: BinaryOperator,
         right: ExprKind,
         location: Location,
     ) {
         self.compile_expr(left);
         self.compile_expr(right);
 
-        match operator.as_str() {
-            "+" => self.chunk.write_instruction(Instruction::Add { location }),
-            "-" => self.chunk.write_instruction(Instruction::Sub { location }),
-            "/" => self.chunk.write_instruction(Instruction::Div { location }),
-            "*" => self.chunk.write_instruction(Instruction::Mult { location }),
-            "**" => self
+        match operator {
+            BinaryOperator::Plus => self.chunk.write_instruction(Instruction::Add { location }),
+            BinaryOperator::Minus => self.chunk.write_instruction(Instruction::Sub { location }),
+            BinaryOperator::ForwardSlash => self.chunk.write_instruction(Instruction::Div { location }),
+            BinaryOperator::Star => self.chunk.write_instruction(Instruction::Mult { location }),
+            BinaryOperator::DoubleStar => self
                 .chunk
                 .write_instruction(Instruction::Exponent { location }),
-            "%" => self
+            BinaryOperator::Percent => self
                 .chunk
                 .write_instruction(Instruction::Modulo { location }),
 
-            "==" => self
+            BinaryOperator::Equals => self
                 .chunk
                 .write_instruction(Instruction::Equals { location }),
-            "!=" => self
+            BinaryOperator::NotEquals => self
                 .chunk
                 .write_instruction(Instruction::NotEquals { location }),
-            "<" => self
+            BinaryOperator::LessThan => self
                 .chunk
                 .write_instruction(Instruction::LessThan { location }),
-            ">" => self
+            BinaryOperator::GreaterThan => self
                 .chunk
                 .write_instruction(Instruction::GreaterThan { location }),
-            _ => unreachable!(),
         }
     }
 

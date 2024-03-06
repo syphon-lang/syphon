@@ -49,6 +49,58 @@ pub struct Return {
 }
 
 #[derive(Debug, Clone)]
+pub enum UnaryOperator {
+    Minus,
+    Bang,
+}
+
+impl From<char> for UnaryOperator {
+    fn from(value: char) -> Self {
+        match value {
+            '-' => Self::Minus,
+            '!' => Self::Bang,
+
+            _ => unreachable!()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum BinaryOperator {
+    Plus,
+    Minus,
+    ForwardSlash,
+    Star,
+    DoubleStar,
+    Percent,
+
+    LessThan,
+    GreaterThan,
+    Equals,
+    NotEquals,
+}
+
+impl From<String> for BinaryOperator {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "+" => Self::Plus,
+            "-" => Self::Minus,
+            "/" => Self::ForwardSlash,
+            "*" => Self::Star,
+            "**" => Self::DoubleStar,
+            "%" => Self::Percent,
+
+            "<" => Self::LessThan,
+            ">" => Self::GreaterThan,
+            "==" => Self::Equals,
+            "!=" => Self::NotEquals,
+
+            _ => unreachable!()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum ExprKind {
     Identifier {
         symbol: String,
@@ -80,14 +132,14 @@ pub enum ExprKind {
     },
 
     UnaryOperation {
-        operator: char,
+        operator: UnaryOperator,
         right: Box<ExprKind>,
         location: Location,
     },
 
     BinaryOperation {
         left: Box<ExprKind>,
-        operator: String,
+        operator: BinaryOperator,
         right: Box<ExprKind>,
         location: Location,
     },

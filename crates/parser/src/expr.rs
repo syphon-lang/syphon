@@ -51,7 +51,7 @@ impl<'a> Parser<'a> {
         let right = self.parse_expr_kind(Precedence::Prefix)?;
 
         Ok(ExprKind::UnaryOperation {
-            operator: operator.as_char(),
+            operator: UnaryOperator::from(operator.as_char()),
             right: right.into(),
             location: self.lexer.cursor.location,
         })
@@ -165,7 +165,7 @@ impl<'a> Parser<'a> {
 
         Ok(ExprKind::BinaryOperation {
             left: left.into(),
-            operator: operator.to_string(),
+            operator: BinaryOperator::from(operator.to_string()),
             right: right.into(),
             location: self.lexer.cursor.location,
         })

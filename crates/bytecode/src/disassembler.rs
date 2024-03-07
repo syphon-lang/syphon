@@ -5,9 +5,10 @@ use crate::value::Value;
 pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {
     let mut disassmebled = String::new();
 
-    disassmebled.push_str(format!("\nDisassembly of '{}'\n\n", chunk_name).as_str());
+    disassmebled.push_str(format!("\nDisassembly of '{}'\n", chunk_name).as_str());
 
     for instruction in chunk.code.iter() {
+        disassmebled.push('\t');
         disassmebled.push_str(disassmeble_instruction(chunk, instruction).as_str());
         disassmebled.push('\n');
     }

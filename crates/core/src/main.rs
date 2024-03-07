@@ -15,6 +15,13 @@ fn main() {
             });
         }
 
+        Command::Disassemble { file_path } => {
+            syphon_core::runner::disassemble_file(file_path).unwrap_or_else(|err| {
+                eprintln!("{}: {}", file_path.display(), err);
+                exit(1)
+            });
+        }
+
         Command::Run { file_path } => {
             syphon_core::runner::run_file(file_path).unwrap_or_else(|err| {
                 eprintln!("{}: {}", file_path.display(), err);

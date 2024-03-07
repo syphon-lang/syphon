@@ -11,16 +11,20 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::process::exit;
 
-pub fn load_syc(input: &str, vm: &mut VirtualMachine) -> bool {
+fn parse_syc(input: &str) -> Option<Chunk> {
     let mut bytes = input.bytes();
 
     if bytes.next().is_some_and(|b| b != 0x10) || bytes.next().is_some_and(|b| b != 0x07) {
         eprintln!("invalid syc file: invalid file magic number");
 
-        return false;
+        return None;
     }
 
-    let Some(chunk) = Chunk::parse(&mut bytes) else {
+    Chunk::parse(&mut bytes)
+}
+
+fn load_syc(input: &str, vm: &mut VirtualMachine) -> bool {
+    let Some(chunk) = parse_syc(input) else {
         return false;
     };
 
@@ -29,7 +33,7 @@ pub fn load_syc(input: &str, vm: &mut VirtualMachine) -> bool {
     true
 }
 
-pub fn load_regular(file_path: &str, input: &str, vm: &mut VirtualMachine) -> bool {
+pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> bool {
     let lexer = Lexer::new(input);
 
     let mut parser = Parser::new(lexer);
@@ -63,7 +67,7 @@ pub fn load_regular(file_path: &str, input: &str, vm: &mut VirtualMachine) -> bo
 
 pub fn run(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<Value> {
     if !load_syc(&input, vm) {
-        if !load_regular(file_path, &input, vm) {
+        if !load_script(file_path, &input, vm) {
             return None;
         }
     }
@@ -168,15 +172,7 @@ pub fn disassemble_file(file_path: &PathBuf) -> io::Result<()> {
         file_content.push('\n');
     }
 
-    let mut file_bytes = file_content.bytes();
-
-    if file_bytes.next().is_some_and(|b| b != 0x10) || file_bytes.next().is_some_and(|b| b != 0x07) {
-        eprintln!("invalid syc file: invalid file magic number");
-
-        exit(1);
-    }
-
-    let Some(chunk) = Chunk::parse(&mut file_bytes) else {
+    let Some(chunk) = parse_syc(&file_content) else {
         exit(1);
     };
 

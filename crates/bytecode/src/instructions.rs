@@ -67,6 +67,15 @@ pub enum Instruction {
     },
 
     Return,
+
+    JumpIfFalse {
+        offset: usize,
+        location: Location,
+    },
+
+    Jump {
+        offset: usize,
+    },
 }
 
 impl Instruction {
@@ -184,6 +193,20 @@ impl Instruction {
 
             Instruction::Return => {
                 bytes.push(17);
+            }
+
+            Instruction::JumpIfFalse { offset, location } => {
+                bytes.push(18);
+
+                bytes.extend(offset.to_be_bytes());
+
+                bytes.extend(location.to_bytes());
+            }
+
+            Instruction::Jump { offset } => {
+                bytes.push(19);
+
+                bytes.extend(offset.to_be_bytes());
             }
         }
 

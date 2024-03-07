@@ -8,6 +8,7 @@ impl<'a> Parser<'a> {
                 Keyword::Def => self.parse_function_definition(),
                 Keyword::Let => self.parse_variable_declaration(true),
                 Keyword::Const => self.parse_variable_declaration(false),
+                Keyword::If => self.parse_conditional(),
                 Keyword::Return => self.parse_return(),
 
                 _ => self.parse_expr(),
@@ -145,6 +146,62 @@ impl<'a> Parser<'a> {
                 name,
                 value,
                 location: self.lexer.cursor.location,
+            })
+            .into(),
+        ))
+    }
+
+    fn parse_conditional(&mut self) -> Result<Node, SyphonError> {
+        let location = self.lexer.cursor.location;
+
+        let mut conditions = ThinVec::new();
+        let mut bodies = ThinVec::new();
+        let mut fallback = None;
+
+        loop {
+            self.next_token();
+
+            conditions.push(self.parse_expr_kind(Precedence::Lowest)?);
+
+            if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
+                return Err(SyphonError::expected(self.lexer.cursor.location, "a '{'"));
+            }
+
+            let mut body = ThinVec::new();
+
+            while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
+                body.push(self.parse_stmt()?);
+            }
+
+            bodies.push(body);
+
+            if self.eat(Token::Keyword(Keyword::Else)) {
+                if self.peek() == Token::Keyword(Keyword::If) {
+                    continue;
+                }
+
+                if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
+                    return Err(SyphonError::expected(self.lexer.cursor.location, "a '{'"));
+                }
+
+                let mut body = ThinVec::new();
+
+                while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
+                    body.push(self.parse_stmt()?);
+                }
+
+                fallback = Some(body);
+            }
+
+            break;
+        }
+
+        Ok(Node::Stmt(
+            StmtKind::Conditional(Conditional {
+                conditions,
+                bodies,
+                fallback,
+                location,
             })
             .into(),
         ))

@@ -26,6 +26,22 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::None => false,
+
+            Value::String(value) => !value.is_empty(),
+
+            &Value::Int(value) => value != 0,
+
+            &Value::Float(value) => value != 0.0,
+
+            &Value::Bool(value) => value == true,
+
+            _ => true,
+        }
+    }
+
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 

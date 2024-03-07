@@ -3,6 +3,7 @@ mod stmt;
 
 use crate::chunk::Chunk;
 use crate::instructions::Instruction;
+use crate::value::Value;
 
 use syphon_ast::*;
 use syphon_errors::SyphonError;

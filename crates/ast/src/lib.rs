@@ -17,6 +17,8 @@ pub enum StmtKind {
 
     FunctionDeclaration(Function),
 
+    Conditional(Conditional),
+
     Return(Return),
 }
 
@@ -39,6 +41,14 @@ pub struct Function {
 #[derive(Debug, Clone)]
 pub struct FunctionParameter {
     pub name: String,
+    pub location: Location,
+}
+
+#[derive(Debug, Clone)]
+pub struct Conditional {
+    pub conditions: ThinVec<ExprKind>,
+    pub bodies: ThinVec<ThinVec<Node>>,
+    pub fallback: Option<ThinVec<Node>>,
     pub location: Location,
 }
 

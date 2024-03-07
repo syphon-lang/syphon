@@ -93,6 +93,12 @@ impl VirtualMachine {
                         None => Value::None,
                     });
                 }
+
+                Instruction::JumpIfFalse { offset, location } => {
+                    self.jump_if_false(offset, location)?
+                }
+
+                Instruction::Jump { offset } => self.jump(offset),
             }
 
             self.ip += 1;
@@ -483,8 +489,6 @@ impl VirtualMachine {
             ));
         }
 
-        let previous_stack_len = self.stack.len();
-
         let previous_names = self.names.clone();
 
         for i in 0..arguments_count {
@@ -499,6 +503,12 @@ impl VirtualMachine {
             );
         }
 
+        let previous_stack_len = self.stack.len();
+
+        let previous_constants = self.chunk.constants.clone();
+
+        self.chunk.constants = body.constants.clone();
+
         self.link = Some(self.ip);
 
         let body_instructions_len = body.code.len();
@@ -507,7 +517,7 @@ impl VirtualMachine {
 
         self.ip = self.chunk.code.len() - body_instructions_len;
 
-        let value = self.run()?;
+        let return_value = self.run()?;
 
         self.link = None;
 
@@ -521,8 +531,26 @@ impl VirtualMachine {
 
         self.names = previous_names;
 
-        self.stack.push(value);
+        self.chunk.constants = previous_constants;
+
+        self.stack.push(return_value);
 
         Ok(())
+    }
+
+    fn jump_if_false(&mut self, offset: usize, location: Location) -> Result<(), SyphonError> {
+        let Some(value) = self.stack.pop() else {
+            return Err(SyphonError::expected(location, "a value"));
+        };
+
+        if !value.is_truthy() {
+            self.ip += offset - 1;
+        }
+
+        Ok(())
+    }
+
+    fn jump(&mut self, offset: usize) {
+        self.ip += offset - 1;
     }
 }

@@ -26,6 +26,8 @@ pub enum Keyword {
     Def,
     Let,
     Const,
+    If,
+    Else,
     Return,
     None,
 }
@@ -122,6 +124,8 @@ impl ToString for Token {
                 Keyword::Def => String::from("def"),
                 Keyword::Let => String::from("let"),
                 Keyword::Const => String::from("const"),
+                Keyword::If => String::from("if"),
+                Keyword::Else => String::from("else"),
                 Keyword::Return => String::from("return"),
                 Keyword::None => String::from("none"),
             },

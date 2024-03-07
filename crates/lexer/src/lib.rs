@@ -125,6 +125,8 @@ impl<'a> Lexer<'a> {
             "def" => Token::Keyword(Keyword::Def),
             "let" => Token::Keyword(Keyword::Let),
             "const" => Token::Keyword(Keyword::Const),
+            "if" => Token::Keyword(Keyword::If),
+            "else" => Token::Keyword(Keyword::Else),
             "return" => Token::Keyword(Keyword::Return),
             "none" => Token::Keyword(Keyword::None),
 

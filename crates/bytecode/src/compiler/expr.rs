@@ -37,10 +37,10 @@ impl Compiler {
             } => self.compile_assign(name, *value, location),
 
             ExprKind::Call {
-                function_name,
+                callable,
                 arguments,
                 location,
-            } => self.compile_call(function_name, arguments, location),
+            } => self.compile_call(*callable, arguments, location),
         }
     }
 
@@ -156,7 +156,7 @@ impl Compiler {
 
     fn compile_call(
         &mut self,
-        function_name: String,
+        callable: ExprKind,
         arguments: ThinVec<ExprKind>,
         location: Location,
     ) {
@@ -164,8 +164,9 @@ impl Compiler {
             self.compile_expr(argument);
         }
 
+        self.compile_expr(callable);
+
         self.chunk.write_instruction(Instruction::Call {
-            function_name,
             arguments_count: arguments.len(),
             location,
         });

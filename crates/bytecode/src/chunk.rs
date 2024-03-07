@@ -265,17 +265,11 @@ impl Chunk {
                 }
 
                 15 => {
-                    let function_name_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let function_name =
-                        String::from_utf8(get_multiple(bytes, function_name_len)).unwrap();
-
                     let arguments_count = usize::from_be_bytes(get_8_bytes(bytes));
 
                     let location = Location::from_bytes(bytes);
 
                     chunk.write_instruction(Instruction::Call {
-                        function_name,
                         arguments_count,
                         location,
                     });

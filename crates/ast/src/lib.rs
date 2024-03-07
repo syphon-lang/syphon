@@ -151,7 +151,7 @@ pub enum ExprKind {
     },
 
     Call {
-        function_name: String,
+        callable: Box<ExprKind>,
         arguments: ThinVec<ExprKind>,
         location: Location,
     },

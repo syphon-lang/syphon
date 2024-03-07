@@ -79,10 +79,9 @@ impl VirtualMachine {
                     .push(self.chunk.get_constant(index).unwrap().clone()),
 
                 Instruction::Call {
-                    function_name,
                     arguments_count,
                     location,
-                } => self.call_function(function_name, arguments_count, location)?,
+                } => self.call_function(arguments_count, location)?,
 
                 Instruction::Return => {
                     if let Some(link) = self.link {
@@ -459,21 +458,18 @@ impl VirtualMachine {
 
     fn call_function(
         &mut self,
-        function_name: String,
         arguments_count: usize,
         location: Location,
     ) -> Result<(), SyphonError> {
-        let Some(name_info) = self.names.get(&function_name) else {
-            return Err(SyphonError::undefined(location, "name", &function_name));
+        let Some(callable) = self.stack.pop() else {
+            return Err(SyphonError::expected(location, "callable"));
         };
-
-        let value = self.stack.get(name_info.stack_index).unwrap().clone();
 
         let Value::Function {
             parameters, body, ..
-        } = value
+        } = callable
         else {
-            return Err(SyphonError::expected(location, "function"));
+            return Err(SyphonError::expected(location, "callable"));
         };
 
         if arguments_count != parameters.len() {

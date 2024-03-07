@@ -58,7 +58,6 @@ pub enum Instruction {
     },
 
     Call {
-        function_name: String,
         arguments_count: usize,
         location: Location,
     },
@@ -167,14 +166,10 @@ impl Instruction {
             }
 
             Instruction::Call {
-                function_name,
                 arguments_count,
                 location,
             } => {
                 bytes.push(15);
-
-                bytes.extend(function_name.len().to_be_bytes());
-                bytes.extend(function_name.as_bytes());
 
                 bytes.extend(arguments_count.to_be_bytes());
 

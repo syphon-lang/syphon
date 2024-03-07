@@ -63,8 +63,10 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
             )
         }
 
-        Instruction::Call { function_name, .. } => {
-            format!("Call ({})", function_name)
+        Instruction::Call {
+            arguments_count, ..
+        } => {
+            format!("Call ({})", arguments_count)
         }
 
         Instruction::Return => "Return".to_string(),

@@ -188,21 +188,11 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_function_call(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
-        let function_name = match expr {
-            ExprKind::Identifier { symbol, .. } => symbol,
-            _ => {
-                return Err(SyphonError::expected(
-                    self.lexer.cursor.location,
-                    "a function name",
-                ))
-            }
-        };
-
+    fn parse_function_call(&mut self, callable: ExprKind) -> Result<ExprKind, SyphonError> {
         let arguments = self.parse_function_call_arguments()?;
 
         Ok(ExprKind::Call {
-            function_name,
+            callable: callable.into(),
             arguments,
             location: self.lexer.cursor.location,
         })

@@ -64,10 +64,8 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
 }
 
 pub fn run(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<Value> {
-    if !load_syc(&input, vm) {
-        if !load_script(file_path, &input, vm) {
-            return None;
-        }
+    if !load_syc(&input, vm) && !load_script(file_path, &input, vm) {
+        return None;
     }
 
     match vm.run() {

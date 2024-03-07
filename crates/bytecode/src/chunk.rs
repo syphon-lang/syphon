@@ -235,11 +235,7 @@ impl Chunk {
 
                     let name = String::from_utf8(get_multiple(bytes, name_len)).unwrap();
 
-                    let mutable = if bytes.next().unwrap() == 1 {
-                        true
-                    } else {
-                        false
-                    };
+                    let mutable = bytes.next().unwrap() == 1;
 
                     chunk.write_instruction(Instruction::StoreName { name, mutable });
                 }

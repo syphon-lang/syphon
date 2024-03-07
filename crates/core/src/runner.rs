@@ -15,8 +15,6 @@ fn parse_syc(input: &str) -> Option<Chunk> {
     let mut bytes = input.bytes();
 
     if bytes.next().is_some_and(|b| b != 0x10) || bytes.next().is_some_and(|b| b != 0x07) {
-        eprintln!("invalid syc file: invalid file magic number");
-
         return None;
     }
 
@@ -173,6 +171,8 @@ pub fn disassemble_file(file_path: &PathBuf) -> io::Result<()> {
     }
 
     let Some(chunk) = parse_syc(&file_content) else {
+        eprintln!("invalid syc file: invalid file magic number");
+
         exit(1);
     };
 

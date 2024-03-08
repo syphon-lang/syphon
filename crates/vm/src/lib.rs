@@ -1,6 +1,6 @@
 use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::instructions::Instruction;
-use syphon_bytecode::value::Value;
+use syphon_bytecode::value::{Function, Value};
 
 use syphon_errors::SyphonError;
 use syphon_location::Location;
@@ -13,35 +13,57 @@ pub struct NameInfo {
     mutable: bool,
 }
 
-pub struct VirtualMachine {
-    chunk: Chunk,
-    stack: Vec<Value>,
+struct CallFrame {
+    function: Function,
     names: FxHashMap<String, NameInfo>,
-    link: Option<usize>,
     ip: usize,
+}
+
+pub struct VirtualMachine {
+    frames: Vec<CallFrame>,
+    fp: usize,
+    stack: Vec<Value>,
 }
 
 impl VirtualMachine {
     pub fn new() -> VirtualMachine {
         VirtualMachine {
-            chunk: Chunk::new(),
+            frames: Vec::new(),
+            fp: 0,
             stack: Vec::new(),
-            names: FxHashMap::default(),
-            link: None,
-            ip: 0,
         }
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
-        self.ip = 0;
-        self.chunk = chunk;
+        if self.frames.is_empty() {
+            self.frames.push(CallFrame {
+                function: Function {
+                    name: String::new(),
+                    body: chunk,
+                    parameters: Vec::new(),
+                },
+
+                names: FxHashMap::default(),
+                ip: 0,
+            });
+        } else {
+            self.frames[0].function.body = chunk;
+            self.frames[0].ip = 0;
+        }
     }
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
-        while self.ip < self.chunk.code.len() {
-            let instruction = self.chunk.code[self.ip].clone();
+        while self.frames[self.fp].ip < self.frames[self.fp].function.body.code.len() {
+            println!("--");
 
-            self.ip += 1;
+            for value in self.stack.iter() {
+                println!("{value}");
+            }
+
+            let instruction =
+                self.frames[self.fp].function.body.code[self.frames[self.fp].ip].clone();
+
+            self.frames[self.fp].ip += 1;
 
             match instruction {
                 Instruction::Neg { location } => self.negative(location)?,
@@ -74,9 +96,14 @@ impl VirtualMachine {
 
                 Instruction::Assign { name, location } => self.assign(name, location)?,
 
-                Instruction::LoadConstant { index } => self
-                    .stack
-                    .push(self.chunk.get_constant(index).unwrap().clone()),
+                Instruction::LoadConstant { index } => self.stack.push(
+                    self.frames[self.fp]
+                        .function
+                        .body
+                        .get_constant(index)
+                        .unwrap()
+                        .clone(),
+                ),
 
                 Instruction::Call {
                     arguments_count,
@@ -84,8 +111,10 @@ impl VirtualMachine {
                 } => self.call_function(arguments_count, location)?,
 
                 Instruction::Return => {
-                    if let Some(link) = self.link {
-                        self.ip = link;
+                    if self.fp != 0 {
+                        self.fp -= 1;
+
+                        self.frames.pop().unwrap();
                     }
 
                     return Ok(match self.stack.pop() {
@@ -409,9 +438,11 @@ impl VirtualMachine {
     }
 
     fn store_name(&mut self, name: String, mutable: bool) {
+        let frame = &mut self.frames[self.fp];
+
         let stack_index = self.stack.len() - 1;
 
-        self.names.insert(
+        frame.names.insert(
             name,
             NameInfo {
                 stack_index,
@@ -421,7 +452,9 @@ impl VirtualMachine {
     }
 
     fn load_name(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
-        let Some(name_info) = self.names.get(&name) else {
+        let frame = &self.frames[self.fp];
+
+        let Some(name_info) = frame.names.get(&name) else {
             return Err(SyphonError::undefined(location, "name", &name));
         };
 
@@ -433,7 +466,9 @@ impl VirtualMachine {
     }
 
     fn assign(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
-        let Some(past_name_info) = self.names.get(&name) else {
+        let frame = &mut self.frames[self.fp];
+
+        let Some(past_name_info) = frame.names.get(&name) else {
             return Err(SyphonError::undefined(location, "name", &name));
         };
 
@@ -451,7 +486,7 @@ impl VirtualMachine {
 
         let stack_index = self.stack.len() - 1;
 
-        self.names.insert(
+        frame.names.insert(
             name,
             NameInfo {
                 stack_index,
@@ -467,96 +502,110 @@ impl VirtualMachine {
         arguments_count: usize,
         location: Location,
     ) -> Result<(), SyphonError> {
-        let Some(callable) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "callable"));
+        let Some(callee) = self.stack.pop() else {
+            return Err(SyphonError::expected(location, "a callable"));
         };
 
-        let Value::Function {
-            parameters, body, ..
-        } = callable
-        else {
-            return Err(SyphonError::expected(location, "callable"));
-        };
+        let mut arguments = Vec::with_capacity(arguments_count);
 
-        if arguments_count != parameters.len() {
-            return Err(SyphonError::expected(
-                location,
-                match parameters.len() {
-                    1 => format!("{} argument", parameters.len()),
-                    _ => format!("{} arguments", parameters.len()),
+        for _ in 0..arguments_count {
+            arguments.push(self.stack.pop().unwrap());
+        }
+
+        match callee {
+            Value::Function(function) => {
+                if function.parameters.len() != arguments_count {
+                    return Err(SyphonError::expected_got(
+                        location,
+                        format!(
+                            "{} {}",
+                            function.parameters.len(),
+                            match function.parameters.len() == 1 {
+                                true => "argument",
+                                false => "arguments",
+                            }
+                        )
+                        .as_str(),
+                        arguments_count.to_string().as_str(),
+                    ));
                 }
-                .as_str(),
-            ));
+
+                let previous_frame = &self.frames[self.fp];
+
+                self.frames.push(CallFrame {
+                    function,
+                    names: previous_frame.names.clone(),
+                    ip: 0,
+                });
+
+                self.fp += 1;
+
+                let new_frame = &mut self.frames[self.fp];
+
+                let previous_stack_len = self.stack.len();
+
+                arguments.reverse();
+
+                for parameter in new_frame.function.parameters.iter() {
+                    self.stack.push(arguments.pop().unwrap());
+
+                    let stack_index = self.stack.len() - 1;
+
+                    new_frame.names.insert(
+                        parameter.to_string(),
+                        NameInfo {
+                            stack_index,
+                            mutable: true,
+                        },
+                    );
+                }
+
+                let return_value = self.run();
+
+                for _ in 0..self.stack.len() - previous_stack_len {
+                    self.stack.pop();
+                }
+
+                match return_value {
+                    Ok(return_value) => self.stack.push(return_value),
+                    Err(err) => {
+                        self.fp -= 1;
+                        self.frames.pop().unwrap();
+
+                        return Err(err);
+                    }
+                }
+            }
+
+            _ => return Err(SyphonError::expected(location, "a callable")),
         }
-
-        let previous_names = self.names.clone();
-
-        for i in 0..arguments_count {
-            let argument_stack_index = self.stack.len() - 1 - i;
-
-            self.names.insert(
-                parameters[i].clone(),
-                NameInfo {
-                    stack_index: argument_stack_index,
-                    mutable: true,
-                },
-            );
-        }
-
-        let previous_stack_len = self.stack.len();
-
-        let previous_constants = self.chunk.constants.clone();
-
-        let previous_link = self.link;
-
-        self.chunk.constants = body.constants.clone();
-
-        self.link = Some(self.ip);
-
-        let body_instructions_len = body.code.len();
-
-        self.chunk.extend(body);
-
-        self.ip = self.chunk.code.len() - body_instructions_len;
-
-        let return_value = self.run()?;
-
-        self.link = previous_link;
-
-        for _ in 0..self.stack.len() - previous_stack_len {
-            self.stack.pop().unwrap();
-        }
-
-        for _ in 0..body_instructions_len {
-            self.chunk.code.pop().unwrap();
-        }
-
-        self.names = previous_names;
-
-        self.chunk.constants = previous_constants;
-
-        self.stack.push(return_value);
 
         Ok(())
     }
 
     fn jump_if_false(&mut self, offset: usize, location: Location) -> Result<(), SyphonError> {
+        let frame = &mut self.frames[self.fp];
+
         let Some(value) = self.stack.pop() else {
             return Err(SyphonError::expected(location, "a value"));
         };
 
         if !value.is_truthy() {
-            self.ip += offset;
+            frame.ip += offset;
         }
 
         Ok(())
     }
 
     fn jump(&mut self, offset: usize) {
-        self.ip += offset;
+        let frame = &mut self.frames[self.fp];
+
+        frame.ip += offset;
     }
 
     fn back(&mut self, offset: usize) {
-        self.ip -= offset + 1;
+        let frame = &mut self.frames[self.fp];
+
+        frame.ip -= offset + 1;
     }
 }

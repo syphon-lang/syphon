@@ -15,8 +15,8 @@ pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {
 
     for constant in chunk.constants.iter() {
         match constant {
-            Value::Function { name, body, .. } => {
-                disassmebled.push_str(disassmeble(name, body).as_str());
+            Value::Function(function) => {
+                disassmebled.push_str(disassmeble(&function.name, &function.body).as_str());
             }
 
             _ => (),

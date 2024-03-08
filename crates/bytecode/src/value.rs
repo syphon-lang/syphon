@@ -15,12 +15,15 @@ pub enum Value {
 
     Bool(bool),
 
-    #[display(fmt = "<function '{}'>", name)]
-    Function {
-        name: String,
-        parameters: Vec<String>,
-        body: Chunk,
-    },
+    Function(Function),
+}
+
+#[derive(Display, Clone, PartialEq)]
+#[display(fmt = "<function '{}'>", name)]
+pub struct Function {
+    pub name: String,
+    pub parameters: Vec<String>,
+    pub body: Chunk,
 }
 
 impl Value {
@@ -34,7 +37,7 @@ impl Value {
 
             &Value::Float(value) => value != 0.0,
 
-            &Value::Bool(value) => value == true,
+            &Value::Bool(value) => value,
 
             _ => true,
         }
@@ -69,23 +72,19 @@ impl Value {
                 false => bytes.push(5),
             },
 
-            Value::Function {
-                name,
-                parameters,
-                body,
-            } => {
+            Value::Function(function) => {
                 bytes.push(6);
 
-                bytes.extend(name.len().to_be_bytes());
-                bytes.extend(name.as_bytes());
+                bytes.extend(function.name.len().to_be_bytes());
+                bytes.extend(function.name.as_bytes());
 
-                bytes.extend(parameters.len().to_be_bytes());
-                for parameter in parameters {
+                bytes.extend(function.name.len().to_be_bytes());
+                for parameter in function.parameters.iter() {
                     bytes.extend(parameter.len().to_be_bytes());
                     bytes.extend(parameter.as_bytes());
                 }
 
-                bytes.extend(body.to_bytes());
+                bytes.extend(function.body.to_bytes());
             }
         }
 

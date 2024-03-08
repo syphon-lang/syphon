@@ -1,6 +1,6 @@
 use crate::compiler::{Compiler, CompilerMode};
 use crate::instructions::Instruction;
-use crate::value::Value;
+use crate::value::{Function as BytecodeFunction, Value};
 
 use syphon_ast::*;
 use syphon_errors::SyphonError;
@@ -46,7 +46,7 @@ impl Compiler {
     }
 
     fn compile_function_definition(&mut self, function: Function) -> Result<(), SyphonError> {
-        let index = self.chunk.add_constant(Value::Function {
+        let index = self.chunk.add_constant(Value::Function(BytecodeFunction {
             name: function.name.clone(),
             parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
             body: {
@@ -58,7 +58,7 @@ impl Compiler {
 
                 compiler.get_chunk()
             },
-        });
+        }));
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index });
@@ -119,12 +119,8 @@ impl Compiler {
 
         let before_fallback_point = self.chunk.code.len() - 1;
 
-        match conditional.fallback {
-            Some(fallback) => {
-                self.compile_nodes(fallback)?;
-            }
-
-            None => (),
+        if let Some(fallback) = conditional.fallback {
+            self.compile_nodes(fallback)?;
         }
 
         let mut backtrack_points_iter = backtrack_points.iter();

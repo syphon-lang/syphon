@@ -1,5 +1,5 @@
 use crate::instructions::Instruction;
-use crate::value::Value;
+use crate::value::{Function, Value};
 
 use syphon_location::Location;
 
@@ -135,11 +135,11 @@ impl Chunk {
 
                     let body = Chunk::parse(bytes)?;
 
-                    chunk.add_constant(Value::Function {
+                    chunk.add_constant(Value::Function(Function {
                         name,
                         parameters,
                         body,
-                    });
+                    }));
                 }
 
                 _ => {

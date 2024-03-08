@@ -54,12 +54,6 @@ impl VirtualMachine {
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         while self.frames[self.fp].ip < self.frames[self.fp].function.body.code.len() {
-            println!("--");
-
-            for value in self.stack.iter() {
-                println!("{value}");
-            }
-
             let instruction =
                 self.frames[self.fp].function.body.code[self.frames[self.fp].ip].clone();
 

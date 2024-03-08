@@ -101,6 +101,8 @@ impl VirtualMachine {
                 }
 
                 Instruction::Jump { offset } => self.jump(offset),
+
+                Instruction::Back { offset } => self.back(offset),
             }
         }
 
@@ -552,5 +554,9 @@ impl VirtualMachine {
 
     fn jump(&mut self, offset: usize) {
         self.ip += offset;
+    }
+
+    fn back(&mut self, offset: usize) {
+        self.ip -= offset + 1;
     }
 }

@@ -19,6 +19,8 @@ pub enum StmtKind {
 
     Conditional(Conditional),
 
+    While(While),
+
     Return(Return),
 }
 
@@ -49,6 +51,13 @@ pub struct Conditional {
     pub conditions: ThinVec<ExprKind>,
     pub bodies: ThinVec<ThinVec<Node>>,
     pub fallback: Option<ThinVec<Node>>,
+    pub location: Location,
+}
+
+#[derive(Debug, Clone)]
+pub struct While {
+    pub condition: ExprKind,
+    pub body: ThinVec<Node>,
     pub location: Location,
 }
 

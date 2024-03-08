@@ -294,6 +294,13 @@ impl Chunk {
 
                     chunk.write_instruction(Instruction::Jump { offset });
                 }
+
+                20 => {
+                    let offset = usize::from_be_bytes(get_8_bytes(bytes));
+
+                    chunk.write_instruction(Instruction::Back { offset });
+                }
+
                 _ => {
                     eprintln!("invalid syc file: invalid code tag: {}", code_tag);
 

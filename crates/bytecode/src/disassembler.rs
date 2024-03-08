@@ -78,5 +78,9 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
         Instruction::Jump { offset } => {
             format!("Jump ({})", offset)
         }
+
+        Instruction::Back { offset } => {
+            format!("Back ({})", offset)
+        }
     }
 }

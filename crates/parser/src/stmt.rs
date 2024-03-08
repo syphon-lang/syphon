@@ -9,6 +9,7 @@ impl<'a> Parser<'a> {
                 Keyword::Let => self.parse_variable_declaration(true),
                 Keyword::Const => self.parse_variable_declaration(false),
                 Keyword::If => self.parse_conditional(),
+                Keyword::While => self.parse_while(),
                 Keyword::Return => self.parse_return(),
 
                 _ => self.parse_expr(),
@@ -201,6 +202,33 @@ impl<'a> Parser<'a> {
                 conditions,
                 bodies,
                 fallback,
+                location,
+            })
+            .into(),
+        ))
+    }
+
+    fn parse_while(&mut self) -> Result<Node, SyphonError> {
+        let location = self.lexer.cursor.location;
+
+        self.next_token();
+
+        let condition = self.parse_expr_kind(Precedence::Lowest)?;
+
+        let mut body = ThinVec::new();
+
+        if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
+            return Err(SyphonError::expected(self.lexer.cursor.location, "a '{'"));
+        }
+
+        while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
+            body.push(self.parse_stmt()?);
+        }
+
+        Ok(Node::Stmt(
+            StmtKind::While(While {
+                condition,
+                body,
                 location,
             })
             .into(),

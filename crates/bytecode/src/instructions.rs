@@ -76,6 +76,10 @@ pub enum Instruction {
     Jump {
         offset: usize,
     },
+
+    Back {
+        offset: usize,
+    },
 }
 
 impl Instruction {
@@ -205,6 +209,12 @@ impl Instruction {
 
             Instruction::Jump { offset } => {
                 bytes.push(19);
+
+                bytes.extend(offset.to_be_bytes());
+            }
+
+            Instruction::Back { offset } => {
+                bytes.push(20);
 
                 bytes.extend(offset.to_be_bytes());
             }

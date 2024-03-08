@@ -17,6 +17,8 @@ impl Compiler {
 
             StmtKind::Conditional(conditional) => self.compile_conditional(conditional),
 
+            StmtKind::While(while_stmt) => self.compile_while(while_stmt),
+
             StmtKind::Return(return_stmt) => self.compile_return(return_stmt),
         }
     }
@@ -114,6 +116,11 @@ impl Compiler {
                     location: conditional.location,
                 };
             }
+
+            let index = self.chunk.add_constant(Value::None);
+
+            self.chunk
+                .write_instruction(Instruction::LoadConstant { index });
         }
 
         match conditional.fallback {
@@ -133,10 +140,41 @@ impl Compiler {
                 let second_point = backtrack_points_iter.next().unwrap();
 
                 self.chunk.code[*second_point] = Instruction::Jump {
-                    offset: self.chunk.code.len() - second_point - 1,
+                    offset: self.chunk.code.len() - 1 - second_point,
                 };
             }
         }
+
+        Ok(())
+    }
+
+    fn compile_while(&mut self, while_stmt: While) -> Result<(), SyphonError> {
+        let condition_point = self.chunk.code.len();
+
+        self.compile_expr(while_stmt.condition);
+
+        self.chunk.write_instruction(Instruction::JumpIfFalse {
+            offset: 0,
+            location: while_stmt.location,
+        });
+
+        let jump_if_false_point = self.chunk.code.len() - 1;
+
+        self.compile_nodes(while_stmt.body)?;
+
+        self.chunk.code[jump_if_false_point] = Instruction::JumpIfFalse {
+            offset: self.chunk.code.len() - jump_if_false_point,
+            location: while_stmt.location,
+        };
+
+        self.chunk.write_instruction(Instruction::Back {
+            offset: self.chunk.code.len() - condition_point,
+        });
+
+        let index = self.chunk.add_constant(Value::None);
+
+        self.chunk
+            .write_instruction(Instruction::LoadConstant { index });
 
         Ok(())
     }

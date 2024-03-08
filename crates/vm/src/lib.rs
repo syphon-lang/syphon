@@ -43,6 +43,8 @@ impl VirtualMachine {
         while self.ip < self.chunk.code.len() {
             let instruction = self.chunk.code[self.ip].clone();
 
+            self.ip += 1;
+
             match instruction {
                 Instruction::Neg { location } => self.negative(location)?,
 
@@ -100,8 +102,6 @@ impl VirtualMachine {
 
                 Instruction::Jump { offset } => self.jump(offset),
             }
-
-            self.ip += 1;
         }
 
         Ok(Value::None)
@@ -544,13 +544,13 @@ impl VirtualMachine {
         };
 
         if !value.is_truthy() {
-            self.ip += offset - 1;
+            self.ip += offset;
         }
 
         Ok(())
     }
 
     fn jump(&mut self, offset: usize) {
-        self.ip += offset - 1;
+        self.ip += offset;
     }
 }

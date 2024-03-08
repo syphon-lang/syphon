@@ -110,7 +110,7 @@ impl Compiler {
                 };
 
                 self.chunk.code[*first_point] = Instruction::JumpIfFalse {
-                    offset: next_first_point - first_point - 1,
+                    offset: next_first_point - first_point - 2,
                     location: conditional.location,
                 };
             }
@@ -119,11 +119,6 @@ impl Compiler {
         match conditional.fallback {
             Some(fallback) => {
                 self.compile_nodes(fallback)?;
-
-                let index = self.chunk.add_constant(Value::None);
-
-                self.chunk
-                    .write_instruction(Instruction::LoadConstant { index });
             }
 
             None => (),

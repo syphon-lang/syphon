@@ -35,7 +35,7 @@ pub struct Variable {
 #[derive(Debug, Clone)]
 pub struct Function {
     pub name: String,
-    pub parameters: ThinVec<FunctionParameter>,
+    pub parameters: Vec<FunctionParameter>,
     pub body: ThinVec<Node>,
     pub location: Location,
 }

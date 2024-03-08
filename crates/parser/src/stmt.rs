@@ -46,8 +46,8 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn parse_function_parameters(&mut self) -> Result<ThinVec<FunctionParameter>, SyphonError> {
-        let mut parameters = ThinVec::new();
+    fn parse_function_parameters(&mut self) -> Result<Vec<FunctionParameter>, SyphonError> {
+        let mut parameters = Vec::new();
 
         if !self.eat(Token::Delimiter(Delimiter::LParen)) {
             return Err(SyphonError::expected(

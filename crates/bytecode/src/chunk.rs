@@ -3,21 +3,19 @@ use crate::value::Value;
 
 use syphon_location::Location;
 
-use thin_vec::ThinVec;
-
 use std::str::Bytes;
 
 #[derive(Clone, PartialEq)]
 pub struct Chunk {
-    pub code: ThinVec<Instruction>,
-    pub constants: ThinVec<Value>,
+    pub code: Vec<Instruction>,
+    pub constants: Vec<Value>,
 }
 
 impl Chunk {
     pub fn new() -> Chunk {
         Chunk {
-            code: ThinVec::new(),
-            constants: ThinVec::new(),
+            code: Vec::new(),
+            constants: Vec::new(),
         }
     }
 
@@ -124,7 +122,7 @@ impl Chunk {
 
                     let parameters_len = usize::from_be_bytes(get_8_bytes(bytes));
 
-                    let mut parameters = ThinVec::with_capacity(parameters_len);
+                    let mut parameters = Vec::with_capacity(parameters_len);
 
                     for _ in 0..parameters_len {
                         let parameter_len = usize::from_be_bytes(get_8_bytes(bytes));

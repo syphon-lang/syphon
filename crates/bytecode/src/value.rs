@@ -2,8 +2,6 @@ use crate::chunk::Chunk;
 
 use derive_more::Display;
 
-use thin_vec::ThinVec;
-
 #[derive(Display, Clone, PartialEq)]
 pub enum Value {
     #[display(fmt = "none")]
@@ -20,7 +18,7 @@ pub enum Value {
     #[display(fmt = "<function '{}'>", name)]
     Function {
         name: String,
-        parameters: ThinVec<String>,
+        parameters: Vec<String>,
         body: Chunk,
     },
 }

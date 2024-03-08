@@ -7,8 +7,6 @@ use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
-use thin_vec::ThinVec;
-
 #[derive(Clone)]
 pub struct NameInfo {
     stack_index: usize,
@@ -17,7 +15,7 @@ pub struct NameInfo {
 
 pub struct VirtualMachine {
     chunk: Chunk,
-    stack: ThinVec<Value>,
+    stack: Vec<Value>,
     names: FxHashMap<String, NameInfo>,
     link: Option<usize>,
     ip: usize,
@@ -27,7 +25,7 @@ impl VirtualMachine {
     pub fn new() -> VirtualMachine {
         VirtualMachine {
             chunk: Chunk::new(),
-            stack: ThinVec::new(),
+            stack: Vec::new(),
             names: FxHashMap::default(),
             link: None,
             ip: 0,

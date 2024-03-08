@@ -509,6 +509,8 @@ impl VirtualMachine {
 
         let previous_constants = self.chunk.constants.clone();
 
+        let previous_link = self.link;
+
         self.chunk.constants = body.constants.clone();
 
         self.link = Some(self.ip);
@@ -521,7 +523,7 @@ impl VirtualMachine {
 
         let return_value = self.run()?;
 
-        self.link = None;
+        self.link = previous_link;
 
         for _ in 0..self.stack.len() - previous_stack_len {
             self.stack.pop().unwrap();

@@ -77,9 +77,18 @@ impl Compiler {
     }
 
     fn compile_conditional(&mut self, conditional: Conditional) -> Result<(), SyphonError> {
+        #[derive(Default)]
+        struct BacktrackPoint {
+            condition_point: usize,
+            jump_if_false_point: usize,
+            jump_point: usize,
+        }
+
         let mut backtrack_points = Vec::new();
 
         for i in 0..conditional.conditions.len() {
+            let condition_point = self.chunk.code.len();
+
             self.compile_expr(conditional.conditions[i].clone());
 
             self.chunk.write_instruction(Instruction::JumpIfFalse {
@@ -87,41 +96,28 @@ impl Compiler {
                 location: conditional.location,
             });
 
-            backtrack_points.push(self.chunk.code.len() - 1);
+            let jump_if_false_point = self.chunk.code.len() - 1;
 
             self.compile_nodes(conditional.bodies[i].clone())?;
 
             self.chunk
                 .write_instruction(Instruction::Jump { offset: 0 });
 
-            backtrack_points.push(self.chunk.code.len() - 1);
+            let jump_point = self.chunk.code.len() - 1;
+
+            backtrack_points.push(BacktrackPoint {
+                condition_point,
+                jump_if_false_point,
+                jump_point,
+            });
         }
 
-        {
-            let mut backtrack_points_iter = backtrack_points.iter();
+        let index = self.chunk.add_constant(Value::None);
 
-            while backtrack_points_iter.len() > 0 {
-                let first_point = backtrack_points_iter.next().unwrap();
+        self.chunk
+            .write_instruction(Instruction::LoadConstant { index });
 
-                backtrack_points_iter.next();
-
-                let next_first_point = if backtrack_points_iter.len() > 0 {
-                    *backtrack_points_iter.clone().next().unwrap()
-                } else {
-                    self.chunk.code.len() + 1
-                };
-
-                self.chunk.code[*first_point] = Instruction::JumpIfFalse {
-                    offset: next_first_point - first_point - 2,
-                    location: conditional.location,
-                };
-            }
-
-            let index = self.chunk.add_constant(Value::None);
-
-            self.chunk
-                .write_instruction(Instruction::LoadConstant { index });
-        }
+        let before_fallback_point = self.chunk.code.len() - 1;
 
         match conditional.fallback {
             Some(fallback) => {
@@ -131,17 +127,29 @@ impl Compiler {
             None => (),
         }
 
-        {
-            let mut backtrack_points_iter = backtrack_points.iter();
+        let mut backtrack_points_iter = backtrack_points.iter();
 
-            while backtrack_points_iter.len() > 0 {
-                backtrack_points_iter.next();
+        while backtrack_points_iter.len() > 0 {
+            let point = backtrack_points_iter.next().unwrap();
 
-                let second_point = backtrack_points_iter.next().unwrap();
+            let default_point = BacktrackPoint {
+                condition_point: before_fallback_point,
+                jump_if_false_point: 0,
+                jump_point: 0,
+            };
 
-                self.chunk.code[*second_point] = Instruction::Jump {
-                    offset: self.chunk.code.len() - 1 - second_point,
-                };
+            let next_point = backtrack_points_iter
+                .clone()
+                .next()
+                .unwrap_or(&default_point);
+
+            self.chunk.code[point.jump_if_false_point] = Instruction::JumpIfFalse {
+                offset: next_point.condition_point - point.jump_if_false_point - 1,
+                location: conditional.location,
+            };
+
+            self.chunk.code[point.jump_point] = Instruction::Jump {
+                offset: before_fallback_point - point.jump_point - 1,
             }
         }
 

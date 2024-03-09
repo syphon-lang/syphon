@@ -29,10 +29,12 @@ impl<'a> Parser<'a> {
         Ok(Node::Module { body })
     }
 
+    #[inline]
     fn next_token(&mut self) -> Token {
         self.lexer.next_token()
     }
 
+    #[inline]
     fn peek(&self) -> Token {
         self.lexer.clone().next_token()
     }

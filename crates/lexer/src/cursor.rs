@@ -16,6 +16,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    #[inline]
     pub fn consume(&mut self) -> Option<char> {
         let ch = self.chars.next();
 
@@ -29,6 +30,7 @@ impl<'a> Cursor<'a> {
         ch
     }
 
+    #[inline]
     pub fn peek(&self) -> Option<char> {
         self.chars.clone().next()
     }

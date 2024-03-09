@@ -635,12 +635,15 @@ impl VirtualMachine {
         Ok(())
     }
 
+    #[inline]
     fn jump(&mut self, offset: usize) {
         let frame = &mut self.frames[self.fp];
 
         frame.ip += offset;
     }
 
+
+    #[inline]
     fn back(&mut self, offset: usize) {
         let frame = &mut self.frames[self.fp];
 

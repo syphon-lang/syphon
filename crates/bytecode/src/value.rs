@@ -36,6 +36,7 @@ pub struct NativeFunction {
 }
 
 impl Value {
+    #[inline]
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::None => false,

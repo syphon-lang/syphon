@@ -10,3 +10,7 @@ clap = { version = "4", features = ["derive"] }
 derive_more = "0.99"
 rustc-hash = "1"
 thin-vec = "0.2"
+
+[profile.release]
+opt-level = 3
+strip = true

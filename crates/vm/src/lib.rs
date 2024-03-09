@@ -514,8 +514,6 @@ impl VirtualMachine {
             return Err(SyphonError::unable_to(location, "assign to a constant"));
         }
 
-        self.stack.remove(past_name_info.stack_index);
-
         self.stack.push(new_value);
 
         let stack_index = self.stack.len() - 1;

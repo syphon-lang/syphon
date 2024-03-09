@@ -42,13 +42,13 @@ impl VirtualMachine {
         let print_fn = NativeFunction {
             name: String::from("print"),
             call: |args| {
-                let mut writer = BufWriter::new(stdout());
+                let lock = stdout().lock();
+
+                let mut writer = BufWriter::new(lock);
 
                 for value in args {
-                    let _ = writer.write(format!("{} ", value).as_bytes());
+                    let _ = write!(writer, "{} ", value);
                 }
-
-                let _ = writer.flush();
 
                 Value::None
             },
@@ -57,16 +57,16 @@ impl VirtualMachine {
         let println_fn = NativeFunction {
             name: String::from("println"),
             call: |args| {
-                let mut writer = BufWriter::new(stdout());
+                let lock = stdout().lock();
+
+                let mut writer = BufWriter::new(lock);
 
                 for value in args {
-                    let _ = writer.write(format!("{} ", value).as_bytes());
+                    let _ = write!(writer, "{} ", value);
                 }
 
-                let _ = writer.write(b"\n");
+                let _ = writeln!(writer);
                 
-                let _ = writer.flush();
-
                 Value::None
             },
         };

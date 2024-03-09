@@ -506,7 +506,7 @@ impl VirtualMachine {
             return Err(SyphonError::undefined(location, "name", &name));
         };
 
-        let Some(new_value) = self.stack.pop() else {
+        let Some(new_value) = self.stack.last() else {
             return Err(SyphonError::expected(location, "a new value"));
         };
 
@@ -514,17 +514,7 @@ impl VirtualMachine {
             return Err(SyphonError::unable_to(location, "assign to a constant"));
         }
 
-        self.stack.push(new_value);
-
-        let stack_index = self.stack.len() - 1;
-
-        frame.locals.insert(
-            name,
-            NameInfo {
-                stack_index,
-                mutable: past_name_info.mutable,
-            },
-        );
+        self.stack[past_name_info.stack_index] = new_value.clone();
 
         Ok(())
     }

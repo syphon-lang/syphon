@@ -9,6 +9,12 @@ use syphon_errors::SyphonError;
 
 use thin_vec::ThinVec;
 
+#[derive(Default)]
+pub struct CompilerContext {
+    looping: bool,
+    break_point: Option<usize>
+}
+
 #[derive(PartialEq)]
 pub enum CompilerMode {
     Script,
@@ -18,6 +24,7 @@ pub enum CompilerMode {
 pub struct Compiler {
     chunk: Chunk,
 
+    context: CompilerContext,
     mode: CompilerMode,
 }
 
@@ -26,6 +33,7 @@ impl Compiler {
         Compiler {
             chunk: Chunk::new(),
 
+            context: CompilerContext::default(),
             mode,
         }
     }

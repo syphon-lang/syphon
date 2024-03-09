@@ -21,6 +21,8 @@ pub enum StmtKind {
 
     While(While),
 
+    Break(Break),
+
     Return(Return),
 }
 
@@ -58,6 +60,11 @@ pub struct Conditional {
 pub struct While {
     pub condition: ExprKind,
     pub body: ThinVec<Node>,
+    pub location: Location,
+}
+
+#[derive(Debug, Clone)]
+pub struct Break {
     pub location: Location,
 }
 

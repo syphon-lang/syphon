@@ -10,6 +10,7 @@ impl<'a> Parser<'a> {
                 Keyword::Const => self.parse_variable_declaration(false),
                 Keyword::If => self.parse_conditional(),
                 Keyword::While => self.parse_while(),
+                Keyword::Break => self.parse_break(),
                 Keyword::Return => self.parse_return(),
 
                 _ => self.parse_expr(),
@@ -233,6 +234,16 @@ impl<'a> Parser<'a> {
             })
             .into(),
         ))
+    }
+
+    fn parse_break(&mut self) -> Result<Node, SyphonError> {
+        let location = self.lexer.cursor.location;
+
+        self.next_token();
+
+        self.eat(Token::Delimiter(Delimiter::Semicolon));
+
+        Ok(Node::Stmt(StmtKind::Break(Break { location }).into()))
     }
 
     fn parse_return(&mut self) -> Result<Node, SyphonError> {

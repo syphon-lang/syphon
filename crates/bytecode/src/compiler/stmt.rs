@@ -19,6 +19,8 @@ impl Compiler {
 
             StmtKind::While(while_stmt) => self.compile_while(while_stmt),
 
+            StmtKind::Break(break_stmt) => self.compile_break(break_stmt),
+
             StmtKind::Return(return_stmt) => self.compile_return(return_stmt),
         }
     }
@@ -164,6 +166,8 @@ impl Compiler {
 
         let jump_if_false_point = self.chunk.code.len() - 1;
 
+        self.context.looping = true;
+
         self.compile_nodes(while_stmt.body)?;
 
         self.chunk.code[jump_if_false_point] = Instruction::JumpIfFalse {
@@ -175,10 +179,31 @@ impl Compiler {
             offset: self.chunk.code.len() - condition_point,
         });
 
+        if let Some(break_point) = self.context.break_point {
+            self.chunk.code[break_point] = Instruction::Jump {
+                offset: self.chunk.code.len() - break_point,
+            }
+        }
+
         let index = self.chunk.add_constant(Value::None);
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index });
+
+        Ok(())
+    }
+
+    fn compile_break(&mut self, break_stmt: Break) -> Result<(), SyphonError> {
+        if !self.context.looping {
+            return Err(SyphonError::unable_to(
+                break_stmt.location,
+                "return outside a loop",
+            ));
+        }
+
+        self.chunk.write_instruction(Instruction::Jump { offset: 0 });
+
+        self.context.break_point = Some(self.chunk.code.len() - 1);
 
         Ok(())
     }

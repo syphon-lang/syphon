@@ -29,6 +29,7 @@ pub enum Keyword {
     If,
     Else,
     While,
+    Break,
     Return,
     None,
 }
@@ -128,6 +129,7 @@ impl ToString for Token {
                 Keyword::If => String::from("if"),
                 Keyword::Else => String::from("else"),
                 Keyword::While => String::from("while"),
+                Keyword::Break => String::from("break"),
                 Keyword::Return => String::from("return"),
                 Keyword::None => String::from("none"),
             },

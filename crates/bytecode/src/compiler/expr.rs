@@ -1,5 +1,5 @@
 use crate::compiler::Compiler;
-use crate::instructions::Instruction;
+use crate::instruction::Instruction;
 use crate::value::Value;
 
 use syphon_ast::*;

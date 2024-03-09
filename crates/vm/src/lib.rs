@@ -1,5 +1,5 @@
 use syphon_bytecode::chunk::Chunk;
-use syphon_bytecode::instructions::Instruction;
+use syphon_bytecode::instruction::Instruction;
 use syphon_bytecode::value::{Function, Value};
 
 use syphon_errors::SyphonError;

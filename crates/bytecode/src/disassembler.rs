@@ -1,5 +1,5 @@
 use crate::chunk::Chunk;
-use crate::instructions::Instruction;
+use crate::instruction::Instruction;
 use crate::value::Value;
 
 pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {

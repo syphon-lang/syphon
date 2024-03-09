@@ -1,5 +1,5 @@
 use crate::compiler::{Compiler, CompilerMode};
-use crate::instructions::Instruction;
+use crate::instruction::Instruction;
 use crate::value::{Function as BytecodeFunction, Value};
 
 use syphon_ast::*;

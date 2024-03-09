@@ -2,7 +2,7 @@ mod expr;
 mod stmt;
 
 use crate::chunk::Chunk;
-use crate::instructions::Instruction;
+use crate::instruction::Instruction;
 
 use syphon_ast::*;
 use syphon_errors::SyphonError;

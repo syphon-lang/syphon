@@ -1,4 +1,4 @@
-use crate::instructions::Instruction;
+use crate::instruction::Instruction;
 use crate::value::{Function, Value};
 
 use syphon_location::Location;

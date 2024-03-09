@@ -139,7 +139,6 @@ impl VirtualMachine {
                         .function
                         .body
                         .get_constant(index)
-                        .unwrap()
                         .clone(),
                 ),
 

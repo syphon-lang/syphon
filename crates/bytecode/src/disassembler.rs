@@ -59,7 +59,7 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
             format!(
                 "LoadConstant {} ({})",
                 index,
-                chunk.get_constant(*index).unwrap_or(&Value::None)
+                chunk.get_constant(*index)
             )
         }
 

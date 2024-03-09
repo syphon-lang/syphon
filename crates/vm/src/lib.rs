@@ -1,6 +1,6 @@
 use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::instruction::Instruction;
-use syphon_bytecode::value::{Function, Value};
+use syphon_bytecode::value::{Function, NativeFunction, Value};
 
 use syphon_errors::SyphonError;
 use syphon_location::Location;
@@ -15,7 +15,7 @@ pub struct NameInfo {
 
 struct CallFrame {
     function: Function,
-    names: FxHashMap<String, NameInfo>,
+    locals: FxHashMap<String, NameInfo>,
     ip: usize,
 }
 
@@ -23,6 +23,7 @@ pub struct VirtualMachine {
     frames: Vec<CallFrame>,
     fp: usize,
     stack: Vec<Value>,
+    globals: FxHashMap<String, Value>,
 }
 
 impl VirtualMachine {
@@ -31,7 +32,40 @@ impl VirtualMachine {
             frames: Vec::new(),
             fp: 0,
             stack: Vec::new(),
+            globals: FxHashMap::default(),
         }
+    }
+
+    pub fn init_globals(&mut self) {
+        let print_fn = NativeFunction {
+            name: String::from("print"),
+            call: |args| {
+                for value in args {
+                    print!("{} ", value);
+                }
+
+                Value::None
+            },
+        };
+
+        let println_fn = NativeFunction {
+            name: String::from("println"),
+            call: |args| {
+                for value in args {
+                    print!("{} ", value);
+                }
+
+                println!();
+
+                Value::None
+            },
+        };
+
+        self.globals
+            .insert(print_fn.name.clone(), Value::NativeFunction(print_fn));
+
+        self.globals
+            .insert(println_fn.name.clone(), Value::NativeFunction(println_fn));
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
@@ -43,7 +77,7 @@ impl VirtualMachine {
                     parameters: Vec::new(),
                 },
 
-                names: FxHashMap::default(),
+                locals: FxHashMap::default(),
                 ip: 0,
             });
         } else {
@@ -436,7 +470,7 @@ impl VirtualMachine {
 
         let stack_index = self.stack.len() - 1;
 
-        frame.names.insert(
+        frame.locals.insert(
             name,
             NameInfo {
                 stack_index,
@@ -448,21 +482,27 @@ impl VirtualMachine {
     fn load_name(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
         let frame = &self.frames[self.fp];
 
-        let Some(name_info) = frame.names.get(&name) else {
-            return Err(SyphonError::undefined(location, "name", &name));
+        let value = match frame.locals.get(&name) {
+            Some(name_info) => self.stack.get(name_info.stack_index),
+
+            None => self.globals.get(&name),
         };
 
-        let value = self.stack.get(name_info.stack_index).unwrap().clone();
+        match value {
+            Some(value) => {
+                self.stack.push(value.clone());
 
-        self.stack.push(value);
+                Ok(())
+            }
 
-        Ok(())
+            None => Err(SyphonError::undefined(location, "name", &name)),
+        }
     }
 
     fn assign(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
         let frame = &mut self.frames[self.fp];
 
-        let Some(past_name_info) = frame.names.get(&name) else {
+        let Some(past_name_info) = frame.locals.get(&name) else {
             return Err(SyphonError::undefined(location, "name", &name));
         };
 
@@ -480,7 +520,7 @@ impl VirtualMachine {
 
         let stack_index = self.stack.len() - 1;
 
-        frame.names.insert(
+        frame.locals.insert(
             name,
             NameInfo {
                 stack_index,
@@ -506,6 +546,8 @@ impl VirtualMachine {
             arguments.push(self.stack.pop().unwrap());
         }
 
+        arguments.reverse();
+
         match callee {
             Value::Function(function) => {
                 if function.parameters.len() != arguments_count {
@@ -528,7 +570,7 @@ impl VirtualMachine {
 
                 self.frames.push(CallFrame {
                     function,
-                    names: previous_frame.names.clone(),
+                    locals: previous_frame.locals.clone(),
                     ip: 0,
                 });
 
@@ -538,14 +580,12 @@ impl VirtualMachine {
 
                 let previous_stack_len = self.stack.len();
 
-                arguments.reverse();
-
                 for parameter in new_frame.function.parameters.iter() {
                     self.stack.push(arguments.pop().unwrap());
 
                     let stack_index = self.stack.len() - 1;
 
-                    new_frame.names.insert(
+                    new_frame.locals.insert(
                         parameter.to_string(),
                         NameInfo {
                             stack_index,
@@ -568,7 +608,13 @@ impl VirtualMachine {
 
                         return Err(err);
                     }
-                }
+                };
+            }
+
+            Value::NativeFunction(function) => {
+                let return_value = (function.call)(arguments);
+
+                self.stack.push(return_value);
             }
 
             _ => return Err(SyphonError::expected(location, "a callable")),

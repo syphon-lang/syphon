@@ -11,6 +11,8 @@ pub fn start() {
 
     let mut vm = VirtualMachine::new();
 
+    vm.init_globals();
+
     loop {
         let mut input = String::new();
 

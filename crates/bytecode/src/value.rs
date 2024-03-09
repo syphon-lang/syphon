@@ -16,6 +16,8 @@ pub enum Value {
     Bool(bool),
 
     Function(Function),
+
+    NativeFunction(NativeFunction),
 }
 
 #[derive(Display, Clone, PartialEq)]
@@ -24,6 +26,13 @@ pub struct Function {
     pub name: String,
     pub parameters: Vec<String>,
     pub body: Chunk,
+}
+
+#[derive(Display, Clone, PartialEq)]
+#[display(fmt = "<native function '{}'>", name)]
+pub struct NativeFunction {
+    pub name: String,
+    pub call: fn(Vec<Value>) -> Value,
 }
 
 impl Value {
@@ -86,6 +95,8 @@ impl Value {
 
                 bytes.extend(function.body.to_bytes());
             }
+
+            _ => unreachable!()
         }
 
         bytes

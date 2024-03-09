@@ -93,6 +93,8 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
 
     let mut vm = VirtualMachine::new();
 
+    vm.init_globals();
+
     match run(
         file_path.to_string_lossy().to_string().as_str(),
         file_content,

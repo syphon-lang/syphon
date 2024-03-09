@@ -1,3 +1,5 @@
+use std::io::{stdout, BufWriter, Write};
+
 use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::instruction::Instruction;
 use syphon_bytecode::value::{Function, NativeFunction, Value};
@@ -40,9 +42,13 @@ impl VirtualMachine {
         let print_fn = NativeFunction {
             name: String::from("print"),
             call: |args| {
+                let mut writer = BufWriter::new(stdout());
+
                 for value in args {
-                    print!("{} ", value);
+                    let _ = writer.write(format!("{} ", value).as_bytes());
                 }
+
+                let _ = writer.flush();
 
                 Value::None
             },
@@ -51,11 +57,15 @@ impl VirtualMachine {
         let println_fn = NativeFunction {
             name: String::from("println"),
             call: |args| {
+                let mut writer = BufWriter::new(stdout());
+
                 for value in args {
-                    print!("{} ", value);
+                    let _ = writer.write(format!("{} ", value).as_bytes());
                 }
 
-                println!();
+                let _ = writer.write(b"\n");
+                
+                let _ = writer.flush();
 
                 Value::None
             },

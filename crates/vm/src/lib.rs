@@ -33,7 +33,7 @@ impl VirtualMachine {
         VirtualMachine {
             frames: Vec::new(),
             fp: 0,
-            stack: Vec::new(),
+            stack: Vec::with_capacity(256),
             globals: FxHashMap::default(),
         }
     }

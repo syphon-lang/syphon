@@ -23,6 +23,8 @@ pub enum StmtKind {
 
     Break(Break),
 
+    Continue(Continue),
+
     Return(Return),
 }
 
@@ -65,6 +67,11 @@ pub struct While {
 
 #[derive(Debug, Clone)]
 pub struct Break {
+    pub location: Location,
+}
+
+#[derive(Debug, Clone)]
+pub struct Continue {
     pub location: Location,
 }
 

@@ -21,6 +21,8 @@ impl Compiler {
 
             StmtKind::Break(break_stmt) => self.compile_break(break_stmt),
 
+            StmtKind::Continue(continue_stmt) => self.compile_continue(continue_stmt),
+
             StmtKind::Return(return_stmt) => self.compile_return(return_stmt),
         }
     }
@@ -166,6 +168,12 @@ impl Compiler {
 
         let jump_if_false_point = self.chunk.code.len() - 1;
 
+        let previous_break_points_len = self.context.break_points.len();
+
+        let previous_continue_points_len = self.context.continue_points.len();
+
+        let previous_looping_bool = self.context.looping;
+
         self.context.looping = true;
 
         self.compile_nodes(while_stmt.body)?;
@@ -179,10 +187,26 @@ impl Compiler {
             offset: self.chunk.code.len() - condition_point,
         });
 
-        if let Some(break_point) = self.context.break_point {
-            self.chunk.code[break_point] = Instruction::Jump {
+        for break_point in self.context.break_points.iter() {
+            self.chunk.code[*break_point] = Instruction::Jump {
                 offset: self.chunk.code.len() - break_point,
             }
+        }
+
+        for continue_point in self.context.continue_points.iter() {
+            self.chunk.code[*continue_point] = Instruction::Back {
+                offset: continue_point - condition_point,
+            }
+        }
+
+        self.context.looping = previous_looping_bool;
+
+        for _ in 0..previous_break_points_len {
+            self.context.break_points.pop();
+        }
+
+        for _ in 0..previous_continue_points_len {
+            self.context.continue_points.pop();
         }
 
         let index = self.chunk.add_constant(Value::None);
@@ -197,13 +221,30 @@ impl Compiler {
         if !self.context.looping {
             return Err(SyphonError::unable_to(
                 break_stmt.location,
-                "return outside a loop",
+                "break outside a loop",
             ));
         }
 
-        self.chunk.write_instruction(Instruction::Jump { offset: 0 });
+        self.chunk
+            .write_instruction(Instruction::Jump { offset: 0 });
 
-        self.context.break_point = Some(self.chunk.code.len() - 1);
+        self.context.break_points.push(self.chunk.code.len() - 1);
+
+        Ok(())
+    }
+
+    fn compile_continue(&mut self, continue_stmt: Continue) -> Result<(), SyphonError> {
+        if !self.context.looping {
+            return Err(SyphonError::unable_to(
+                continue_stmt.location,
+                "continue outside a loop",
+            ));
+        }
+
+        self.chunk
+            .write_instruction(Instruction::Jump { offset: 0 });
+
+        self.context.continue_points.push(self.chunk.code.len() - 1);
 
         Ok(())
     }

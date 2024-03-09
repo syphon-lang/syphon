@@ -11,6 +11,7 @@ impl<'a> Parser<'a> {
                 Keyword::If => self.parse_conditional(),
                 Keyword::While => self.parse_while(),
                 Keyword::Break => self.parse_break(),
+                Keyword::Continue => self.parse_continue(),
                 Keyword::Return => self.parse_return(),
 
                 _ => self.parse_expr(),
@@ -244,6 +245,16 @@ impl<'a> Parser<'a> {
         self.eat(Token::Delimiter(Delimiter::Semicolon));
 
         Ok(Node::Stmt(StmtKind::Break(Break { location }).into()))
+    }
+
+    fn parse_continue(&mut self) -> Result<Node, SyphonError> {
+        let location = self.lexer.cursor.location;
+
+        self.next_token();
+
+        self.eat(Token::Delimiter(Delimiter::Semicolon));
+
+        Ok(Node::Stmt(StmtKind::Continue(Continue { location }).into()))
     }
 
     fn parse_return(&mut self) -> Result<Node, SyphonError> {

@@ -129,6 +129,7 @@ impl<'a> Lexer<'a> {
             "else" => Token::Keyword(Keyword::Else),
             "while" => Token::Keyword(Keyword::While),
             "break" => Token::Keyword(Keyword::Break),
+            "continue" => Token::Keyword(Keyword::Continue),
             "return" => Token::Keyword(Keyword::Return),
             "none" => Token::Keyword(Keyword::None),
 

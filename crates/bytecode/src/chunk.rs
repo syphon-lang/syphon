@@ -163,9 +163,7 @@ impl Chunk {
                 }
 
                 1 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::LogicalNot { location });
+                    chunk.write_instruction(Instruction::LogicalNot);
                 }
 
                 2 => {
@@ -282,9 +280,7 @@ impl Chunk {
                 18 => {
                     let offset = usize::from_be_bytes(get_8_bytes(bytes));
 
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::JumpIfFalse { offset, location });
+                    chunk.write_instruction(Instruction::JumpIfFalse { offset });
                 }
 
                 19 => {

@@ -95,10 +95,8 @@ impl Compiler {
 
             self.compile_expr(conditional.conditions[i].clone());
 
-            self.chunk.write_instruction(Instruction::JumpIfFalse {
-                offset: 0,
-                location: conditional.location,
-            });
+            self.chunk
+                .write_instruction(Instruction::JumpIfFalse { offset: 0 });
 
             let jump_if_false_point = self.chunk.code.len() - 1;
 
@@ -145,7 +143,6 @@ impl Compiler {
 
             self.chunk.code[point.jump_if_false_point] = Instruction::JumpIfFalse {
                 offset: next_point.condition_point - point.jump_if_false_point - 1,
-                location: conditional.location,
             };
 
             self.chunk.code[point.jump_point] = Instruction::Jump {
@@ -161,10 +158,8 @@ impl Compiler {
 
         self.compile_expr(while_stmt.condition);
 
-        self.chunk.write_instruction(Instruction::JumpIfFalse {
-            offset: 0,
-            location: while_stmt.location,
-        });
+        self.chunk
+            .write_instruction(Instruction::JumpIfFalse { offset: 0 });
 
         let jump_if_false_point = self.chunk.code.len() - 1;
 
@@ -180,7 +175,6 @@ impl Compiler {
 
         self.chunk.code[jump_if_false_point] = Instruction::JumpIfFalse {
             offset: self.chunk.code.len() - jump_if_false_point,
-            location: while_stmt.location,
         };
 
         self.chunk.write_instruction(Instruction::Back {

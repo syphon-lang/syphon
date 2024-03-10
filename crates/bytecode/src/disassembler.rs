@@ -29,7 +29,7 @@ pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {
 fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
     match instruction {
         Instruction::Neg { .. } => "Neg".to_string(),
-        Instruction::LogicalNot { .. } => "LogicalNot".to_string(),
+        Instruction::LogicalNot => "LogicalNot".to_string(),
 
         Instruction::Add { .. } => "Add".to_string(),
         Instruction::Sub { .. } => "Sub".to_string(),
@@ -56,11 +56,7 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
         }
 
         Instruction::LoadConstant { index } => {
-            format!(
-                "LoadConstant {} ({})",
-                index,
-                chunk.get_constant(*index)
-            )
+            format!("LoadConstant {} ({})", index, chunk.get_constant(*index))
         }
 
         Instruction::Call {
@@ -71,7 +67,7 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
 
         Instruction::Return => "Return".to_string(),
 
-        Instruction::JumpIfFalse { offset, .. } => {
+        Instruction::JumpIfFalse { offset } => {
             format!("JumpIfFalse ({})", offset)
         }
 

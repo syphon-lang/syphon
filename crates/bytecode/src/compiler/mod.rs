@@ -13,7 +13,7 @@ use thin_vec::ThinVec;
 pub struct CompilerContext {
     looping: bool,
     break_points: Vec<usize>,
-    continue_points: Vec<usize>
+    continue_points: Vec<usize>,
 }
 
 #[derive(PartialEq)]

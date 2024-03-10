@@ -6,9 +6,7 @@ pub enum Instruction {
     Neg {
         location: Location,
     },
-    LogicalNot {
-        location: Location,
-    },
+    LogicalNot,
 
     Add {
         location: Location,
@@ -70,7 +68,6 @@ pub enum Instruction {
 
     JumpIfFalse {
         offset: usize,
-        location: Location,
     },
 
     Jump {
@@ -92,9 +89,8 @@ impl Instruction {
                 bytes.extend(location.to_bytes());
             }
 
-            Instruction::LogicalNot { location } => {
+            Instruction::LogicalNot => {
                 bytes.push(1);
-                bytes.extend(location.to_bytes());
             }
 
             Instruction::Add { location } => {
@@ -199,12 +195,10 @@ impl Instruction {
                 bytes.push(17);
             }
 
-            Instruction::JumpIfFalse { offset, location } => {
+            Instruction::JumpIfFalse { offset } => {
                 bytes.push(18);
 
                 bytes.extend(offset.to_be_bytes());
-
-                bytes.extend(location.to_bytes());
             }
 
             Instruction::Jump { offset } => {

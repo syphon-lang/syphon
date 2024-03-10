@@ -97,7 +97,7 @@ impl Value {
                 bytes.extend(function.body.to_bytes());
             }
 
-            _ => unreachable!()
+            _ => unreachable!(),
         }
 
         bytes

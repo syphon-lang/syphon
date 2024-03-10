@@ -97,9 +97,7 @@ impl Compiler {
         match operator {
             UnaryOperator::Minus => self.chunk.write_instruction(Instruction::Neg { location }),
 
-            UnaryOperator::Bang => self
-                .chunk
-                .write_instruction(Instruction::LogicalNot { location }),
+            UnaryOperator::Bang => self.chunk.write_instruction(Instruction::LogicalNot),
         }
     }
 

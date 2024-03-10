@@ -66,7 +66,7 @@ impl VirtualMachine {
                 }
 
                 let _ = writeln!(writer);
-                
+
                 Value::None
             },
         };
@@ -106,7 +106,7 @@ impl VirtualMachine {
             match instruction {
                 Instruction::Neg { location } => self.negative(location)?,
 
-                Instruction::LogicalNot { location } => self.logical_not(location)?,
+                Instruction::LogicalNot => self.logical_not()?,
 
                 Instruction::Add { location } => self.add(location)?,
 
@@ -151,7 +151,7 @@ impl VirtualMachine {
                     if self.fp != 0 {
                         self.fp -= 1;
 
-                        self.frames.pop().unwrap();
+                        self.frames.pop();
                     }
 
                     return Ok(match self.stack.pop() {
@@ -160,9 +160,7 @@ impl VirtualMachine {
                     });
                 }
 
-                Instruction::JumpIfFalse { offset, location } => {
-                    self.jump_if_false(offset, location)?
-                }
+                Instruction::JumpIfFalse { offset } => self.jump_if_false(offset)?,
 
                 Instruction::Jump { offset } => self.jump(offset),
 
@@ -174,9 +172,7 @@ impl VirtualMachine {
     }
 
     fn negative(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match right {
             Value::Int(value) => Value::Int(-value),
@@ -188,10 +184,8 @@ impl VirtualMachine {
         Ok(())
     }
 
-    fn logical_not(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+    fn logical_not(&mut self) -> Result<(), SyphonError> {
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match right {
             Value::Int(value) => Value::Bool(value == 0),
@@ -204,13 +198,9 @@ impl VirtualMachine {
     }
 
     fn add(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left + right),
@@ -231,13 +221,9 @@ impl VirtualMachine {
     }
 
     fn subtract(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left - right),
@@ -257,13 +243,9 @@ impl VirtualMachine {
     }
 
     fn divide(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Float(left as f64 / right as f64),
@@ -283,13 +265,9 @@ impl VirtualMachine {
     }
 
     fn multiply(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left * right),
@@ -309,13 +287,9 @@ impl VirtualMachine {
     }
 
     fn exponent(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Float((left as f64).powf(right as f64)),
@@ -335,13 +309,9 @@ impl VirtualMachine {
     }
 
     fn modulo(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left.rem_euclid(right)),
@@ -363,13 +333,9 @@ impl VirtualMachine {
     }
 
     fn greater_than(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (right, left) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left > right),
@@ -389,13 +355,9 @@ impl VirtualMachine {
     }
 
     fn less_than(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (right, left) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left < right),
@@ -415,13 +377,9 @@ impl VirtualMachine {
     }
 
     fn equals(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left == right),
@@ -445,13 +403,9 @@ impl VirtualMachine {
     }
 
     fn not_equals(&mut self, location: Location) -> Result<(), SyphonError> {
-        let Some(right) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let Some(left) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left != right),
@@ -515,9 +469,7 @@ impl VirtualMachine {
             return Err(SyphonError::undefined(location, "name", &name));
         };
 
-        let Some(new_value) = self.stack.last() else {
-            return Err(SyphonError::expected(location, "a new value"));
-        };
+        let new_value = unsafe { self.stack.last().unwrap_unchecked() };
 
         if !past_name_info.mutable {
             return Err(SyphonError::unable_to(location, "assign to a constant"));
@@ -533,14 +485,12 @@ impl VirtualMachine {
         arguments_count: usize,
         location: Location,
     ) -> Result<(), SyphonError> {
-        let Some(callee) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a callable"));
-        };
+        let callee = unsafe { self.stack.pop().unwrap_unchecked() };
 
         let mut arguments = Vec::with_capacity(arguments_count);
 
         for _ in 0..arguments_count {
-            arguments.push(self.stack.pop().unwrap());
+            arguments.push(unsafe { self.stack.pop().unwrap_unchecked() });
         }
 
         arguments.reverse();
@@ -578,7 +528,8 @@ impl VirtualMachine {
                 let previous_stack_len = self.stack.len();
 
                 for parameter in new_frame.function.parameters.iter() {
-                    self.stack.push(arguments.pop().unwrap());
+                    self.stack
+                        .push(unsafe { arguments.pop().unwrap_unchecked() });
 
                     let stack_index = self.stack.len() - 1;
 
@@ -601,7 +552,8 @@ impl VirtualMachine {
                     Ok(return_value) => self.stack.push(return_value),
                     Err(err) => {
                         self.fp -= 1;
-                        self.frames.pop().unwrap();
+
+                        self.frames.pop();
 
                         return Err(err);
                     }
@@ -620,12 +572,10 @@ impl VirtualMachine {
         Ok(())
     }
 
-    fn jump_if_false(&mut self, offset: usize, location: Location) -> Result<(), SyphonError> {
+    fn jump_if_false(&mut self, offset: usize) -> Result<(), SyphonError> {
         let frame = &mut self.frames[self.fp];
 
-        let Some(value) = self.stack.pop() else {
-            return Err(SyphonError::expected(location, "a value"));
-        };
+        let value = unsafe { self.stack.pop().unwrap_unchecked() };
 
         if !value.is_truthy() {
             frame.ip += offset;
@@ -640,7 +590,6 @@ impl VirtualMachine {
 
         frame.ip += offset;
     }
-
 
     #[inline]
     fn back(&mut self, offset: usize) {

@@ -16,16 +16,13 @@ impl From<&Token> for Precedence {
     fn from(value: &Token) -> Precedence {
         match value {
             Token::Operator(operator) => match operator {
-                Operator::Equals => Precedence::Comparison,
-                Operator::NotEquals => Precedence::Comparison,
-                Operator::LessThan => Precedence::Comparison,
-                Operator::GreaterThan => Precedence::Comparison,
-                Operator::Plus => Precedence::Sum,
-                Operator::Minus => Precedence::Sum,
-                Operator::ForwardSlash => Precedence::Product,
-                Operator::Star => Precedence::Product,
-                Operator::Percent => Precedence::Product,
-                Operator::DoubleStar => Precedence::Exponent,
+                Operator::Equals
+                | Operator::NotEquals
+                | Operator::LessThan
+                | Operator::GreaterThan => Precedence::Comparison,
+                Operator::Plus | Operator::Minus => Precedence::Sum,
+                Operator::ForwardSlash | Operator::Star => Precedence::Product,
+                Operator::Percent | Operator::DoubleStar => Precedence::Exponent,
                 _ => Precedence::Lowest,
             },
 

@@ -14,12 +14,8 @@ pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {
     }
 
     for constant in chunk.constants.iter() {
-        match constant {
-            Value::Function(function) => {
-                disassembled.push_str(disassmeble(&function.name, &function.body).as_str());
-            }
-
-            _ => (),
+        if let Value::Function(function) = constant {
+            disassembled.push_str(disassmeble(&function.name, &function.body).as_str());
         }
     }
 

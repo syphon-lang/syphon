@@ -20,13 +20,16 @@ pub struct NameInfo {
 struct CallFrame {
     function: Arc<Function>,
     ip: usize,
+
     locals: FxHashMap<Atom, NameInfo>,
 }
 
 pub struct VirtualMachine {
     frames: Vec<CallFrame>,
     fp: usize,
+
     stack: Vec<Value>,
+
     globals: HashMap<String, Value>,
 }
 
@@ -35,7 +38,9 @@ impl VirtualMachine {
         VirtualMachine {
             frames: Vec::new(),
             fp: 0,
+
             stack: Vec::with_capacity(256),
+
             globals: HashMap::new(),
         }
     }
@@ -92,7 +97,7 @@ impl VirtualMachine {
         }
         .into();
 
-        if self.frames.len() == 0 {
+        if self.frames.is_empty() {
             self.frames.push(CallFrame {
                 function,
                 locals: FxHashMap::default(),

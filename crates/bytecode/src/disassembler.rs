@@ -3,27 +3,27 @@ use crate::instruction::Instruction;
 use crate::value::Value;
 
 pub fn disassmeble(chunk_name: &str, chunk: &Chunk) -> String {
-    let mut disassmebled = String::new();
+    let mut disassembled = String::new();
 
-    disassmebled.push_str(format!("\nDisassembly of '{}'\n", chunk_name).as_str());
+    disassembled.push_str(format!("\nDisassembly of '{}'\n", chunk_name).as_str());
 
     for instruction in chunk.code.iter() {
-        disassmebled.push('\t');
-        disassmebled.push_str(disassmeble_instruction(chunk, instruction).as_str());
-        disassmebled.push('\n');
+        disassembled.push('\t');
+        disassembled.push_str(disassmeble_instruction(chunk, instruction).as_str());
+        disassembled.push('\n');
     }
 
     for constant in chunk.constants.iter() {
         match constant {
             Value::Function(function) => {
-                disassmebled.push_str(disassmeble(&function.name, &function.body).as_str());
+                disassembled.push_str(disassmeble(&function.name, &function.body).as_str());
             }
 
             _ => (),
         }
     }
 
-    disassmebled
+    disassembled
 }
 
 fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
@@ -43,16 +43,16 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
         Instruction::LessThan { .. } => "LessThan".to_string(),
         Instruction::GreaterThan { .. } => "GreaterThan".to_string(),
 
-        Instruction::StoreName { name, .. } => {
-            format!("StoreName ({})", name)
+        Instruction::StoreName { atom, .. } => {
+            format!("StoreName {} ({})", atom, chunk.get_name_by_atom(*atom))
         }
 
-        Instruction::Assign { name, .. } => {
-            format!("Assign ({})", name)
+        Instruction::Assign { atom, .. } => {
+            format!("Assign {} ({})", atom, chunk.get_name_by_atom(*atom))
         }
 
-        Instruction::LoadName { name, .. } => {
-            format!("LoadName ({})", name)
+        Instruction::LoadName { atom, .. } => {
+            format!("LoadName {} ({})", atom, chunk.get_name_by_atom(*atom))
         }
 
         Instruction::LoadConstant { index } => {

@@ -1,4 +1,4 @@
-use syphon_bytecode::chunk::Chunk;
+use syphon_bytecode::chunk::{Atom, Chunk};
 use syphon_bytecode::instruction::Instruction;
 use syphon_bytecode::value::{Function, NativeFunction, Value};
 
@@ -7,6 +7,7 @@ use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
+use std::collections::HashMap;
 use std::io::{stdout, BufWriter, Write};
 use std::sync::Arc;
 
@@ -18,15 +19,15 @@ pub struct NameInfo {
 
 struct CallFrame {
     function: Arc<Function>,
-    locals: FxHashMap<String, NameInfo>,
     ip: usize,
+    locals: FxHashMap<Atom, NameInfo>,
 }
 
 pub struct VirtualMachine {
     frames: Vec<CallFrame>,
     fp: usize,
     stack: Vec<Value>,
-    globals: FxHashMap<String, Value>,
+    globals: HashMap<String, Value>,
 }
 
 impl VirtualMachine {
@@ -35,7 +36,7 @@ impl VirtualMachine {
             frames: Vec::new(),
             fp: 0,
             stack: Vec::with_capacity(256),
-            globals: FxHashMap::default(),
+            globals: HashMap::new(),
         }
     }
 
@@ -93,7 +94,6 @@ impl VirtualMachine {
                     parameters: Vec::new(),
                 }
                 .into(),
-
                 locals: FxHashMap::default(),
                 ip: 0,
             },
@@ -102,8 +102,7 @@ impl VirtualMachine {
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         while self.frames[self.fp].ip < self.frames[self.fp].function.body.code.len() {
-            let instruction =
-                self.frames[self.fp].function.body.code[self.frames[self.fp].ip].clone();
+            let instruction = self.frames[self.fp].function.body.code[self.frames[self.fp].ip].clone();
 
             self.frames[self.fp].ip += 1;
 
@@ -112,7 +111,7 @@ impl VirtualMachine {
 
                 Instruction::LogicalNot => self.logical_not()?,
 
-                Instruction::Add { location } => self.add(location)?,
+                Instruction::Add { location } => self.get(location)?,
 
                 Instruction::Sub { location } => self.subtract(location)?,
 
@@ -132,19 +131,15 @@ impl VirtualMachine {
 
                 Instruction::NotEquals { location } => self.not_equals(location)?,
 
-                Instruction::StoreName { name, mutable } => self.store_name(name, mutable),
+                Instruction::StoreName { atom, mutable } => self.store_name(atom, mutable),
 
-                Instruction::LoadName { name, location } => self.load_name(name, location)?,
+                Instruction::LoadName { atom, location } => self.load_name(atom, location)?,
 
-                Instruction::Assign { name, location } => self.assign(name, location)?,
+                Instruction::Assign { atom, location } => self.assign(atom, location)?,
 
-                Instruction::LoadConstant { index } => self.stack.push(
-                    self.frames[self.fp]
-                        .function
-                        .body
-                        .get_constant(index)
-                        .clone(),
-                ),
+                Instruction::LoadConstant { index } => self
+                    .stack
+                    .push(self.frames[self.fp].function.body.get_constant(index).clone()),
 
                 Instruction::Call {
                     arguments_count,
@@ -201,7 +196,7 @@ impl VirtualMachine {
         Ok(())
     }
 
-    fn add(&mut self, location: Location) -> Result<(), SyphonError> {
+    fn get(&mut self, location: Location) -> Result<(), SyphonError> {
         let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
         let left = unsafe { self.stack.pop().unwrap_unchecked() };
@@ -439,13 +434,13 @@ impl VirtualMachine {
         Ok(())
     }
 
-    fn store_name(&mut self, name: String, mutable: bool) {
+    fn store_name(&mut self, atom: Atom, mutable: bool) {
         let frame = &mut self.frames[self.fp];
 
         let stack_index = self.stack.len() - 1;
 
         frame.locals.insert(
-            name,
+            atom,
             NameInfo {
                 stack_index,
                 mutable,
@@ -453,13 +448,13 @@ impl VirtualMachine {
         );
     }
 
-    fn load_name(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
+    fn load_name(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
         let frame = &self.frames[self.fp];
 
-        let value = match frame.locals.get(&name) {
+        let value = match frame.locals.get(&atom) {
             Some(name_info) => self.stack.get(name_info.stack_index),
 
-            None => self.globals.get(&name),
+            None => self.globals.get(frame.function.body.get_name_by_atom(atom)),
         };
 
         match value {
@@ -469,15 +464,23 @@ impl VirtualMachine {
                 Ok(())
             }
 
-            None => Err(SyphonError::undefined(location, "name", &name)),
+            None => Err(SyphonError::undefined(
+                location,
+                "name",
+                frame.function.body.get_name_by_atom(atom),
+            )),
         }
     }
 
-    fn assign(&mut self, name: String, location: Location) -> Result<(), SyphonError> {
+    fn assign(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
         let frame = &mut self.frames[self.fp];
 
-        let Some(past_name_info) = frame.locals.get(&name) else {
-            return Err(SyphonError::undefined(location, "name", &name));
+        let Some(past_name_info) = frame.locals.get(&atom) else {
+            return Err(SyphonError::undefined(
+                location,
+                "name",
+                frame.function.body.get_name_by_atom(atom),
+            ));
         };
 
         let new_value = unsafe { self.stack.last().unwrap_unchecked() };
@@ -544,8 +547,10 @@ impl VirtualMachine {
 
                     let stack_index = self.stack.len() - 1;
 
+                    let atom = new_frame.function.body.get_atom(parameter);
+
                     new_frame.locals.insert(
-                        parameter.to_string(),
+                        atom,
                         NameInfo {
                             stack_index,
                             mutable: true,

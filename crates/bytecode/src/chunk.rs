@@ -3,19 +3,44 @@ use crate::value::{Function, Value};
 
 use syphon_location::Location;
 
+use once_cell::sync::Lazy;
+
+use derive_more::Display;
+
+use std::collections::HashMap;
 use std::str::Bytes;
+use std::sync::Mutex;
+
+static ATOMS_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
+pub struct Atom(usize);
+
+impl Atom {
+    pub fn from_be_bytes(bytes: [u8; std::mem::size_of::<usize>()]) -> Atom {
+        Atom(usize::from_be_bytes(bytes))
+    }
+
+    pub fn to_be_bytes(&self) -> [u8; std::mem::size_of::<usize>()] {
+        self.0.to_be_bytes()
+    }
+}
 
 #[derive(Clone, PartialEq)]
 pub struct Chunk {
     pub code: Vec<Instruction>,
     pub constants: Vec<Value>,
+    pub atoms: HashMap<String, Atom>,
 }
 
 impl Chunk {
     pub fn new() -> Chunk {
+        *ATOMS_COUNT.lock().unwrap() = 0;
+
         Chunk {
             code: Vec::new(),
             constants: Vec::new(),
+            atoms: HashMap::new(),
         }
     }
 
@@ -34,6 +59,35 @@ impl Chunk {
         unsafe { self.constants.get_unchecked(index) }
     }
 
+    pub fn add_atom(&mut self, name: String) -> Atom {
+        if let Some(atom) = self.atoms.get(&name) {
+            return *atom;
+        }
+
+        let mut atoms_count = ATOMS_COUNT.lock().unwrap();
+
+        let atom = Atom(*atoms_count);
+
+        self.atoms.insert(name, atom);
+
+        *atoms_count += 1;
+
+        atom
+    }
+
+    pub fn get_atom(&self, name: &str) -> Atom {
+        unsafe { *self.atoms.get(name).unwrap_unchecked() }
+    }
+
+    pub fn get_name_by_atom(&self, atom: Atom) -> &str {
+        unsafe {
+            self.atoms
+                .iter()
+                .find_map(|(k, v)| if v == &atom { Some(k) } else { None })
+                .unwrap_unchecked()
+        }
+    }
+
     pub fn extend(&mut self, other: Chunk) {
         self.constants.extend(other.constants);
         self.code.extend(other.code);
@@ -45,6 +99,14 @@ impl Chunk {
         bytes.extend(self.constants.len().to_be_bytes());
         for constant in self.constants.iter() {
             bytes.extend(constant.to_bytes());
+        }
+
+        bytes.extend(self.atoms.len().to_be_bytes());
+        for (name, atom) in self.atoms.iter() {
+            bytes.extend(name.len().to_be_bytes());
+            bytes.extend(name.as_bytes());
+
+            bytes.extend(atom.to_be_bytes());
         }
 
         bytes.extend(self.code.len().to_be_bytes());
@@ -153,6 +215,18 @@ impl Chunk {
             };
         }
 
+        let atoms_len = usize::from_be_bytes(get_8_bytes(bytes));
+
+        for _ in 0..atoms_len {
+            let name_len = usize::from_be_bytes(get_8_bytes(bytes));
+
+            let name = String::from_utf8(get_multiple(bytes, name_len)).unwrap();
+
+            let atom = Atom::from_be_bytes(get_8_bytes(bytes));
+
+            chunk.atoms.insert(name, atom);
+        }
+
         let code_len = usize::from_be_bytes(get_8_bytes(bytes));
 
         for _ in 0..code_len {
@@ -230,33 +304,27 @@ impl Chunk {
                 }
 
                 12 => {
-                    let name_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let name = String::from_utf8(get_multiple(bytes, name_len)).unwrap();
+                    let atom = Atom::from_be_bytes(get_8_bytes(bytes));
 
                     let mutable = bytes.next().unwrap() == 1;
 
-                    chunk.write_instruction(Instruction::StoreName { name, mutable });
+                    chunk.write_instruction(Instruction::StoreName { atom, mutable });
                 }
 
                 13 => {
-                    let name_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let name = String::from_utf8(get_multiple(bytes, name_len)).unwrap();
+                    let atom = Atom::from_be_bytes(get_8_bytes(bytes));
 
                     let location = Location::from_bytes(bytes);
 
-                    chunk.write_instruction(Instruction::Assign { name, location });
+                    chunk.write_instruction(Instruction::Assign { atom, location });
                 }
 
                 14 => {
-                    let name_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let name = String::from_utf8(get_multiple(bytes, name_len)).unwrap();
+                    let atom = Atom::from_be_bytes(get_8_bytes(bytes));
 
                     let location = Location::from_bytes(bytes);
 
-                    chunk.write_instruction(Instruction::LoadName { name, location });
+                    chunk.write_instruction(Instruction::LoadName { atom, location });
                 }
 
                 15 => {

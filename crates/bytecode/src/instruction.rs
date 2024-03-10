@@ -1,5 +1,7 @@
 use syphon_location::Location;
 
+use crate::chunk::Atom;
+
 #[derive(Clone, PartialEq)]
 #[repr(u8)]
 pub enum Instruction {
@@ -41,17 +43,17 @@ pub enum Instruction {
     },
 
     StoreName {
-        name: String,
+        atom: Atom,
         mutable: bool,
     },
 
     Assign {
-        name: String,
+        atom: Atom,
         location: Location,
     },
 
     LoadName {
-        name: String,
+        atom: Atom,
         location: Location,
     },
 
@@ -143,11 +145,10 @@ impl Instruction {
                 bytes.extend(location.to_bytes());
             }
 
-            Instruction::StoreName { name, mutable } => {
+            Instruction::StoreName { atom, mutable } => {
                 bytes.push(12);
 
-                bytes.extend(name.len().to_be_bytes());
-                bytes.extend(name.as_bytes());
+                bytes.extend(atom.to_be_bytes());
 
                 if *mutable {
                     bytes.push(1);
@@ -156,20 +157,18 @@ impl Instruction {
                 }
             }
 
-            Instruction::Assign { name, location } => {
+            Instruction::Assign { atom, location } => {
                 bytes.push(13);
 
-                bytes.extend(name.len().to_be_bytes());
-                bytes.extend(name.as_bytes());
+                bytes.extend(atom.to_be_bytes());
 
                 bytes.extend(location.to_bytes());
             }
 
-            Instruction::LoadName { name, location } => {
+            Instruction::LoadName { atom, location } => {
                 bytes.push(14);
 
-                bytes.extend(name.len().to_be_bytes());
-                bytes.extend(name.as_bytes());
+                bytes.extend(atom.to_be_bytes());
 
                 bytes.extend(location.to_bytes());
             }

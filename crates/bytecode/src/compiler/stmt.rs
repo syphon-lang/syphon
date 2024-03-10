@@ -38,8 +38,10 @@ impl Compiler {
             }
         };
 
+        let atom = self.chunk.add_atom(var.name);
+
         self.chunk.write_instruction(Instruction::StoreName {
-            name: var.name,
+            atom,
             mutable: var.mutable,
         });
 
@@ -70,8 +72,10 @@ impl Compiler {
         self.chunk
             .write_instruction(Instruction::LoadConstant { index });
 
+        let atom = self.chunk.add_atom(function.name);
+
         self.chunk.write_instruction(Instruction::StoreName {
-            name: function.name,
+            atom,
             mutable: false,
         });
 

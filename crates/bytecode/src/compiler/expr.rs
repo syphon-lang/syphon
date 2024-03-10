@@ -45,8 +45,10 @@ impl Compiler {
     }
 
     fn compile_identifer(&mut self, symbol: String, location: Location) {
+        let atom = self.chunk.add_atom(symbol);
+
         self.chunk.write_instruction(Instruction::LoadName {
-            name: symbol,
+            atom,
             location,
         })
     }
@@ -143,13 +145,15 @@ impl Compiler {
     fn compile_assign(&mut self, name: String, value: ExprKind, location: Location) {
         self.compile_expr(value);
 
+        let atom = self.chunk.add_atom(name);
+
         self.chunk.write_instruction(Instruction::Assign {
-            name: name.clone(),
+            atom,
             location,
         });
 
         self.chunk
-            .write_instruction(Instruction::LoadName { name, location });
+            .write_instruction(Instruction::LoadName { atom, location });
     }
 
     fn compile_call(

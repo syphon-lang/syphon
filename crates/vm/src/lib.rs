@@ -161,12 +161,6 @@ impl VirtualMachine {
                 } => self.call_function(arguments_count, location)?,
 
                 Instruction::Return => {
-                    if self.fp != 0 {
-                        self.fp -= 1;
-
-                        self.frames.pop();
-                    }
-
                     return Ok(match self.stack.pop() {
                         Some(value) => value,
                         None => Value::None,
@@ -578,16 +572,11 @@ impl VirtualMachine {
                     self.stack.pop();
                 }
 
-                match return_value {
-                    Ok(return_value) => self.stack.push(return_value),
-                    Err(err) => {
-                        self.fp -= 1;
+                self.fp -= 1;
 
-                        self.frames.pop();
+                self.frames.pop();
 
-                        return Err(err);
-                    }
-                };
+                self.stack.push(return_value?);
             }
 
             Value::NativeFunction(function) => {

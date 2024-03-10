@@ -85,24 +85,29 @@ impl VirtualMachine {
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
-        self.frames.insert(
-            0,
-            CallFrame {
-                function: Function {
-                    name: String::new(),
-                    body: chunk,
-                    parameters: Vec::new(),
-                }
-                .into(),
+        let function = Function {
+            name: String::new(),
+            body: chunk,
+            parameters: Vec::new(),
+        }
+        .into();
+
+        if self.frames.len() == 0 {
+            self.frames.push(CallFrame {
+                function,
                 locals: FxHashMap::default(),
                 ip: 0,
-            },
-        );
+            });
+        } else {
+            self.frames[0].function = function;
+            self.frames[0].ip = 0;
+        }
     }
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         while self.frames[self.fp].ip < self.frames[self.fp].function.body.code.len() {
-            let instruction = self.frames[self.fp].function.body.code[self.frames[self.fp].ip].clone();
+            let instruction =
+                self.frames[self.fp].function.body.code[self.frames[self.fp].ip].clone();
 
             self.frames[self.fp].ip += 1;
 
@@ -137,9 +142,13 @@ impl VirtualMachine {
 
                 Instruction::Assign { atom, location } => self.assign(atom, location)?,
 
-                Instruction::LoadConstant { index } => self
-                    .stack
-                    .push(self.frames[self.fp].function.body.get_constant(index).clone()),
+                Instruction::LoadConstant { index } => self.stack.push(
+                    self.frames[self.fp]
+                        .function
+                        .body
+                        .get_constant(index)
+                        .clone(),
+                ),
 
                 Instruction::Call {
                     arguments_count,

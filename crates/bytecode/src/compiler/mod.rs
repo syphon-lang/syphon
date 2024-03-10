@@ -1,13 +1,15 @@
 mod expr;
 mod stmt;
 
-use crate::chunk::Chunk;
+use crate::chunk::{Atom, Chunk};
 use crate::instruction::Instruction;
 
 use syphon_ast::*;
 use syphon_errors::SyphonError;
 
 use thin_vec::ThinVec;
+
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct CompilerContext {
@@ -37,6 +39,10 @@ impl Compiler {
             context: CompilerContext::default(),
             mode,
         }
+    }
+
+    pub fn extend_atoms(&mut self, atoms: HashMap<String, Atom>) {
+        self.chunk.atoms.extend(atoms);
     }
 
     pub fn compile(&mut self, module: Node) -> Result<(), SyphonError> {

@@ -59,6 +59,8 @@ impl Compiler {
                 body: {
                     let mut compiler = Compiler::new(CompilerMode::Function);
 
+                    compiler.extend_atoms(self.chunk.atoms.clone());
+
                     for node in function.body {
                         compiler.compile(node)?;
                     }

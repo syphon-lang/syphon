@@ -4,10 +4,12 @@ use syphon_bytecode::value::Value;
 
 use syphon_vm::VirtualMachine;
 
-use std::io::{stdin, stdout, BufRead, BufReader, Write};
+use std::{collections::HashMap, io::{stdin, stdout, BufRead, BufReader, Write}};
 
 pub fn start() {
     let mut reader = BufReader::new(stdin());
+
+    let mut global_atoms = HashMap::new();
 
     let mut vm = VirtualMachine::new();
 
@@ -28,7 +30,7 @@ pub fn start() {
             continue;
         }
 
-        let Some(value) = runner::run("<stdin>", input, &mut vm) else {
+        let Some(value) = runner::run_repl_with_atoms("<stdin>", input, &mut vm, &mut global_atoms) else {
             continue;
         };
 

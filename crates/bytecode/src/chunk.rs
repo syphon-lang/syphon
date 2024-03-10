@@ -3,15 +3,10 @@ use crate::value::{Function, Value};
 
 use syphon_location::Location;
 
-use once_cell::sync::Lazy;
-
 use derive_more::Display;
 
 use std::collections::HashMap;
 use std::str::Bytes;
-use std::sync::Mutex;
-
-static ATOMS_COUNT: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
 pub struct Atom(usize);
@@ -35,8 +30,6 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn new() -> Chunk {
-        *ATOMS_COUNT.lock().unwrap() = 0;
-
         Chunk {
             code: Vec::new(),
             constants: Vec::new(),
@@ -64,13 +57,9 @@ impl Chunk {
             return *atom;
         }
 
-        let mut atoms_count = ATOMS_COUNT.lock().unwrap();
-
-        let atom = Atom(*atoms_count);
+        let atom = Atom(self.atoms.len());
 
         self.atoms.insert(name, atom);
-
-        *atoms_count += 1;
 
         atom
     }

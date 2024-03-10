@@ -111,7 +111,7 @@ impl VirtualMachine {
 
                 Instruction::LogicalNot => self.logical_not()?,
 
-                Instruction::Add { location } => self.get(location)?,
+                Instruction::Add { location } => self.add(location)?,
 
                 Instruction::Sub { location } => self.subtract(location)?,
 
@@ -196,7 +196,7 @@ impl VirtualMachine {
         Ok(())
     }
 
-    fn get(&mut self, location: Location) -> Result<(), SyphonError> {
+    fn add(&mut self, location: Location) -> Result<(), SyphonError> {
         let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
         let left = unsafe { self.stack.pop().unwrap_unchecked() };

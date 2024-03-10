@@ -96,7 +96,7 @@ impl Chunk {
 
                     let string = String::from_utf8(get_multiple(bytes, string_len)).unwrap();
 
-                    chunk.add_constant(Value::String(string));
+                    chunk.add_constant(Value::String(string.into()));
                 }
 
                 2 => {
@@ -135,11 +135,14 @@ impl Chunk {
 
                     let body = Chunk::parse(bytes)?;
 
-                    chunk.add_constant(Value::Function(Function {
-                        name,
-                        parameters,
-                        body,
-                    }));
+                    chunk.add_constant(Value::Function(
+                        Function {
+                            name,
+                            parameters,
+                            body,
+                        }
+                        .into(),
+                    ));
                 }
 
                 _ => {

@@ -1,5 +1,3 @@
-use std::io::{stdout, BufWriter, Write};
-
 use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::instruction::Instruction;
 use syphon_bytecode::value::{Function, NativeFunction, Value};
@@ -9,6 +7,9 @@ use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
+use std::io::{stdout, BufWriter, Write};
+use std::sync::Arc;
+
 #[derive(Clone)]
 pub struct NameInfo {
     stack_index: usize,
@@ -16,7 +17,7 @@ pub struct NameInfo {
 }
 
 struct CallFrame {
-    function: Function,
+    function: Arc<Function>,
     locals: FxHashMap<String, NameInfo>,
     ip: usize,
 }
@@ -71,29 +72,32 @@ impl VirtualMachine {
             },
         };
 
-        self.globals
-            .insert(print_fn.name.clone(), Value::NativeFunction(print_fn));
+        self.globals.insert(
+            print_fn.name.clone(),
+            Value::NativeFunction(print_fn.into()),
+        );
 
-        self.globals
-            .insert(println_fn.name.clone(), Value::NativeFunction(println_fn));
+        self.globals.insert(
+            println_fn.name.clone(),
+            Value::NativeFunction(println_fn.into()),
+        );
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
-        if self.frames.is_empty() {
-            self.frames.push(CallFrame {
+        self.frames.insert(
+            0,
+            CallFrame {
                 function: Function {
                     name: String::new(),
                     body: chunk,
                     parameters: Vec::new(),
-                },
+                }
+                .into(),
 
                 locals: FxHashMap::default(),
                 ip: 0,
-            });
-        } else {
-            self.frames[0].function.body = chunk;
-            self.frames[0].ip = 0;
-        }
+            },
+        );
     }
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
@@ -207,7 +211,14 @@ impl VirtualMachine {
             (Value::Int(left), Value::Float(right)) => Value::Float(left as f64 + right),
             (Value::Float(left), Value::Int(right)) => Value::Float(left + right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Float(left + right),
-            (Value::String(left), Value::String(right)) => Value::String(left + right.as_str()),
+            (Value::String(left), Value::String(right)) => {
+                let mut string = String::with_capacity(left.len() + right.len());
+
+                string.push_str(left.as_str());
+                string.push_str(right.as_str());
+
+                Value::String(string.into())
+            }
 
             _ => {
                 return Err(SyphonError::unable_to(

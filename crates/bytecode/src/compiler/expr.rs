@@ -52,7 +52,7 @@ impl Compiler {
     }
 
     fn compile_string(&mut self, value: String) {
-        let index = self.chunk.add_constant(Value::String(value));
+        let index = self.chunk.add_constant(Value::String(value.into()));
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index })

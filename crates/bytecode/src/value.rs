@@ -2,12 +2,14 @@ use crate::chunk::Chunk;
 
 use derive_more::Display;
 
+use std::sync::Arc;
+
 #[derive(Display, Clone, PartialEq)]
 pub enum Value {
     #[display(fmt = "none")]
     None,
 
-    String(String),
+    String(Arc<String>),
 
     Int(i64),
 
@@ -15,9 +17,9 @@ pub enum Value {
 
     Bool(bool),
 
-    Function(Function),
+    Function(Arc<Function>),
 
-    NativeFunction(NativeFunction),
+    NativeFunction(Arc<NativeFunction>),
 }
 
 #[derive(Display, Clone, PartialEq)]

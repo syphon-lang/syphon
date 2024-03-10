@@ -50,19 +50,22 @@ impl Compiler {
     }
 
     fn compile_function_definition(&mut self, function: Function) -> Result<(), SyphonError> {
-        let index = self.chunk.add_constant(Value::Function(BytecodeFunction {
-            name: function.name.clone(),
-            parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
-            body: {
-                let mut compiler = Compiler::new(CompilerMode::Function);
+        let index = self.chunk.add_constant(Value::Function(
+            BytecodeFunction {
+                name: function.name.clone(),
+                parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
+                body: {
+                    let mut compiler = Compiler::new(CompilerMode::Function);
 
-                for node in function.body {
-                    compiler.compile(node)?;
-                }
+                    for node in function.body {
+                        compiler.compile(node)?;
+                    }
 
-                compiler.get_chunk()
-            },
-        }));
+                    compiler.get_chunk()
+                },
+            }
+            .into(),
+        ));
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index });

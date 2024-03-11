@@ -1,5 +1,3 @@
-use std::str::Bytes;
-
 use derive_more::Display;
 
 #[derive(Debug, Display, PartialEq, Clone, Copy)]
@@ -19,8 +17,8 @@ impl Location {
         bytes
     }
 
-    pub fn from_bytes(bytes: &mut Bytes<'_>) -> Location {
-        fn get_8_bytes(bytes: &mut Bytes<'_>) -> [u8; 8] {
+    pub fn from_bytes(bytes: &mut impl Iterator<Item = u8>) -> Location {
+        fn get_8_bytes(bytes: &mut impl Iterator<Item = u8>) -> [u8; 8] {
             [
                 bytes.next().unwrap(),
                 bytes.next().unwrap(),

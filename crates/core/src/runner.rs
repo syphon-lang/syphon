@@ -8,12 +8,12 @@ use syphon_vm::VirtualMachine;
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::process::exit;
 
-fn parse_syc(input: &str) -> Option<Chunk> {
-    let mut bytes = input.bytes();
+fn parse_syc(input: Vec<u8>) -> Option<Chunk> {
+    let mut bytes = input.into_iter();
 
     if bytes.next().is_some_and(|b| b != 0x10) || bytes.next().is_some_and(|b| b != 0x07) {
         return None;
@@ -22,7 +22,7 @@ fn parse_syc(input: &str) -> Option<Chunk> {
     Chunk::parse(&mut bytes)
 }
 
-fn load_syc(input: &str, vm: &mut VirtualMachine) -> bool {
+fn load_syc(input: Vec<u8>, vm: &mut VirtualMachine) -> bool {
     let Some(chunk) = parse_syc(input) else {
         return false;
     };
@@ -64,7 +64,12 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
     true
 }
 
-pub fn load_script_with_atoms(file_path: &str, input: &str, vm: &mut VirtualMachine, atoms: &mut HashMap<String, Atom>) -> bool {
+pub fn load_script_with_atoms(
+    file_path: &str,
+    input: &str,
+    vm: &mut VirtualMachine,
+    atoms: &mut HashMap<String, Atom>,
+) -> bool {
     let lexer = Lexer::new(input);
 
     let mut parser = Parser::new(lexer);
@@ -100,23 +105,12 @@ pub fn load_script_with_atoms(file_path: &str, input: &str, vm: &mut VirtualMach
     true
 }
 
-pub fn run(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<Value> {
-    if !load_syc(&input, vm) && !load_script(file_path, &input, vm) {
-        return None;
-    }
-
-    match vm.run() {
-        Ok(value) => Some(value),
-
-        Err(err) => {
-            eprintln!("{} {}", file_path, err);
-
-            None
-        }
-    }
-}
-
-pub fn run_repl_with_atoms(file_path: &str, input: String, vm: &mut VirtualMachine, atoms: &mut HashMap<String, Atom>) -> Option<Value> {
+pub fn run_repl_with_atoms(
+    file_path: &str,
+    input: String,
+    vm: &mut VirtualMachine,
+    atoms: &mut HashMap<String, Atom>,
+) -> Option<Value> {
     if !load_script_with_atoms(file_path, &input, vm, atoms) {
         return None;
     }
@@ -135,27 +129,39 @@ pub fn run_repl_with_atoms(file_path: &str, input: String, vm: &mut VirtualMachi
 pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
     let file = File::open(file_path)?;
 
-    let reader = BufReader::new(file);
+    let mut reader = BufReader::new(file);
 
-    let mut file_content = String::new();
+    let mut file_content = Vec::new();
 
-    for line in reader.lines() {
-        file_content.push_str(line?.as_str());
-        file_content.push('\n');
-    }
+    reader.read_to_end(&mut file_content)?;
 
     let mut vm = VirtualMachine::new();
 
     vm.init_globals();
 
-    match run(
-        file_path.to_string_lossy().to_string().as_str(),
-        file_content,
-        &mut vm,
-    ) {
-        Some(_) => Ok(()),
-        None => exit(1),
+    if !load_syc(file_content.clone(), &mut vm) {
+        let file_content = String::from_utf8(file_content).unwrap();
+
+        if !load_script(
+            file_path.to_string_lossy().to_string().as_str(),
+            &file_content,
+            &mut vm,
+        ) {
+            exit(1);
+        }
     }
+
+    match vm.run() {
+        Err(err) => {
+            eprintln!("{} {}", file_path.display(), err);
+
+            exit(1);
+        }
+
+        _ => (),
+    }
+
+    Ok(())
 }
 
 pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
@@ -214,16 +220,13 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
 pub fn disassemble_file(file_path: &PathBuf) -> io::Result<()> {
     let file = File::open(file_path)?;
 
-    let reader = BufReader::new(file);
+    let mut reader = BufReader::new(file);
 
-    let mut file_content = String::new();
+    let mut file_content = Vec::new();
 
-    for line in reader.lines() {
-        file_content.push_str(line?.as_str());
-        file_content.push('\n');
-    }
+    reader.read_to_end(&mut file_content)?;
 
-    let Some(chunk) = parse_syc(&file_content) else {
+    let Some(chunk) = parse_syc(file_content) else {
         eprintln!("invalid syc file: invalid file magic number");
 
         exit(1);

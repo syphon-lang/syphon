@@ -6,7 +6,6 @@ use syphon_location::Location;
 use derive_more::Display;
 
 use std::collections::HashMap;
-use std::str::Bytes;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Display)]
 pub struct Atom(usize);
@@ -106,10 +105,10 @@ impl Chunk {
         bytes
     }
 
-    pub fn parse(bytes: &mut Bytes<'_>) -> Option<Chunk> {
+    pub fn parse(bytes: &mut impl Iterator<Item = u8>) -> Option<Chunk> {
         let mut chunk = Chunk::new();
 
-        fn get_8_bytes(bytes: &mut Bytes<'_>) -> [u8; 8] {
+        fn get_8_bytes(bytes: &mut impl Iterator<Item = u8>) -> [u8; 8] {
             [
                 bytes.next().unwrap(),
                 bytes.next().unwrap(),
@@ -122,7 +121,7 @@ impl Chunk {
             ]
         }
 
-        fn get_multiple(bytes: &mut Bytes<'_>, len: usize) -> Vec<u8> {
+        fn get_multiple(bytes: &mut impl Iterator<Item = u8>, len: usize) -> Vec<u8> {
             let mut data = Vec::with_capacity(len);
 
             for _ in 0..len {

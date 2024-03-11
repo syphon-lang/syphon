@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 thin-vec = { workspace = true }
 derive_more = { workspace = true }
+once_cell = { workspace = true }
 
 syphon_ast = { path = "../ast" }
 syphon_errors = { path = "../errors" }

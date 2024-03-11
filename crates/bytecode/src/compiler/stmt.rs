@@ -1,3 +1,4 @@
+use crate::chunk::Atom;
 use crate::compiler::{Compiler, CompilerMode};
 use crate::instruction::Instruction;
 use crate::value::{Function as BytecodeFunction, Value};
@@ -38,10 +39,8 @@ impl Compiler {
             }
         };
 
-        let atom = self.chunk.add_atom(var.name);
-
         self.chunk.write_instruction(Instruction::StoreName {
-            atom,
+            atom: Atom::new(var.name),
             mutable: var.mutable,
         });
 
@@ -59,8 +58,6 @@ impl Compiler {
                 body: {
                     let mut compiler = Compiler::new(CompilerMode::Function);
 
-                    compiler.extend_atoms(self.chunk.atoms.clone());
-
                     for node in function.body {
                         compiler.compile(node)?;
                     }
@@ -74,10 +71,8 @@ impl Compiler {
         self.chunk
             .write_instruction(Instruction::LoadConstant { index });
 
-        let atom = self.chunk.add_atom(function.name);
-
         self.chunk.write_instruction(Instruction::StoreName {
-            atom,
+            atom: Atom::new(function.name),
             mutable: false,
         });
 

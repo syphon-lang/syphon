@@ -462,7 +462,7 @@ impl VirtualMachine {
         let value = match frame.locals.get(&atom) {
             Some(name_info) => self.stack.get(name_info.stack_index),
 
-            None => self.globals.get(frame.function.body.get_name_by_atom(atom)),
+            None => self.globals.get(atom.get_name().as_str()),
         };
 
         match value {
@@ -475,7 +475,7 @@ impl VirtualMachine {
             None => Err(SyphonError::undefined(
                 location,
                 "name",
-                frame.function.body.get_name_by_atom(atom),
+                atom.get_name().as_str(),
             )),
         }
     }
@@ -487,7 +487,7 @@ impl VirtualMachine {
             return Err(SyphonError::undefined(
                 location,
                 "name",
-                frame.function.body.get_name_by_atom(atom),
+                atom.get_name().as_str(),
             ));
         };
 
@@ -555,10 +555,8 @@ impl VirtualMachine {
 
                     let stack_index = self.stack.len() - 1;
 
-                    let atom = new_frame.function.body.get_atom(parameter);
-
                     new_frame.locals.insert(
-                        atom,
+                        Atom::get(parameter),
                         NameInfo {
                             stack_index,
                             mutable: true,

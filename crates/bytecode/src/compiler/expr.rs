@@ -1,3 +1,4 @@
+use crate::chunk::Atom;
 use crate::compiler::Compiler;
 use crate::instruction::Instruction;
 use crate::value::Value;
@@ -45,10 +46,10 @@ impl Compiler {
     }
 
     fn compile_identifer(&mut self, symbol: String, location: Location) {
-        let atom = self.chunk.add_atom(symbol);
-
-        self.chunk
-            .write_instruction(Instruction::LoadName { atom, location })
+        self.chunk.write_instruction(Instruction::LoadName {
+            atom: Atom::new(symbol),
+            location,
+        })
     }
 
     fn compile_string(&mut self, value: String) {
@@ -143,7 +144,7 @@ impl Compiler {
     fn compile_assign(&mut self, name: String, value: ExprKind, location: Location) {
         self.compile_expr(value);
 
-        let atom = self.chunk.add_atom(name);
+        let atom = Atom::new(name);
 
         self.chunk
             .write_instruction(Instruction::Assign { atom, location });

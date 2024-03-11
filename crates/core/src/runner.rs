@@ -1,4 +1,4 @@
-use syphon_bytecode::chunk::{Atom, Chunk};
+use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::compiler::{Compiler, CompilerMode};
 use syphon_bytecode::disassembler::disassmeble;
 use syphon_bytecode::value::Value;
@@ -6,7 +6,6 @@ use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 use syphon_vm::VirtualMachine;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
@@ -64,54 +63,8 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
     true
 }
 
-pub fn load_script_with_atoms(
-    file_path: &str,
-    input: &str,
-    vm: &mut VirtualMachine,
-    atoms: &mut HashMap<String, Atom>,
-) -> bool {
-    let lexer = Lexer::new(input);
-
-    let mut parser = Parser::new(lexer);
-
-    let module = match parser.parse() {
-        Ok(module) => module,
-        Err(err) => {
-            eprintln!("{} {}", file_path, err);
-
-            return false;
-        }
-    };
-
-    let mut compiler = Compiler::new(CompilerMode::Script);
-
-    compiler.extend_atoms(atoms.clone());
-
-    match compiler.compile(module) {
-        Ok(()) => (),
-        Err(err) => {
-            eprintln!("{} {}", file_path, err);
-
-            return false;
-        }
-    };
-
-    let chunk = compiler.get_chunk();
-
-    *atoms = chunk.atoms.clone();
-
-    vm.load_chunk(chunk);
-
-    true
-}
-
-pub fn run_repl_with_atoms(
-    file_path: &str,
-    input: String,
-    vm: &mut VirtualMachine,
-    atoms: &mut HashMap<String, Atom>,
-) -> Option<Value> {
-    if !load_script_with_atoms(file_path, &input, vm, atoms) {
+pub fn run_repl(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<Value> {
+    if !load_script(file_path, &input, vm) {
         return None;
     }
 
@@ -151,14 +104,10 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
         }
     }
 
-    match vm.run() {
-        Err(err) => {
-            eprintln!("{} {}", file_path.display(), err);
+    if let Err(err) = vm.run() {
+        eprintln!("{} {}", file_path.display(), err);
 
-            exit(1);
-        }
-
-        _ => (),
+        exit(1);
     }
 
     Ok(())

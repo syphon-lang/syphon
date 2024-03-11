@@ -40,15 +40,15 @@ fn disassmeble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
         Instruction::GreaterThan { .. } => "GreaterThan".to_string(),
 
         Instruction::StoreName { atom, .. } => {
-            format!("StoreName {} ({})", atom, chunk.get_name_by_atom(*atom))
+            format!("StoreName {} ({})", atom, atom.get_name())
         }
 
         Instruction::Assign { atom, .. } => {
-            format!("Assign {} ({})", atom, chunk.get_name_by_atom(*atom))
+            format!("Assign {} ({})", atom, atom.get_name())
         }
 
         Instruction::LoadName { atom, .. } => {
-            format!("LoadName {} ({})", atom, chunk.get_name_by_atom(*atom))
+            format!("LoadName {} ({})", atom, atom.get_name())
         }
 
         Instruction::LoadConstant { index } => {

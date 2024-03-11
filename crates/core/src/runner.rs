@@ -90,8 +90,6 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
 
     let mut vm = VirtualMachine::new();
 
-    vm.init_globals();
-
     if !load_syc(file_content.clone(), &mut vm) {
         let file_content = String::from_utf8(file_content).unwrap();
 
@@ -103,6 +101,8 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
             exit(1);
         }
     }
+
+    vm.init_globals();
 
     if let Err(err) = vm.run() {
         eprintln!("{} {}", file_path.display(), err);

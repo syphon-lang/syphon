@@ -23,7 +23,7 @@ pub enum Token {
 
 #[derive(Debug, PartialEq)]
 pub enum Keyword {
-    Def,
+    Fn,
     Let,
     Const,
     If,
@@ -124,7 +124,7 @@ impl ToString for Token {
             Token::Bool(value) => value.to_string(),
 
             Token::Keyword(keyword) => match keyword {
-                Keyword::Def => String::from("def"),
+                Keyword::Fn => String::from("fn"),
                 Keyword::Let => String::from("let"),
                 Keyword::Const => String::from("const"),
                 Keyword::If => String::from("if"),

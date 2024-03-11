@@ -5,7 +5,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse_stmt(&mut self) -> Result<Node, SyphonError> {
         match self.peek() {
             Token::Keyword(keyword) => match keyword {
-                Keyword::Def => self.parse_function_definition(),
+                Keyword::Fn => self.parse_function_definition(),
                 Keyword::Let => self.parse_variable_declaration(true),
                 Keyword::Const => self.parse_variable_declaration(false),
                 Keyword::If => self.parse_conditional(),

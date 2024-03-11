@@ -122,7 +122,7 @@ impl<'a> Lexer<'a> {
         match literal.as_str() {
             "true" | "false" => Token::Bool(literal.parse().unwrap()),
 
-            "def" => Token::Keyword(Keyword::Def),
+            "fn" => Token::Keyword(Keyword::Fn),
             "let" => Token::Keyword(Keyword::Let),
             "const" => Token::Keyword(Keyword::Const),
             "if" => Token::Keyword(Keyword::If),

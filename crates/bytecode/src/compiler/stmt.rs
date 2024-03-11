@@ -129,6 +129,8 @@ impl Compiler {
             self.compile_nodes(fallback)?;
         }
 
+        let after_fallback_point = self.chunk.code.len() - 1;
+
         let mut backtrack_points_iter = backtrack_points.iter();
 
         while backtrack_points_iter.len() > 0 {
@@ -150,7 +152,7 @@ impl Compiler {
             };
 
             self.chunk.code[point.jump_point] = Instruction::Jump {
-                offset: before_fallback_point - point.jump_point - 1,
+                offset: after_fallback_point - point.jump_point - 1,
             }
         }
 

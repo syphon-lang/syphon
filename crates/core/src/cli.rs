@@ -10,13 +10,13 @@ pub struct CLI {
 
 #[derive(Subcommand)]
 pub enum Command {
-    #[command(about = "Compile a specific script to bytecode")]
+    #[command(about = "Compile the given script to bytecode")]
     Compile { file_path: PathBuf },
 
-    #[command(about = "Disassemble a specific bytecode file")]
+    #[command(about = "Disassemble the given bytecode file")]
     Disassemble { file_path: PathBuf },
 
-    #[command(about = "Run a specific script or bytecode")]
+    #[command(about = "Run the given script or bytecode")]
     Run { file_path: PathBuf },
 
     #[command(about = "Run in interactive mode")]

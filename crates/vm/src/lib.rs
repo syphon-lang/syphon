@@ -7,7 +7,6 @@ use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
-use std::collections::HashMap;
 use std::io::{stdout, BufWriter, Write};
 use std::sync::Arc;
 
@@ -30,7 +29,7 @@ pub struct VirtualMachine {
 
     stack: Vec<Value>,
 
-    globals: HashMap<String, Value>,
+    globals: FxHashMap<Atom, Value>,
 }
 
 impl VirtualMachine {
@@ -41,13 +40,17 @@ impl VirtualMachine {
 
             stack: Vec::with_capacity(256),
 
-            globals: HashMap::new(),
+            globals: FxHashMap::default(),
         }
     }
 
     pub fn init_globals(&mut self) {
+        let print_atom = Atom::new("print".to_owned());
+
+        let println_atom = Atom::new("println".to_owned());
+
         let print_fn = NativeFunction {
-            name: String::from("print"),
+            name: print_atom.get_name(),
             call: |args| {
                 let lock = stdout().lock();
 
@@ -62,7 +65,7 @@ impl VirtualMachine {
         };
 
         let println_fn = NativeFunction {
-            name: String::from("println"),
+            name: println_atom.get_name(),
             call: |args| {
                 let lock = stdout().lock();
 
@@ -78,15 +81,11 @@ impl VirtualMachine {
             },
         };
 
-        self.globals.insert(
-            print_fn.name.clone(),
-            Value::NativeFunction(print_fn.into()),
-        );
+        self.globals
+            .insert(print_atom, Value::NativeFunction(print_fn.into()));
 
-        self.globals.insert(
-            println_fn.name.clone(),
-            Value::NativeFunction(println_fn.into()),
-        );
+        self.globals
+            .insert(println_atom, Value::NativeFunction(println_fn.into()));
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
@@ -462,7 +461,7 @@ impl VirtualMachine {
         let value = match frame.locals.get(&atom) {
             Some(name_info) => self.stack.get(name_info.stack_index),
 
-            None => self.globals.get(atom.get_name().as_str()),
+            None => self.globals.get(&atom),
         };
 
         match value {

@@ -1,6 +1,6 @@
 use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::compiler::{Compiler, CompilerMode};
-use syphon_bytecode::disassembler::disassmeble;
+use syphon_bytecode::disassembler::disassemble;
 use syphon_bytecode::value::Value;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
@@ -181,7 +181,7 @@ pub fn disassemble_file(file_path: &PathBuf) -> io::Result<()> {
         exit(1);
     };
 
-    let disassembled_chunk = disassmeble(file_path.to_string_lossy().to_string().as_str(), &chunk);
+    let disassembled_chunk = disassemble(file_path.to_string_lossy().to_string().as_str(), &chunk);
 
     println!("{}", disassembled_chunk);
 

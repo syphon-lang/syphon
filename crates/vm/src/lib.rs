@@ -56,8 +56,12 @@ impl VirtualMachine {
 
                 let mut writer = BufWriter::new(lock);
 
-                for value in args {
-                    let _ = write!(writer, "{} ", value);
+                if args.len() == 1 {
+                    let _ = write!(writer, "{}", args[0]);
+                } else {
+                    for value in args {
+                        let _ = write!(writer, "{} ", value);
+                    }
                 }
 
                 Value::None

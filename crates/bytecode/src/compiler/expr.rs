@@ -109,19 +109,64 @@ impl Compiler {
         right: ExprKind,
         location: Location,
     ) {
-        self.compile_expr(left);
-        self.compile_expr(right);
+        macro_rules! constant_folding {
+            ($operator: tt, $default: expr) => {
+                match (left, right) {
+                    (ExprKind::Int { value: left, .. }, ExprKind::Int { value: right, .. }) => {
+                        let index = self.chunk.add_constant(Value::Int((left) $operator (right)));
+
+                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                    }
+
+                    (ExprKind::Float { value: left, .. }, ExprKind::Int { value: right, .. }) => {
+                        let index = self.chunk.add_constant(Value::Float((left) $operator (right as f64)));
+
+                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                    }
+
+                    (ExprKind::Int { value: left, .. }, ExprKind::Float { value: right, .. }) => {
+                        let index = self.chunk.add_constant(Value::Float((left as f64) $operator (right)));
+
+                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                    }
+
+                    (ExprKind::Float { value: left, .. }, ExprKind::Float { value: right, .. }) => {
+                        let index = self.chunk.add_constant(Value::Float((left) $operator (right)));
+
+                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                    }
+
+                    (left, right) => {
+                        self.compile_expr(left);
+                        self.compile_expr(right);
+
+                        $default;
+                    }
+                }
+            };
+        }
 
         match operator {
-            BinaryOperator::Plus => self.chunk.write_instruction(Instruction::Add { location }),
-            BinaryOperator::Minus => self.chunk.write_instruction(Instruction::Sub { location }),
-            BinaryOperator::ForwardSlash => {
-                self.chunk.write_instruction(Instruction::Div { location })
+            BinaryOperator::Plus => {
+                constant_folding!(+, self.chunk.write_instruction(Instruction::Add { location }))
             }
-            BinaryOperator::Star => self.chunk.write_instruction(Instruction::Mult { location }),
+
+            BinaryOperator::Minus => {
+                constant_folding!(-, self.chunk.write_instruction(Instruction::Sub { location }))
+            }
+
+            BinaryOperator::ForwardSlash => {
+                constant_folding!(/, self.chunk.write_instruction(Instruction::Div { location }))
+            }
+
+            BinaryOperator::Star => {
+                constant_folding!(*, self.chunk.write_instruction(Instruction::Mult { location }))
+            }
+
             BinaryOperator::DoubleStar => self
                 .chunk
                 .write_instruction(Instruction::Exponent { location }),
+
             BinaryOperator::Percent => self
                 .chunk
                 .write_instruction(Instruction::Modulo { location }),
@@ -129,12 +174,15 @@ impl Compiler {
             BinaryOperator::Equals => self
                 .chunk
                 .write_instruction(Instruction::Equals { location }),
+
             BinaryOperator::NotEquals => self
                 .chunk
                 .write_instruction(Instruction::NotEquals { location }),
+
             BinaryOperator::LessThan => self
                 .chunk
                 .write_instruction(Instruction::LessThan { location }),
+
             BinaryOperator::GreaterThan => self
                 .chunk
                 .write_instruction(Instruction::GreaterThan { location }),

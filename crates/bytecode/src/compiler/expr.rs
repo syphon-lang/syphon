@@ -163,6 +163,13 @@ impl Compiler {
                 constant_folding!(*, self.chunk.write_instruction(Instruction::Mult { location }))
             }
 
+            _ => {
+                self.compile_expr(left);
+                self.compile_expr(right);
+            }
+        }
+
+        match operator {
             BinaryOperator::DoubleStar => self
                 .chunk
                 .write_instruction(Instruction::Exponent { location }),
@@ -186,6 +193,8 @@ impl Compiler {
             BinaryOperator::GreaterThan => self
                 .chunk
                 .write_instruction(Instruction::GreaterThan { location }),
+
+            _ => (),
         }
     }
 

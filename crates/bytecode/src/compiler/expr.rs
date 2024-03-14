@@ -113,7 +113,13 @@ impl Compiler {
             ($operator: tt, $default: expr) => {
                 match (left, right) {
                     (ExprKind::Int { value: left, .. }, ExprKind::Int { value: right, .. }) => {
-                        let index = self.chunk.add_constant(Value::Int((left) $operator (right)));
+                        let index = self.chunk.add_constant(
+                            if stringify!($operator) == "/" {
+                                Value::Float((left as f64) $operator (right as f64))
+                            } else {
+                                Value::Int((left) $operator (right))
+                            }
+                        );
 
                         self.chunk.write_instruction(Instruction::LoadConstant { index });
                     }

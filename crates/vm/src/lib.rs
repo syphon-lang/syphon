@@ -510,7 +510,7 @@ impl VirtualMachine {
         let callee = unsafe { self.stack.pop().unwrap_unchecked() };
 
         let mut arguments = self.stack.split_off(self.stack.len() - arguments_count);
-    
+
         match callee {
             Value::Function(function) => {
                 if function.parameters.len() != arguments_count {

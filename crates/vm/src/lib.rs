@@ -114,12 +114,9 @@ impl VirtualMachine {
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         while self.frames[self.fp].ip < self.frames[self.fp].function.body.code.len() {
-            let instruction =
-                self.frames[self.fp].function.body.code[self.frames[self.fp].ip].clone();
-
             self.frames[self.fp].ip += 1;
 
-            match instruction {
+            match self.frames[self.fp].function.body.code[self.frames[self.fp].ip - 1] {
                 Instruction::Neg { location } => self.negative(location)?,
 
                 Instruction::LogicalNot => self.logical_not()?,

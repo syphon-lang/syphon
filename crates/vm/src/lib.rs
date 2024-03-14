@@ -514,8 +514,6 @@ impl VirtualMachine {
 
         let mut arguments = self.stack.split_off(self.stack.len() - arguments_count);
     
-        arguments.reverse();
-
         match callee {
             Value::Function(function) => {
                 if function.parameters.len() != arguments_count {

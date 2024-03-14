@@ -512,12 +512,8 @@ impl VirtualMachine {
     ) -> Result<(), SyphonError> {
         let callee = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        let mut arguments = Vec::with_capacity(arguments_count);
-
-        for _ in 0..arguments_count {
-            arguments.push(unsafe { self.stack.pop().unwrap_unchecked() });
-        }
-
+        let mut arguments = self.stack.split_off(self.stack.len() - arguments_count);
+    
         arguments.reverse();
 
         match callee {
@@ -569,9 +565,7 @@ impl VirtualMachine {
 
                 let return_value = self.run();
 
-                for _ in 0..self.stack.len() - previous_stack_len {
-                    self.stack.pop();
-                }
+                self.stack.truncate(previous_stack_len);
 
                 self.fp -= 1;
 

@@ -11,7 +11,7 @@ use std::io::{stdout, BufWriter, Write};
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct NameInfo {
+pub struct Local {
     stack_index: usize,
     mutable: bool,
 }
@@ -20,7 +20,7 @@ struct CallFrame {
     function: Arc<Function>,
     ip: usize,
 
-    locals: FxHashMap<Atom, NameInfo>,
+    locals: FxHashMap<Atom, Local>,
 }
 
 pub struct VirtualMachine {
@@ -449,7 +449,7 @@ impl VirtualMachine {
 
         frame.locals.insert(
             atom,
-            NameInfo {
+            Local {
                 stack_index,
                 mutable,
             },
@@ -551,7 +551,7 @@ impl VirtualMachine {
 
                     new_frame.locals.insert(
                         Atom::get(parameter),
-                        NameInfo {
+                        Local {
                             stack_index,
                             mutable: true,
                         },

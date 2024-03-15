@@ -14,7 +14,7 @@ impl Compiler {
                 Ok(())
             }
 
-            StmtKind::FunctionDeclaration(function) => self.compile_function_definition(function),
+            StmtKind::FunctionDeclaration(function) => self.compile_function_declaration(function),
 
             StmtKind::Conditional(conditional) => self.compile_conditional(conditional),
 
@@ -50,7 +50,7 @@ impl Compiler {
             .write_instruction(Instruction::LoadConstant { index });
     }
 
-    fn compile_function_definition(&mut self, function: Function) -> Result<(), SyphonError> {
+    fn compile_function_declaration(&mut self, function: Function) -> Result<(), SyphonError> {
         let index = self.chunk.add_constant(Value::Function(
             BytecodeFunction {
                 name: function.name.clone(),

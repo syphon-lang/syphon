@@ -167,7 +167,6 @@ pub fn run_repl(file_path: &str, input: String, vm: &mut VirtualMachine) -> Opti
     }
 }
 
-
 pub fn disassemble_file(file_path: &PathBuf) -> io::Result<()> {
     let file = File::open(file_path)?;
 

@@ -8,7 +8,11 @@ use syphon_location::Location;
 use rustc_hash::FxHashMap;
 
 use std::io::{stdout, BufWriter, Write};
+use std::mem::MaybeUninit;
 use std::sync::Arc;
+use std::time::Instant;
+
+static mut START_TIME: MaybeUninit<Instant> = MaybeUninit::uninit();
 
 #[derive(Clone)]
 struct Local {
@@ -34,6 +38,8 @@ pub struct VirtualMachine {
 
 impl VirtualMachine {
     pub fn new() -> VirtualMachine {
+        unsafe { START_TIME.write(Instant::now()) };
+
         VirtualMachine {
             frames: Vec::new(),
             fp: 0,
@@ -46,8 +52,6 @@ impl VirtualMachine {
 
     pub fn init_globals(&mut self) {
         let print_atom = Atom::new("print".to_owned());
-
-        let println_atom = Atom::new("println".to_owned());
 
         let print_fn = NativeFunction {
             name: print_atom.get_name(),
@@ -69,6 +73,8 @@ impl VirtualMachine {
         }
         .into();
 
+        let println_atom = Atom::new("println".to_owned());
+
         let println_fn = NativeFunction {
             name: println_atom.get_name(),
             call: |args| {
@@ -87,11 +93,26 @@ impl VirtualMachine {
         }
         .into();
 
+        let time_atom = Atom::new("time".to_owned());
+
+        let time_fn = NativeFunction {
+            name: time_atom.get_name(),
+            call: |_| {
+                let start_time = unsafe { START_TIME.assume_init() };
+
+                Value::Int(start_time.elapsed().as_nanos() as i64)
+            },
+        }
+        .into();
+
         self.globals
             .insert(print_atom, Value::NativeFunction(print_fn));
 
         self.globals
             .insert(println_atom, Value::NativeFunction(println_fn));
+
+        self.globals
+            .insert(time_atom, Value::NativeFunction(time_fn));
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {

@@ -7,17 +7,17 @@ pub fn disassemble(chunk_name: &str, chunk: &Chunk) -> String {
 
     disassembled.push_str(format!("\nDisassembly of '{}'\n", chunk_name).as_str());
 
-    for instruction in chunk.code.iter() {
+    chunk.code.iter().for_each(|instruction| {
         disassembled.push('\t');
         disassembled.push_str(disassemble_instruction(chunk, instruction).as_str());
         disassembled.push('\n');
-    }
+    });
 
-    for constant in chunk.constants.iter() {
+    chunk.constants.iter().for_each(|constant| {
         if let Value::Function(function) = constant {
             disassembled.push_str(disassemble(&function.name, &function.body).as_str());
         }
-    }
+    });
 
     disassembled
 }

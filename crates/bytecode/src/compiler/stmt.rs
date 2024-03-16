@@ -187,35 +187,23 @@ impl Compiler {
             offset: self.chunk.code.len() - condition_point,
         });
 
-        for (i, break_point) in self.context.break_points.iter().enumerate() {
-            if i < previous_break_points_len {
-                continue;
-            }
-
+        self.context.break_points.iter().skip(previous_break_points_len).for_each(|break_point| {
             self.chunk.code[*break_point] = Instruction::Jump {
                 offset: self.chunk.code.len() - break_point,
             }
-        }
+        });
 
-        for (i, continue_point) in self.context.continue_points.iter().enumerate() {
-            if i < previous_continue_points_len {
-                continue;
-            }
-
+        self.context.continue_points.iter().skip(previous_continue_points_len).for_each(|continue_point| {
             self.chunk.code[*continue_point] = Instruction::Back {
                 offset: continue_point - condition_point,
             }
-        }
+        });
 
         self.context.looping = previous_looping_bool;
 
-        for _ in 0..previous_break_points_len {
-            self.context.break_points.pop();
-        }
+        self.context.break_points.truncate(previous_break_points_len);
 
-        for _ in 0..previous_continue_points_len {
-            self.context.continue_points.pop();
-        }
+        self.context.continue_points.truncate(previous_continue_points_len);
 
         let index = self.chunk.add_constant(Value::None);
 

@@ -63,22 +63,6 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
     true
 }
 
-pub fn run_repl(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<Value> {
-    if !load_script(file_path, &input, vm) {
-        return None;
-    }
-
-    match vm.run() {
-        Ok(value) => Some(value),
-
-        Err(err) => {
-            eprintln!("{} {}", file_path, err);
-
-            None
-        }
-    }
-}
-
 pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
     let file = File::open(file_path)?;
 
@@ -159,12 +143,30 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
     let mut writer = BufWriter::new(output_file);
 
     writer.write_all(&[0x10, 0x07]).unwrap();
+
     writer.write_all(&chunk.to_bytes()).unwrap();
 
     writer.flush().unwrap();
 
     Ok(())
 }
+
+pub fn run_repl(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<Value> {
+    if !load_script(file_path, &input, vm) {
+        return None;
+    }
+
+    match vm.run() {
+        Ok(value) => Some(value),
+
+        Err(err) => {
+            eprintln!("{} {}", file_path, err);
+
+            None
+        }
+    }
+}
+
 
 pub fn disassemble_file(file_path: &PathBuf) -> io::Result<()> {
     let file = File::open(file_path)?;

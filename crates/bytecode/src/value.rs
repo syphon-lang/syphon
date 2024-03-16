@@ -91,10 +91,10 @@ impl Value {
                 bytes.extend(function.name.as_bytes());
 
                 bytes.extend(function.parameters.len().to_be_bytes());
-                for parameter in function.parameters.iter() {
+                function.parameters.iter().for_each(|parameter| {
                     bytes.extend(parameter.len().to_be_bytes());
                     bytes.extend(parameter.as_bytes());
-                }
+                });
 
                 bytes.extend(function.body.to_bytes());
             }

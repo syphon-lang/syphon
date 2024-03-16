@@ -11,12 +11,12 @@ use std::io::{stdout, BufWriter, Write};
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct Local {
+struct Local {
     stack_index: usize,
     mutable: bool,
 }
 
-struct CallFrame {
+struct Frame {
     function: Arc<Function>,
     ip: usize,
 
@@ -24,7 +24,7 @@ struct CallFrame {
 }
 
 pub struct VirtualMachine {
-    frames: Vec<CallFrame>,
+    frames: Vec<Frame>,
     fp: usize,
 
     stack: Vec<Value>,
@@ -38,7 +38,7 @@ impl VirtualMachine {
             frames: Vec::new(),
             fp: 0,
 
-            stack: Vec::with_capacity(256),
+            stack: Vec::with_capacity(1024),
 
             globals: FxHashMap::default(),
         }
@@ -56,17 +56,18 @@ impl VirtualMachine {
 
                 let mut writer = BufWriter::new(lock);
 
-                if args.len() == 1 {
-                    let _ = write!(writer, "{}", args[0]);
-                } else {
-                    for value in args {
-                        let _ = write!(writer, "{} ", value);
+                args.iter().for_each(|value| {
+                    let _ = write!(writer, "{}", value);
+
+                    if args.len() != 1 {
+                        let _ = write!(writer, " ");
                     }
-                }
+                });
 
                 Value::None
             },
-        };
+        }
+        .into();
 
         let println_fn = NativeFunction {
             name: println_atom.get_name(),
@@ -75,21 +76,22 @@ impl VirtualMachine {
 
                 let mut writer = BufWriter::new(lock);
 
-                for value in args {
+                args.iter().for_each(|value| {
                     let _ = write!(writer, "{} ", value);
-                }
+                });
 
                 let _ = writeln!(writer);
 
                 Value::None
             },
-        };
+        }
+        .into();
 
         self.globals
-            .insert(print_atom, Value::NativeFunction(print_fn.into()));
+            .insert(print_atom, Value::NativeFunction(print_fn));
 
         self.globals
-            .insert(println_atom, Value::NativeFunction(println_fn.into()));
+            .insert(println_atom, Value::NativeFunction(println_fn));
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
@@ -101,7 +103,7 @@ impl VirtualMachine {
         .into();
 
         if self.frames.is_empty() {
-            self.frames.push(CallFrame {
+            self.frames.push(Frame {
                 function,
                 locals: FxHashMap::default(),
                 ip: 0,
@@ -191,15 +193,11 @@ impl VirtualMachine {
         Ok(())
     }
 
+    #[inline]
     fn logical_not(&mut self) -> Result<(), SyphonError> {
         let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        self.stack.push(match right {
-            Value::Int(value) => Value::Bool(value == 0),
-            Value::Float(value) => Value::Bool(value == 0.0),
-            Value::Bool(value) => Value::Bool(!value),
-            _ => Value::Bool(false),
-        });
+        self.stack.push(Value::Bool(!right.is_truthy()));
 
         Ok(())
     }
@@ -214,11 +212,11 @@ impl VirtualMachine {
             (Value::Int(left), Value::Float(right)) => Value::Float(left as f64 + right),
             (Value::Float(left), Value::Int(right)) => Value::Float(left + right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Float(left + right),
-            (Value::String(left), Value::String(right)) => {
+            (Value::String(ref left), Value::String(ref right)) => {
                 let mut string = String::with_capacity(left.len() + right.len());
 
-                string.push_str(left.as_str());
-                string.push_str(right.as_str());
+                string.push_str(left);
+                string.push_str(right);
 
                 Value::String(string.into())
             }
@@ -442,6 +440,7 @@ impl VirtualMachine {
         Ok(())
     }
 
+    #[inline]
     fn store_name(&mut self, atom: Atom, mutable: bool) {
         let frame = &mut self.frames[self.fp];
 
@@ -531,7 +530,7 @@ impl VirtualMachine {
 
                 let previous_frame = &self.frames[self.fp];
 
-                self.frames.push(CallFrame {
+                self.frames.push(Frame {
                     function,
                     locals: previous_frame.locals.clone(),
                     ip: 0,
@@ -543,7 +542,7 @@ impl VirtualMachine {
 
                 let previous_stack_len = self.stack.len();
 
-                for parameter in new_frame.function.parameters.iter() {
+                new_frame.function.parameters.iter().for_each(|parameter| {
                     self.stack
                         .push(unsafe { arguments.pop().unwrap_unchecked() });
 
@@ -556,7 +555,7 @@ impl VirtualMachine {
                             mutable: true,
                         },
                     );
-                }
+                });
 
                 let return_value = self.run();
 
@@ -581,6 +580,7 @@ impl VirtualMachine {
         Ok(())
     }
 
+    #[inline]
     fn jump_if_false(&mut self, offset: usize) -> Result<(), SyphonError> {
         let frame = &mut self.frames[self.fp];
 

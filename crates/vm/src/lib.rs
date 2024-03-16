@@ -56,10 +56,10 @@ impl VirtualMachine {
 
                 let mut writer = BufWriter::new(lock);
 
-                args.iter().for_each(|value| {
+                args.iter().enumerate().for_each(|(i, value)| {
                     let _ = write!(writer, "{}", value);
 
-                    if args.len() != 1 {
+                    if i != args.len() - 1 {
                         let _ = write!(writer, " ");
                     }
                 });

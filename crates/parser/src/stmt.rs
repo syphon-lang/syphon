@@ -131,7 +131,16 @@ impl<'a> Parser<'a> {
 
         let value = match self.next_token() {
             Token::Delimiter(Delimiter::Assign) => Some(self.parse_expr_kind(Precedence::Lowest)?),
-            Token::Delimiter(Delimiter::Semicolon) => None,
+            Token::Delimiter(Delimiter::Semicolon) => {
+                if !mutable {
+                    return Err(SyphonError::unable_to(
+                        self.lexer.cursor.location,
+                        "none-initialize a constant",
+                    ));
+                }
+
+                None
+            }
             _ => {
                 return Err(SyphonError::unexpected(
                     self.lexer.cursor.location,

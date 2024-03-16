@@ -2,8 +2,6 @@
 
 ## Number
 
-There is two types of numbers
-
 - Integer
 
 A 64-bit number with no floating-points

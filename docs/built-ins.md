@@ -6,6 +6,8 @@
 
 Print values to the stdout
 
+Usage:
+
 ```
 print("Hello, World!")
 ```
@@ -20,6 +22,8 @@ Hello, World!
 
 Print values then new line to the stdout
 
+Usage:
+
 ```
 print("Hello, World!")
 ```
@@ -31,3 +35,6 @@ Hello, World!
 
 ```
 
+- time
+
+Gives you the elapsed time after startup (in nanoseconds)

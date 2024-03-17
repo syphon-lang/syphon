@@ -120,22 +120,20 @@ impl<'a> VirtualMachine<'a> {
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
-        self.mark_and_sweep();
-
-        let function = self.gc.alloc(Function {
-            name: Atom::new("script".to_owned()),
-            body: chunk,
-            parameters: Vec::new(),
-        });
-
         if self.frames.is_empty() {
+            let function = self.gc.alloc(Function {
+                name: Atom::new("script".to_owned()),
+                body: chunk,
+                parameters: Vec::new(),
+            });
+
             self.frames.push(Frame {
                 function,
                 locals: FxHashMap::default(),
                 ip: 0,
             });
         } else {
-            self.frames[0].function = function;
+            self.gc.deref_mut(self.frames[0].function).body = chunk;
             self.frames[0].ip = 0;
         }
     }
@@ -149,10 +147,6 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn mark_roots(&mut self) {
-        for value in self.stack.iter() {
-            value.trace(self.gc);
-        }
-
         for frame in self.frames.iter() {
             self.gc.mark(frame.function);
         }
@@ -200,13 +194,17 @@ impl<'a> VirtualMachine<'a> {
 
                 Instruction::Assign { atom, location } => self.assign(atom, location)?,
 
-                Instruction::LoadConstant { index } => self.stack.push(
-                    self.gc
+                Instruction::LoadConstant { index } => {
+                    let constant = *self
+                        .gc
                         .deref(self.frames[self.fp].function)
                         .body
-                        .get_constant(index)
-                        .clone(),
-                ),
+                        .get_constant(index);
+
+                    constant.trace(self.gc);
+
+                    self.stack.push(constant);
+                }
 
                 Instruction::Call {
                     arguments_count,
@@ -226,6 +224,8 @@ impl<'a> VirtualMachine<'a> {
 
                 Instruction::Back { offset } => self.back(offset),
             }
+
+            self.mark_and_sweep();
         }
 
         Ok(Value::None)
@@ -272,9 +272,11 @@ impl<'a> VirtualMachine<'a> {
                 string.push_str(left);
                 string.push_str(right);
 
-                self.mark_and_sweep();
+                let value = self.gc.alloc(string);
 
-                Value::String(self.gc.alloc(string))
+                self.gc.mark(value);
+
+                Value::String(value)
             }
 
             _ => {
@@ -524,7 +526,9 @@ impl<'a> VirtualMachine<'a> {
 
         match value {
             Some(value) => {
-                self.stack.push(value.clone());
+                value.trace(self.gc);
+
+                self.stack.push(*value);
 
                 Ok(())
             }
@@ -540,7 +544,7 @@ impl<'a> VirtualMachine<'a> {
     fn assign(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
         let frame = &mut self.frames[self.fp];
 
-        let Some(past_name_info) = frame.locals.get(&atom) else {
+        let Some(past_local) = frame.locals.get(&atom) else {
             return Err(SyphonError::undefined(
                 location,
                 "name",
@@ -548,13 +552,13 @@ impl<'a> VirtualMachine<'a> {
             ));
         };
 
-        let new_value = unsafe { self.stack.last().unwrap_unchecked() };
-
-        if !past_name_info.mutable {
+        if !past_local.mutable {
             return Err(SyphonError::unable_to(location, "assign to a constant"));
         }
 
-        self.stack[past_name_info.stack_index] = new_value.clone();
+        let new_value = unsafe { self.stack.last().unwrap_unchecked() };
+
+        self.stack[past_local.stack_index] = *new_value;
 
         Ok(())
     }
@@ -625,11 +629,17 @@ impl<'a> VirtualMachine<'a> {
 
                 self.frames.pop();
 
-                self.stack.push(return_value?);
+                let return_value = return_value?;
+
+                return_value.trace(self.gc);
+
+                self.stack.push(return_value);
             }
 
             Value::NativeFunction(function) => {
                 let return_value = (function.call)(self.gc, arguments);
+
+                return_value.trace(self.gc);
 
                 self.stack.push(return_value);
             }

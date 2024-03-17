@@ -70,7 +70,7 @@ pub struct GarbageCollector {
     objects: Vec<Option<ObjectHeader>>,
     free_slots: Vec<usize>,
     grey_stack: Vec<usize>,
-    allocated: usize,
+    bytes_allocated: usize,
     next_gc: usize,
 }
 
@@ -82,7 +82,7 @@ impl GarbageCollector {
             objects: Vec::new(),
             free_slots: Vec::new(),
             grey_stack: Vec::new(),
-            allocated: 0,
+            bytes_allocated: 0,
             next_gc: 1024,
         }
     }
@@ -90,7 +90,7 @@ impl GarbageCollector {
     pub fn alloc<T: Trace + 'static>(&mut self, value: T) -> Ref<T> {
         let size = std::mem::size_of_val(&value) + std::mem::size_of::<ObjectHeader>();
 
-        self.allocated += size;
+        self.bytes_allocated += size;
 
         let object_header = ObjectHeader {
             data: Box::new(value),
@@ -111,6 +111,14 @@ impl GarbageCollector {
                 self.objects.len() - 1
             }
         };
+
+        #[cfg(feature = "debug_log")]
+        {
+            println!(
+                "alloc(size = {}, bytes_allocated = {}, next_gc = {}, index = {})",
+                size, self.bytes_allocated, self.next_gc, index
+            );
+        }
 
         Ref {
             index,
@@ -146,6 +154,12 @@ impl GarbageCollector {
                 return;
             }
 
+            #[cfg(feature = "debug_log")]
+            println!(
+                "mark(size = {}, index = {})",
+                object_header.size, reference.index
+            );
+
             object_header.marked = true;
 
             self.grey_stack.push(reference.index);
@@ -153,9 +167,14 @@ impl GarbageCollector {
     }
 
     fn blacken(&mut self, index: usize) {
-        let object = self.objects[index].take().unwrap();
-        object.data.trace(self);
-        self.objects[index] = Some(object);
+        let object_header = self.objects[index].take().unwrap();
+
+        object_header.data.trace(self);
+
+        #[cfg(feature = "debug_log")]
+        println!("blacken(size = {}, index = {})", object_header.size, index);
+
+        self.objects[index] = Some(object_header);
     }
 
     fn trace_references(&mut self) {
@@ -167,7 +186,10 @@ impl GarbageCollector {
     fn free(&mut self, index: usize) {
         let old = self.objects[index].take().unwrap();
 
-        self.allocated -= old.size;
+        #[cfg(feature = "debug_log")]
+        println!("free(size = {}, index = {})", old.size, index);
+
+        self.bytes_allocated -= old.size;
 
         self.free_slots.push(index);
     }
@@ -185,14 +207,20 @@ impl GarbageCollector {
     }
 
     pub fn should_gc(&self) -> bool {
-        self.allocated > self.next_gc
+        self.bytes_allocated > self.next_gc
     }
 
     pub fn collect_garbage(&mut self) {
+        #[cfg(feature = "debug_log")]
+        let before = self.bytes_allocated;
+
         self.trace_references();
 
         self.sweep();
 
-        self.next_gc = self.allocated * GarbageCollector::HEAP_GROW_FACTOR;
+        self.next_gc = self.bytes_allocated * GarbageCollector::HEAP_GROW_FACTOR;
+
+        #[cfg(feature = "debug_log")]
+        println!("collected(before = {}, after = {}, next = {})",before, self.bytes_allocated, self.next_gc);
     }
 }

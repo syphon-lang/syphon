@@ -2,7 +2,7 @@ use crate::chunk::{Atom, Chunk};
 
 use syphon_gc::{GarbageCollector, Ref, Trace};
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Value {
     None,
 
@@ -26,7 +26,7 @@ pub struct Function {
     pub body: Chunk,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct NativeFunction {
     pub name: Atom,
     pub call: fn(&mut GarbageCollector, Vec<Value>) -> Value,

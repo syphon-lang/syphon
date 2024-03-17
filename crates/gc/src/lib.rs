@@ -83,7 +83,7 @@ impl GarbageCollector {
             free_slots: Vec::new(),
             grey_stack: Vec::new(),
             bytes_allocated: 0,
-            next_gc: 1024,
+            next_gc: 1024 * 2,
         }
     }
 
@@ -167,14 +167,14 @@ impl GarbageCollector {
     }
 
     fn blacken(&mut self, index: usize) {
-        let object_header = self.objects[index].take().unwrap();
+        if let Some(object_header) = self.objects[index].take() {
+            object_header.data.trace(self);
 
-        object_header.data.trace(self);
+            #[cfg(feature = "debug_log")]
+            println!("blacken(size = {}, index = {})", object_header.size, index);
 
-        #[cfg(feature = "debug_log")]
-        println!("blacken(size = {}, index = {})", object_header.size, index);
-
-        self.objects[index] = Some(object_header);
+            self.objects[index] = Some(object_header);
+        }
     }
 
     fn trace_references(&mut self) {
@@ -221,6 +221,9 @@ impl GarbageCollector {
         self.next_gc = self.bytes_allocated * GarbageCollector::HEAP_GROW_FACTOR;
 
         #[cfg(feature = "debug_log")]
-        println!("collected(before = {}, after = {}, next = {})",before, self.bytes_allocated, self.next_gc);
+        println!(
+            "collected(before = {}, after = {}, next = {})",
+            before, self.bytes_allocated, self.next_gc
+        );
     }
 }

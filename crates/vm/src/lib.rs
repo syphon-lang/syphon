@@ -159,6 +159,8 @@ impl<'a> VirtualMachine<'a> {
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         while self.frames[self.fp].ip < self.gc.deref(self.frames[self.fp].function).body.code.len()
         {
+            self.mark_and_sweep();
+
             self.frames[self.fp].ip += 1;
 
             match self.gc.deref(self.frames[self.fp].function).body.code
@@ -224,8 +226,6 @@ impl<'a> VirtualMachine<'a> {
 
                 Instruction::Back { offset } => self.back(offset),
             }
-
-            self.mark_and_sweep();
         }
 
         Ok(Value::None)

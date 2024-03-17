@@ -6,7 +6,7 @@ use crate::value::{Function as BytecodeFunction, Value};
 use syphon_ast::*;
 use syphon_errors::SyphonError;
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub(crate) fn compile_stmt(&mut self, kind: StmtKind) -> Result<(), SyphonError> {
         match kind {
             StmtKind::VariableDeclaration(var) => {
@@ -51,22 +51,23 @@ impl Compiler {
     }
 
     fn compile_function_declaration(&mut self, function: Function) -> Result<(), SyphonError> {
-        let index = self.chunk.add_constant(Value::Function(
-            BytecodeFunction {
-                name: function.name.clone(),
-                parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
-                body: {
-                    let mut compiler = Compiler::new(CompilerMode::Function);
+        let bytecode_function = BytecodeFunction {
+            name: Atom::new(function.name.clone()),
+            parameters: function.parameters.iter().map(|f| f.name.clone()).collect(),
+            body: {
+                let mut compiler = Compiler::new(CompilerMode::Function, self.gc);
 
-                    for node in function.body {
-                        compiler.compile(node)?;
-                    }
+                for node in function.body {
+                    compiler.compile(node)?;
+                }
 
-                    compiler.get_chunk()
-                },
-            }
-            .into(),
-        ));
+                compiler.get_chunk()
+            },
+        };
+
+        let index = self
+            .chunk
+            .add_constant(Value::Function(self.gc.alloc(bytecode_function)));
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index });

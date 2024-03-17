@@ -1,6 +1,7 @@
 use crate::instruction::Instruction;
 use crate::value::{Function, Value};
 
+use syphon_gc::GarbageCollector;
 use syphon_location::Location;
 
 use derive_more::Display;
@@ -91,12 +92,12 @@ impl Chunk {
         self.code.extend(other.code);
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self, gc: &GarbageCollector) -> Vec<u8> {
         let mut bytes = Vec::new();
 
         bytes.extend(self.constants.len().to_be_bytes());
         for constant in self.constants.iter() {
-            bytes.extend(constant.to_bytes());
+            bytes.extend(constant.to_bytes(gc));
         }
 
         let atoms_lock = ATOMS.lock().unwrap();
@@ -117,7 +118,7 @@ impl Chunk {
         bytes
     }
 
-    pub fn parse(bytes: &mut impl Iterator<Item = u8>) -> Option<Chunk> {
+    pub fn parse(bytes: &mut impl Iterator<Item = u8>, gc: &mut GarbageCollector) -> Option<Chunk> {
         let mut chunk = Chunk::new();
 
         fn get_8_bytes(bytes: &mut impl Iterator<Item = u8>) -> [u8; 8] {
@@ -158,7 +159,7 @@ impl Chunk {
 
                     let string = String::from_utf8(get_multiple(bytes, string_len)).unwrap();
 
-                    chunk.add_constant(Value::String(string.into()));
+                    chunk.add_constant(Value::String(gc.alloc(string)));
                 }
 
                 2 => {
@@ -178,9 +179,7 @@ impl Chunk {
                 }
 
                 6 => {
-                    let name_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let name = String::from_utf8(get_multiple(bytes, name_len)).unwrap();
+                    let name = Atom::from_be_bytes(get_8_bytes(bytes));
 
                     let parameters_len = usize::from_be_bytes(get_8_bytes(bytes));
 
@@ -195,16 +194,13 @@ impl Chunk {
                         parameters.push(parameter);
                     }
 
-                    let body = Chunk::parse(bytes)?;
+                    let body = Chunk::parse(bytes, gc)?;
 
-                    chunk.add_constant(Value::Function(
-                        Function {
-                            name,
-                            parameters,
-                            body,
-                        }
-                        .into(),
-                    ));
+                    chunk.add_constant(Value::Function(gc.alloc(Function {
+                        name,
+                        parameters,
+                        body,
+                    })));
                 }
 
                 _ => {

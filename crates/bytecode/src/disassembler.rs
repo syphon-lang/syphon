@@ -2,27 +2,36 @@ use crate::chunk::Chunk;
 use crate::instruction::Instruction;
 use crate::value::Value;
 
-pub fn disassemble(chunk_name: &str, chunk: &Chunk) -> String {
+use syphon_gc::{GarbageCollector, TraceFormatter};
+
+pub fn disassemble(chunk_name: &str, chunk: &Chunk, gc: &GarbageCollector) -> String {
     let mut disassembled = String::new();
 
     disassembled.push_str(format!("\nDisassembly of '{}'\n", chunk_name).as_str());
 
     chunk.code.iter().for_each(|instruction| {
         disassembled.push('\t');
-        disassembled.push_str(disassemble_instruction(chunk, instruction).as_str());
+        disassembled.push_str(disassemble_instruction(chunk, instruction, gc).as_str());
         disassembled.push('\n');
     });
 
     chunk.constants.iter().for_each(|constant| {
-        if let Value::Function(function) = constant {
-            disassembled.push_str(disassemble(&function.name, &function.body).as_str());
+        if let Value::Function(reference) = constant {
+            let function = gc.deref(*reference);
+
+            disassembled
+                .push_str(disassemble(&function.name.get_name(), &function.body, gc).as_str());
         }
     });
 
     disassembled
 }
 
-fn disassemble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
+fn disassemble_instruction(
+    chunk: &Chunk,
+    instruction: &Instruction,
+    gc: &GarbageCollector,
+) -> String {
     match instruction {
         Instruction::Neg { .. } => "Neg".to_owned(),
         Instruction::LogicalNot => "LogicalNot".to_owned(),
@@ -52,7 +61,13 @@ fn disassemble_instruction(chunk: &Chunk, instruction: &Instruction) -> String {
         }
 
         Instruction::LoadConstant { index } => {
-            format!("LoadConstant {} ({})", index, chunk.get_constant(*index))
+            let constant = chunk.get_constant(*index).clone();
+
+            format!(
+                "LoadConstant {} ({})",
+                index,
+                TraceFormatter::new(constant, gc)
+            )
         }
 
         Instruction::Call {

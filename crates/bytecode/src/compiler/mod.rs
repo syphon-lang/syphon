@@ -6,6 +6,7 @@ use crate::instruction::Instruction;
 
 use syphon_ast::*;
 use syphon_errors::SyphonError;
+use syphon_gc::GarbageCollector;
 
 use thin_vec::ThinVec;
 
@@ -22,17 +23,21 @@ pub enum CompilerMode {
     Function,
 }
 
-pub struct Compiler {
+pub struct Compiler<'a> {
     chunk: Chunk,
+
+    gc: &'a mut GarbageCollector,
 
     context: CompilerContext,
     mode: CompilerMode,
 }
 
-impl Compiler {
-    pub fn new(mode: CompilerMode) -> Compiler {
+impl<'a> Compiler<'a> {
+    pub fn new(mode: CompilerMode, gc: &mut GarbageCollector) -> Compiler {
         Compiler {
             chunk: Chunk::new(),
+
+            gc,
 
             context: CompilerContext::default(),
             mode,

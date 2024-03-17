@@ -13,6 +13,7 @@ rustc-hash = { workspace = true }
 
 syphon_bytecode = { path = "../bytecode" }
 syphon_errors = { path = "../errors" }
+syphon_gc = { path = "../gc" }
 syphon_lexer = { path = "../lexer" }
 syphon_parser = { path = "../parser" }
 syphon_vm = { path = "../vm" }

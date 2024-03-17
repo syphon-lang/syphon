@@ -2,6 +2,7 @@ use syphon_bytecode::chunk::Chunk;
 use syphon_bytecode::compiler::{Compiler, CompilerMode};
 use syphon_bytecode::disassembler::disassemble;
 use syphon_bytecode::value::Value;
+use syphon_gc::GarbageCollector;
 use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 use syphon_vm::VirtualMachine;
@@ -11,18 +12,18 @@ use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::process::exit;
 
-fn parse_syc(input: Vec<u8>) -> Option<Chunk> {
+fn parse_syc(input: Vec<u8>, gc: &mut GarbageCollector) -> Option<Chunk> {
     let mut bytes = input.into_iter();
 
     if bytes.next().is_some_and(|b| b != 0x10) || bytes.next().is_some_and(|b| b != 0x07) {
         return None;
     }
 
-    Chunk::parse(&mut bytes)
+    Chunk::parse(&mut bytes, gc)
 }
 
 fn load_syc(input: Vec<u8>, vm: &mut VirtualMachine) -> bool {
-    let Some(chunk) = parse_syc(input) else {
+    let Some(chunk) = parse_syc(input, vm.gc) else {
         return false;
     };
 
@@ -45,7 +46,7 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
         }
     };
 
-    let mut compiler = Compiler::new(CompilerMode::Script);
+    let mut compiler = Compiler::new(CompilerMode::Script, vm.gc);
 
     match compiler.compile(module) {
         Ok(()) => (),
@@ -72,7 +73,9 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
 
     reader.read_to_end(&mut file_content)?;
 
-    let mut vm = VirtualMachine::new();
+    let mut gc = GarbageCollector::new();
+
+    let mut vm = VirtualMachine::new(&mut gc);
 
     if !load_syc(file_content.clone(), &mut vm) {
         let file_content = String::from_utf8(file_content).unwrap();
@@ -122,7 +125,9 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
         }
     };
 
-    let mut compiler = Compiler::new(CompilerMode::Script);
+    let mut gc = GarbageCollector::new();
+
+    let mut compiler = Compiler::new(CompilerMode::Script, &mut gc);
 
     match compiler.compile(module) {
         Ok(()) => (),
@@ -144,7 +149,7 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
 
     writer.write_all(&[0x10, 0x07]).unwrap();
 
-    writer.write_all(&chunk.to_bytes()).unwrap();
+    writer.write_all(&chunk.to_bytes(&gc)).unwrap();
 
     writer.flush().unwrap();
 
@@ -176,13 +181,19 @@ pub fn disassemble_file(file_path: &PathBuf) -> io::Result<()> {
 
     reader.read_to_end(&mut file_content)?;
 
-    let Some(chunk) = parse_syc(file_content) else {
+    let mut gc = GarbageCollector::new();
+
+    let Some(chunk) = parse_syc(file_content, &mut gc) else {
         eprintln!("invalid syc file: invalid file magic number");
 
         exit(1);
     };
 
-    let disassembled_chunk = disassemble(file_path.to_string_lossy().to_string().as_str(), &chunk);
+    let disassembled_chunk = disassemble(
+        file_path.to_string_lossy().to_string().as_str(),
+        &chunk,
+        &gc,
+    );
 
     println!("{}", disassembled_chunk);
 

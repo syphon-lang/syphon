@@ -2,6 +2,7 @@ use crate::runner;
 
 use syphon_bytecode::value::Value;
 
+use syphon_gc::{GarbageCollector, TraceFormatter};
 use syphon_vm::VirtualMachine;
 
 use std::io::{stdin, stdout, BufRead, BufReader, Write};
@@ -9,7 +10,9 @@ use std::io::{stdin, stdout, BufRead, BufReader, Write};
 pub fn start() {
     let mut reader = BufReader::new(stdin());
 
-    let mut vm = VirtualMachine::new();
+    let mut gc = GarbageCollector::new();
+
+    let mut vm = VirtualMachine::new(&mut gc);
 
     vm.init_globals();
 
@@ -34,7 +37,7 @@ pub fn start() {
 
         match value {
             Value::None => (),
-            _ => println!("{}", value),
+            _ => println!("{}", TraceFormatter::new(value, vm.gc)),
         };
     }
 }

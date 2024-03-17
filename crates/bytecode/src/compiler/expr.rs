@@ -8,7 +8,7 @@ use syphon_location::Location;
 
 use thin_vec::ThinVec;
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub(crate) fn compile_expr(&mut self, kind: ExprKind) {
         match kind {
             ExprKind::Identifier { symbol, location } => self.compile_identifer(symbol, location),
@@ -53,7 +53,7 @@ impl Compiler {
     }
 
     fn compile_string(&mut self, value: String) {
-        let index = self.chunk.add_constant(Value::String(value.into()));
+        let index = self.chunk.add_constant(Value::String(self.gc.alloc(value)));
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index })

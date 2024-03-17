@@ -9,4 +9,5 @@ thin-vec = { workspace = true }
 
 syphon_bytecode = { path = "../bytecode" }
 syphon_errors = { path = "../errors" }
+syphon_gc = { path = "../gc" }
 syphon_location = { path = "../location" }

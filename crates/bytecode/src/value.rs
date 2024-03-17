@@ -1,15 +1,12 @@
-use crate::chunk::Chunk;
+use crate::chunk::{Atom, Chunk};
 
-use derive_more::Display;
+use syphon_gc::{GarbageCollector, Ref, Trace};
 
-use std::sync::Arc;
-
-#[derive(Display, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Value {
-    #[display(fmt = "none")]
     None,
 
-    String(Arc<String>),
+    String(Ref<String>),
 
     Int(i64),
 
@@ -17,33 +14,35 @@ pub enum Value {
 
     Bool(bool),
 
-    Function(Arc<Function>),
+    Function(Ref<Function>),
 
-    NativeFunction(Arc<NativeFunction>),
+    NativeFunction(NativeFunction),
 }
 
-#[derive(Display, Clone, PartialEq)]
-#[display(fmt = "<function '{}'>", name)]
+#[derive(Clone, PartialEq)]
 pub struct Function {
-    pub name: String,
+    pub name: Atom,
     pub parameters: Vec<String>,
     pub body: Chunk,
 }
 
-#[derive(Display, Clone, PartialEq)]
-#[display(fmt = "<native function '{}'>", name)]
+#[derive(Clone, PartialEq)]
 pub struct NativeFunction {
-    pub name: String,
-    pub call: fn(Vec<Value>) -> Value,
+    pub name: Atom,
+    pub call: fn(&mut GarbageCollector, Vec<Value>) -> Value,
 }
 
 impl Value {
     #[inline]
-    pub fn is_truthy(&self) -> bool {
+    pub fn is_truthy(&self, gc: &GarbageCollector) -> bool {
         match self {
             Value::None => false,
 
-            Value::String(value) => !value.is_empty(),
+            Value::String(value) => {
+                let value = gc.deref(*value);
+
+                !value.is_empty()
+            }
 
             &Value::Int(value) => value != 0,
 
@@ -55,7 +54,7 @@ impl Value {
         }
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self, gc: &GarbageCollector) -> Vec<u8> {
         let mut bytes = Vec::new();
 
         match self {
@@ -63,7 +62,9 @@ impl Value {
                 bytes.push(0);
             }
 
-            Value::String(value) => {
+            Value::String(reference) => {
+                let value = gc.deref(*reference);
+
                 bytes.push(1);
                 bytes.extend(value.len().to_be_bytes());
                 bytes.extend(value.as_bytes());
@@ -84,11 +85,12 @@ impl Value {
                 false => bytes.push(5),
             },
 
-            Value::Function(function) => {
+            Value::Function(reference) => {
+                let function = gc.deref(*reference);
+
                 bytes.push(6);
 
-                bytes.extend(function.name.len().to_be_bytes());
-                bytes.extend(function.name.as_bytes());
+                bytes.extend(function.name.to_be_bytes());
 
                 bytes.extend(function.parameters.len().to_be_bytes());
                 function.parameters.iter().for_each(|parameter| {
@@ -96,12 +98,80 @@ impl Value {
                     bytes.extend(parameter.as_bytes());
                 });
 
-                bytes.extend(function.body.to_bytes());
+                bytes.extend(function.body.to_bytes(gc));
             }
 
             _ => unreachable!(),
         }
 
         bytes
+    }
+}
+
+impl Trace for Value {
+    fn format(&self, gc: &GarbageCollector, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Value::None => write!(f, "none"),
+
+            Value::String(reference) => {
+                let value = gc.deref(*reference);
+
+                value.format(gc, f)
+            }
+
+            Value::Int(value) => write!(f, "{}", value),
+            Value::Float(value) => write!(f, "{}", value),
+            Value::Bool(value) => write!(f, "{}", value),
+
+            Value::Function(reference) => {
+                let function = gc.deref(*reference);
+
+                function.format(gc, f)
+            }
+
+            Value::NativeFunction(function) => {
+                write!(f, "<native function '{}'>", function.name.get_name())
+            }
+        }
+    }
+
+    fn trace(&self, gc: &mut GarbageCollector) {
+        match self {
+            Value::String(reference) => gc.mark(*reference),
+
+            Value::Function(reference) => gc.mark(*reference),
+
+            _ => (),
+        }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        unreachable!()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        unreachable!()
+    }
+}
+
+impl Trace for Function {
+    fn format(&self, _: &GarbageCollector, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "<function '{}'>", self.name.get_name())
+    }
+
+    fn trace(&self, gc: &mut GarbageCollector) {
+        for constant in self.body.constants.iter() {
+            constant.trace(gc);
+        }
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }

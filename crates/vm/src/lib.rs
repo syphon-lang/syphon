@@ -3,13 +3,13 @@ use syphon_bytecode::instruction::Instruction;
 use syphon_bytecode::value::{Function, NativeFunction, Value};
 
 use syphon_errors::SyphonError;
+use syphon_gc::{GarbageCollector, Ref, Trace, TraceFormatter};
 use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
 use std::io::{stdout, BufWriter, Write};
 use std::mem::MaybeUninit;
-use std::sync::Arc;
 use std::time::Instant;
 
 static mut START_TIME: MaybeUninit<Instant> = MaybeUninit::uninit();
@@ -21,23 +21,25 @@ struct Local {
 }
 
 struct Frame {
-    function: Arc<Function>,
+    function: Ref<Function>,
     ip: usize,
 
     locals: FxHashMap<Atom, Local>,
 }
 
-pub struct VirtualMachine {
+pub struct VirtualMachine<'a> {
     frames: Vec<Frame>,
     fp: usize,
 
     stack: Vec<Value>,
 
+    pub gc: &'a mut GarbageCollector,
+
     globals: FxHashMap<Atom, Value>,
 }
 
-impl VirtualMachine {
-    pub fn new() -> VirtualMachine {
+impl<'a> VirtualMachine<'a> {
+    pub fn new(gc: &mut GarbageCollector) -> VirtualMachine {
         unsafe { START_TIME.write(Instant::now()) };
 
         VirtualMachine {
@@ -45,6 +47,8 @@ impl VirtualMachine {
             fp: 0,
 
             stack: Vec::with_capacity(1024),
+
+            gc,
 
             globals: FxHashMap::default(),
         }
@@ -54,14 +58,14 @@ impl VirtualMachine {
         let print_atom = Atom::new("print".to_owned());
 
         let print_fn = NativeFunction {
-            name: print_atom.get_name(),
-            call: |args| {
+            name: print_atom,
+            call: |gc, args| {
                 let lock = stdout().lock();
 
                 let mut writer = BufWriter::new(lock);
 
                 args.iter().enumerate().for_each(|(i, value)| {
-                    let _ = write!(writer, "{}", value);
+                    let _ = write!(writer, "{}", TraceFormatter::new(value.clone(), gc));
 
                     if i != args.len() - 1 {
                         let _ = write!(writer, " ");
@@ -76,14 +80,14 @@ impl VirtualMachine {
         let println_atom = Atom::new("println".to_owned());
 
         let println_fn = NativeFunction {
-            name: println_atom.get_name(),
-            call: |args| {
+            name: println_atom,
+            call: |gc, args| {
                 let lock = stdout().lock();
 
                 let mut writer = BufWriter::new(lock);
 
                 args.iter().for_each(|value| {
-                    let _ = write!(writer, "{} ", value);
+                    let _ = write!(writer, "{}", TraceFormatter::new(value.clone(), gc));
                 });
 
                 let _ = writeln!(writer);
@@ -96,8 +100,8 @@ impl VirtualMachine {
         let time_atom = Atom::new("time".to_owned());
 
         let time_fn = NativeFunction {
-            name: time_atom.get_name(),
-            call: |_| {
+            name: time_atom,
+            call: |_, _| {
                 let start_time = unsafe { START_TIME.assume_init() };
 
                 Value::Int(start_time.elapsed().as_nanos() as i64)
@@ -116,12 +120,13 @@ impl VirtualMachine {
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
-        let function = Function {
-            name: String::new(),
+        self.mark_and_sweep();
+
+        let function = self.gc.alloc(Function {
+            name: Atom::new("script".to_owned()),
             body: chunk,
             parameters: Vec::new(),
-        }
-        .into();
+        });
 
         if self.frames.is_empty() {
             self.frames.push(Frame {
@@ -135,11 +140,36 @@ impl VirtualMachine {
         }
     }
 
+    fn mark_and_sweep(&mut self) {
+        if self.gc.should_gc() {
+            self.mark_roots();
+
+            self.gc.collect_garbage();
+        }
+    }
+
+    fn mark_roots(&mut self) {
+        for value in self.stack.iter() {
+            value.trace(self.gc);
+        }
+
+        for frame in self.frames.iter() {
+            self.gc.mark(frame.function);
+        }
+
+        for (_, value) in self.globals.iter() {
+            value.trace(self.gc);
+        }
+    }
+
     pub fn run(&mut self) -> Result<Value, SyphonError> {
-        while self.frames[self.fp].ip < self.frames[self.fp].function.body.code.len() {
+        while self.frames[self.fp].ip < self.gc.deref(self.frames[self.fp].function).body.code.len()
+        {
             self.frames[self.fp].ip += 1;
 
-            match self.frames[self.fp].function.body.code[self.frames[self.fp].ip - 1] {
+            match self.gc.deref(self.frames[self.fp].function).body.code
+                [self.frames[self.fp].ip - 1]
+            {
                 Instruction::Neg { location } => self.negative(location)?,
 
                 Instruction::LogicalNot => self.logical_not()?,
@@ -171,8 +201,8 @@ impl VirtualMachine {
                 Instruction::Assign { atom, location } => self.assign(atom, location)?,
 
                 Instruction::LoadConstant { index } => self.stack.push(
-                    self.frames[self.fp]
-                        .function
+                    self.gc
+                        .deref(self.frames[self.fp].function)
                         .body
                         .get_constant(index)
                         .clone(),
@@ -218,7 +248,7 @@ impl VirtualMachine {
     fn logical_not(&mut self) -> Result<(), SyphonError> {
         let right = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        self.stack.push(Value::Bool(!right.is_truthy()));
+        self.stack.push(Value::Bool(!right.is_truthy(self.gc)));
 
         Ok(())
     }
@@ -228,18 +258,23 @@ impl VirtualMachine {
 
         let left = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        self.stack.push(match (left, right) {
+        let value = match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left + right),
             (Value::Int(left), Value::Float(right)) => Value::Float(left as f64 + right),
             (Value::Float(left), Value::Int(right)) => Value::Float(left + right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Float(left + right),
-            (Value::String(ref left), Value::String(ref right)) => {
+            (Value::String(left_reference), Value::String(right_reference)) => {
+                let left = self.gc.deref(left_reference);
+                let right = self.gc.deref(right_reference);
+
                 let mut string = String::with_capacity(left.len() + right.len());
 
                 string.push_str(left);
                 string.push_str(right);
 
-                Value::String(string.into())
+                self.mark_and_sweep();
+
+                Value::String(self.gc.alloc(string))
             }
 
             _ => {
@@ -248,7 +283,9 @@ impl VirtualMachine {
                     "apply '+' binary operator",
                 ));
             }
-        });
+        };
+
+        self.stack.push(value);
 
         Ok(())
     }
@@ -532,7 +569,9 @@ impl VirtualMachine {
         let mut arguments = self.stack.split_off(self.stack.len() - arguments_count);
 
         match callee {
-            Value::Function(function) => {
+            Value::Function(reference) => {
+                let function = self.gc.deref(reference);
+
                 if function.parameters.len() != arguments_count {
                     return Err(SyphonError::expected_got(
                         location,
@@ -552,7 +591,7 @@ impl VirtualMachine {
                 let previous_frame = &self.frames[self.fp];
 
                 self.frames.push(Frame {
-                    function,
+                    function: reference,
                     locals: previous_frame.locals.clone(),
                     ip: 0,
                 });
@@ -563,7 +602,7 @@ impl VirtualMachine {
 
                 let previous_stack_len = self.stack.len();
 
-                new_frame.function.parameters.iter().for_each(|parameter| {
+                function.parameters.iter().for_each(|parameter| {
                     self.stack
                         .push(unsafe { arguments.pop().unwrap_unchecked() });
 
@@ -590,7 +629,7 @@ impl VirtualMachine {
             }
 
             Value::NativeFunction(function) => {
-                let return_value = (function.call)(arguments);
+                let return_value = (function.call)(self.gc, arguments);
 
                 self.stack.push(return_value);
             }
@@ -607,7 +646,7 @@ impl VirtualMachine {
 
         let value = unsafe { self.stack.pop().unwrap_unchecked() };
 
-        if !value.is_truthy() {
+        if !value.is_truthy(self.gc) {
             frame.ip += offset;
         }
 

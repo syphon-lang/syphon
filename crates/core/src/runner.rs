@@ -32,7 +32,12 @@ fn load_syc(input: Vec<u8>, vm: &mut VirtualMachine) -> bool {
     true
 }
 
-pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> bool {
+pub fn load_script(
+    file_path: &str,
+    input: &str,
+    mode: CompilerMode,
+    vm: &mut VirtualMachine,
+) -> bool {
     let lexer = Lexer::new(input);
 
     let mut parser = Parser::new(lexer);
@@ -46,7 +51,7 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
         }
     };
 
-    let mut compiler = Compiler::new(CompilerMode::Script, vm.gc);
+    let mut compiler = Compiler::new(mode, vm.gc);
 
     match compiler.compile(module) {
         Ok(()) => (),
@@ -83,6 +88,7 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
         if !load_script(
             file_path.to_string_lossy().to_string().as_str(),
             &file_content,
+            CompilerMode::Script,
             &mut vm,
         ) {
             exit(1);
@@ -157,7 +163,7 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
 }
 
 pub fn run_repl(file_path: &str, input: String, vm: &mut VirtualMachine) -> Option<Value> {
-    if !load_script(file_path, &input, vm) {
+    if !load_script(file_path, &input, CompilerMode::REPL, vm) {
         return None;
     }
 

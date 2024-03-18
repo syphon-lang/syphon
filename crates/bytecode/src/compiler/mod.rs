@@ -12,6 +12,7 @@ use thin_vec::ThinVec;
 
 #[derive(Default)]
 pub struct CompilerContext {
+    recursive_expression: bool,
     looping: bool,
     break_points: Vec<usize>,
     continue_points: Vec<usize>,
@@ -19,6 +20,7 @@ pub struct CompilerContext {
 
 #[derive(PartialEq)]
 pub enum CompilerMode {
+    REPL,
     Script,
     Function,
 }
@@ -47,7 +49,7 @@ impl<'a> Compiler<'a> {
     pub fn compile(&mut self, module: Node) -> Result<(), SyphonError> {
         self.compile_node(module)?;
 
-        if self.mode == CompilerMode::Script {
+        if self.mode == CompilerMode::REPL {
             self.chunk.write_instruction(Instruction::Return);
         }
 

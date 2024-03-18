@@ -44,10 +44,12 @@ impl<'a> Compiler<'a> {
             mutable: var.mutable,
         });
 
-        let index = self.chunk.add_constant(Value::None);
+        if self.mode == CompilerMode::REPL {
+            let index = self.chunk.add_constant(Value::None);
 
-        self.chunk
-            .write_instruction(Instruction::LoadConstant { index });
+            self.chunk
+                .write_instruction(Instruction::LoadConstant { index });
+        }
     }
 
     fn compile_function_declaration(&mut self, function: Function) -> Result<(), SyphonError> {
@@ -77,10 +79,12 @@ impl<'a> Compiler<'a> {
             mutable: false,
         });
 
-        let index = self.chunk.add_constant(Value::None);
+        if self.mode == CompilerMode::REPL {
+            let index = self.chunk.add_constant(Value::None);
 
-        self.chunk
-            .write_instruction(Instruction::LoadConstant { index });
+            self.chunk
+                .write_instruction(Instruction::LoadConstant { index });
+        }
 
         Ok(())
     }
@@ -119,10 +123,12 @@ impl<'a> Compiler<'a> {
             });
         }
 
-        let index = self.chunk.add_constant(Value::None);
+        if self.mode == CompilerMode::REPL {
+            let index = self.chunk.add_constant(Value::None);
 
-        self.chunk
-            .write_instruction(Instruction::LoadConstant { index });
+            self.chunk
+                .write_instruction(Instruction::LoadConstant { index });
+        }
 
         let before_fallback_point = self.chunk.code.len() - 1;
 
@@ -149,11 +155,11 @@ impl<'a> Compiler<'a> {
                 .unwrap_or(&default_point);
 
             self.chunk.code[point.jump_if_false_point] = Instruction::JumpIfFalse {
-                offset: next_point.condition_point - point.jump_if_false_point - 1,
+                offset: next_point.condition_point - point.jump_if_false_point,
             };
 
             self.chunk.code[point.jump_point] = Instruction::Jump {
-                offset: after_fallback_point - point.jump_point - 1,
+                offset: after_fallback_point - point.jump_point,
             }
         }
 
@@ -218,10 +224,12 @@ impl<'a> Compiler<'a> {
             .continue_points
             .truncate(previous_continue_points_len);
 
-        let index = self.chunk.add_constant(Value::None);
+        if self.mode == CompilerMode::REPL {
+            let index = self.chunk.add_constant(Value::None);
 
-        self.chunk
-            .write_instruction(Instruction::LoadConstant { index });
+            self.chunk
+                .write_instruction(Instruction::LoadConstant { index });
+        }
 
         Ok(())
     }

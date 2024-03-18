@@ -167,7 +167,7 @@ impl<'a> VirtualMachine<'a> {
     }
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
-        while self.frames.top().ip < self.gc.deref(self.frames.top().function).body.code.len() {
+        loop {
             if self.frames.len() >= VirtualMachine::MAX_FRAMES
                 || self.stack.len() >= VirtualMachine::STACK_SIZE
             {
@@ -255,8 +255,6 @@ impl<'a> VirtualMachine<'a> {
                 }
             }
         }
-
-        Ok(Value::None)
     }
 
     fn negative(&mut self, location: Location) -> Result<(), SyphonError> {

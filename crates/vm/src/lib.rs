@@ -72,7 +72,7 @@ impl<'a> VirtualMachine<'a> {
                 args.iter().enumerate().for_each(|(i, value)| {
                     let _ = write!(writer, "{}", TraceFormatter::new(value.clone(), gc));
 
-                    if i != args.len() - 1 {
+                    if i < args.len() - 1 {
                         let _ = write!(writer, " ");
                     }
                 });
@@ -92,7 +92,7 @@ impl<'a> VirtualMachine<'a> {
                 let mut writer = BufWriter::new(lock);
 
                 args.iter().for_each(|value| {
-                    let _ = write!(writer, "{}", TraceFormatter::new(value.clone(), gc));
+                    let _ = write!(writer, "{} ", TraceFormatter::new(value.clone(), gc));
                 });
 
                 let _ = writeln!(writer);

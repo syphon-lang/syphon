@@ -1,3 +1,7 @@
+mod stack;
+
+use stack::Stack;
+
 use syphon_bytecode::chunk::{Atom, Chunk};
 use syphon_bytecode::instruction::Instruction;
 use syphon_bytecode::value::{Function, NativeFunction, Value};
@@ -10,6 +14,7 @@ use rustc_hash::FxHashMap;
 
 use std::io::{stdout, BufWriter, Write};
 use std::mem::MaybeUninit;
+use std::process::exit;
 use std::time::Instant;
 
 static mut START_TIME: MaybeUninit<Instant> = MaybeUninit::uninit();
@@ -28,10 +33,9 @@ struct Frame {
 }
 
 pub struct VirtualMachine<'a> {
-    frames: Vec<Frame>,
-    fp: usize,
+    frames: Stack<Frame, { VirtualMachine::MAX_FRAMES }>,
 
-    stack: Vec<Value>,
+    stack: Stack<Value, { VirtualMachine::STACK_SIZE }>,
 
     pub gc: &'a mut GarbageCollector,
 
@@ -39,14 +43,16 @@ pub struct VirtualMachine<'a> {
 }
 
 impl<'a> VirtualMachine<'a> {
+    const MAX_FRAMES: usize = 64;
+    const STACK_SIZE: usize = VirtualMachine::MAX_FRAMES * (u8::MAX as usize + 1);
+
     pub fn new(gc: &mut GarbageCollector) -> VirtualMachine {
         unsafe { START_TIME.write(Instant::now()) };
 
         VirtualMachine {
-            frames: Vec::new(),
-            fp: 0,
+            frames: Stack::new(),
 
-            stack: Vec::with_capacity(1024),
+            stack: Stack::new(),
 
             gc,
 
@@ -120,7 +126,7 @@ impl<'a> VirtualMachine<'a> {
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
-        if self.frames.is_empty() {
+        if self.frames.len() == 0 {
             let function = self.gc.alloc(Function {
                 name: Atom::new("script".to_owned()),
                 body: chunk,
@@ -133,8 +139,8 @@ impl<'a> VirtualMachine<'a> {
                 ip: 0,
             });
         } else {
-            self.gc.deref_mut(self.frames[0].function).body = chunk;
-            self.frames[0].ip = 0;
+            self.gc.deref_mut(self.frames.top().function).body = chunk;
+            self.frames.top_mut().ip = 0;
         }
     }
 
@@ -147,7 +153,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn mark_roots(&mut self) {
-        for frame in self.frames.iter() {
+        for i in 0..self.frames.len() {
+            let frame = self.frames.get(i);
+
             self.gc.mark(frame.function);
         }
 
@@ -157,15 +165,20 @@ impl<'a> VirtualMachine<'a> {
     }
 
     pub fn run(&mut self) -> Result<Value, SyphonError> {
-        while self.frames[self.fp].ip < self.gc.deref(self.frames[self.fp].function).body.code.len()
-        {
+        while self.frames.top().ip < self.gc.deref(self.frames.top().function).body.code.len() {
+            if self.frames.len() >= VirtualMachine::MAX_FRAMES
+                || self.stack.len() >= VirtualMachine::STACK_SIZE
+            {
+                eprintln!("CALL STACK SIZE EXCEEDED");
+
+                exit(1);
+            }
+
             self.mark_and_sweep();
 
-            self.frames[self.fp].ip += 1;
+            self.frames.top_mut().ip += 1;
 
-            match self.gc.deref(self.frames[self.fp].function).body.code
-                [self.frames[self.fp].ip - 1]
-            {
+            match self.gc.deref(self.frames.top().function).body.code[self.frames.top().ip - 1] {
                 Instruction::Neg { location } => self.negative(location)?,
 
                 Instruction::LogicalNot => self.logical_not()?,
@@ -199,7 +212,7 @@ impl<'a> VirtualMachine<'a> {
                 Instruction::LoadConstant { index } => {
                     let constant = *self
                         .gc
-                        .deref(self.frames[self.fp].function)
+                        .deref(self.frames.top().function)
                         .body
                         .get_constant(index);
 
@@ -214,10 +227,13 @@ impl<'a> VirtualMachine<'a> {
                 } => self.call_function(arguments_count, location)?,
 
                 Instruction::Return => {
-                    return Ok(match self.stack.pop() {
-                        Some(value) => value,
-                        None => Value::None,
-                    });
+                    let value = if self.stack.len() == 0 {
+                        Value::None
+                    } else {
+                        self.stack.pop()
+                    };
+
+                    return Ok(value);
                 }
 
                 Instruction::JumpIfFalse { offset } => self.jump_if_false(offset)?,
@@ -232,7 +248,7 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn negative(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
         self.stack.push(match right {
             Value::Int(value) => Value::Int(-value),
@@ -246,7 +262,7 @@ impl<'a> VirtualMachine<'a> {
 
     #[inline]
     fn logical_not(&mut self) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
         self.stack.push(Value::Bool(!right.is_truthy(self.gc)));
 
@@ -254,9 +270,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn add(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         let value = match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left + right),
@@ -293,9 +309,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn subtract(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left - right),
@@ -315,9 +331,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn divide(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Float(left as f64 / right as f64),
@@ -337,9 +353,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn multiply(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left * right),
@@ -359,9 +375,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn exponent(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Float((left as f64).powf(right as f64)),
@@ -381,9 +397,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn modulo(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Int(left.rem_euclid(right)),
@@ -405,9 +421,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn greater_than(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (right, left) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left > right),
@@ -427,9 +443,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn less_than(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (right, left) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left < right),
@@ -449,9 +465,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn equals(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left == right),
@@ -475,9 +491,9 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn not_equals(&mut self, location: Location) -> Result<(), SyphonError> {
-        let right = unsafe { self.stack.pop().unwrap_unchecked() };
+        let right = self.stack.pop();
 
-        let left = unsafe { self.stack.pop().unwrap_unchecked() };
+        let left = self.stack.pop();
 
         self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left != right),
@@ -502,11 +518,9 @@ impl<'a> VirtualMachine<'a> {
 
     #[inline]
     fn store_name(&mut self, atom: Atom, mutable: bool) {
-        let frame = &mut self.frames[self.fp];
-
         let stack_index = self.stack.len() - 1;
 
-        frame.locals.insert(
+        self.frames.top_mut().locals.insert(
             atom,
             Local {
                 stack_index,
@@ -516,10 +530,8 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn load_name(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
-        let frame = &self.frames[self.fp];
-
-        let value = match frame.locals.get(&atom) {
-            Some(name_info) => self.stack.get(name_info.stack_index),
+        let value = match self.frames.top().locals.get(&atom) {
+            Some(name_info) => Some(self.stack.get(name_info.stack_index)),
 
             None => self.globals.get(&atom),
         };
@@ -542,9 +554,7 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn assign(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
-        let frame = &mut self.frames[self.fp];
-
-        let Some(past_local) = frame.locals.get(&atom) else {
+        let Some(past_local) = self.frames.top().locals.get(&atom) else {
             return Err(SyphonError::undefined(
                 location,
                 "name",
@@ -556,9 +566,9 @@ impl<'a> VirtualMachine<'a> {
             return Err(SyphonError::unable_to(location, "assign to a constant"));
         }
 
-        let new_value = unsafe { self.stack.last().unwrap_unchecked() };
+        let new_value = self.stack.top();
 
-        self.stack[past_local.stack_index] = *new_value;
+        *self.stack.get_mut(past_local.stack_index) = *new_value;
 
         Ok(())
     }
@@ -568,9 +578,9 @@ impl<'a> VirtualMachine<'a> {
         arguments_count: usize,
         location: Location,
     ) -> Result<(), SyphonError> {
-        let callee = unsafe { self.stack.pop().unwrap_unchecked() };
+        let callee = self.stack.pop();
 
-        let mut arguments = self.stack.split_off(self.stack.len() - arguments_count);
+        let arguments = self.stack.pop_multiple(arguments_count).to_vec();
 
         match callee {
             Value::Function(reference) => {
@@ -592,7 +602,9 @@ impl<'a> VirtualMachine<'a> {
                     ));
                 }
 
-                let previous_frame = &self.frames[self.fp];
+                let previous_stack_len = self.stack.len();
+
+                let previous_frame = self.frames.top();
 
                 self.frames.push(Frame {
                     function: reference,
@@ -600,32 +612,29 @@ impl<'a> VirtualMachine<'a> {
                     ip: 0,
                 });
 
-                self.fp += 1;
+                let new_frame = self.frames.top_mut();
 
-                let new_frame = &mut self.frames[self.fp];
+                function
+                    .parameters
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, parameter)| {
+                        self.stack.push(arguments[arguments.len() - 1 - i]);
 
-                let previous_stack_len = self.stack.len();
+                        let stack_index = self.stack.len() - 1;
 
-                function.parameters.iter().for_each(|parameter| {
-                    self.stack
-                        .push(unsafe { arguments.pop().unwrap_unchecked() });
-
-                    let stack_index = self.stack.len() - 1;
-
-                    new_frame.locals.insert(
-                        Atom::get(parameter),
-                        Local {
-                            stack_index,
-                            mutable: true,
-                        },
-                    );
-                });
+                        new_frame.locals.insert(
+                            Atom::get(parameter),
+                            Local {
+                                stack_index,
+                                mutable: true,
+                            },
+                        );
+                    });
 
                 let return_value = self.run();
 
                 self.stack.truncate(previous_stack_len);
-
-                self.fp -= 1;
 
                 self.frames.pop();
 
@@ -652,12 +661,10 @@ impl<'a> VirtualMachine<'a> {
 
     #[inline]
     fn jump_if_false(&mut self, offset: usize) -> Result<(), SyphonError> {
-        let frame = &mut self.frames[self.fp];
-
-        let value = unsafe { self.stack.pop().unwrap_unchecked() };
+        let value = self.stack.pop();
 
         if !value.is_truthy(self.gc) {
-            frame.ip += offset;
+            self.frames.top_mut().ip += offset;
         }
 
         Ok(())
@@ -665,15 +672,11 @@ impl<'a> VirtualMachine<'a> {
 
     #[inline]
     fn jump(&mut self, offset: usize) {
-        let frame = &mut self.frames[self.fp];
-
-        frame.ip += offset;
+        self.frames.top_mut().ip += offset;
     }
 
     #[inline]
     fn back(&mut self, offset: usize) {
-        let frame = &mut self.frames[self.fp];
-
-        frame.ip -= offset + 1;
+        self.frames.top_mut().ip -= offset + 1;
     }
 }

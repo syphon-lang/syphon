@@ -246,6 +246,10 @@ impl<'a> VirtualMachine<'a> {
                 Instruction::Jump { offset } => self.jump(offset),
 
                 Instruction::Back { offset } => self.back(offset),
+
+                Instruction::Pop => {
+                    self.stack.pop();
+                }
             }
         }
 

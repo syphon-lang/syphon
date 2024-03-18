@@ -12,7 +12,6 @@ use thin_vec::ThinVec;
 
 #[derive(Default)]
 pub struct CompilerContext {
-    recursive_expression: bool,
     looping: bool,
     break_points: Vec<usize>,
     continue_points: Vec<usize>,
@@ -62,6 +61,11 @@ impl<'a> Compiler<'a> {
             Node::Stmt(kind) => self.compile_stmt(*kind),
             Node::Expr(kind) => {
                 self.compile_expr(*kind);
+
+                if self.mode != CompilerMode::REPL {
+                    self.chunk.write_instruction(Instruction::Pop);
+                }
+
                 Ok(())
             }
         }

@@ -89,5 +89,7 @@ fn disassemble_instruction(
         Instruction::Back { offset } => {
             format!("Back ({})", offset)
         }
+
+        Instruction::Pop => "Pop".to_owned(),
     }
 }

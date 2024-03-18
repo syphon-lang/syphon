@@ -364,6 +364,8 @@ impl Chunk {
                     chunk.write_instruction(Instruction::Back { offset });
                 }
 
+                21 => chunk.write_instruction(Instruction::Pop),
+
                 _ => {
                     eprintln!("invalid syc file: invalid code tag: {}", code_tag);
 

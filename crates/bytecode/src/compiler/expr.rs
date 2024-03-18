@@ -93,11 +93,7 @@ impl<'a> Compiler<'a> {
         right: ExprKind,
         location: Location,
     ) {
-        self.context.recursive_expression = true;
-
         self.compile_expr(right);
-
-        self.context.recursive_expression = false;
 
         match operator {
             UnaryOperator::Minus => self.chunk.write_instruction(Instruction::Neg { location }),
@@ -147,10 +143,8 @@ impl<'a> Compiler<'a> {
                     }
 
                     (left, right) => {
-                        self.context.recursive_expression = true;
                         self.compile_expr(left);
                         self.compile_expr(right);
-                        self.context.recursive_expression = false;
 
                         $default;
                     }
@@ -176,10 +170,8 @@ impl<'a> Compiler<'a> {
             }
 
             _ => {
-                self.context.recursive_expression = true;
                 self.compile_expr(left);
                 self.compile_expr(right);
-                self.context.recursive_expression = false;
             }
         }
 
@@ -213,19 +205,15 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_assign(&mut self, name: String, value: ExprKind, location: Location) {
-        self.context.recursive_expression = true;
         self.compile_expr(value);
-        self.context.recursive_expression = false;
 
         let atom = Atom::new(name);
 
         self.chunk
             .write_instruction(Instruction::Assign { atom, location });
 
-        if self.context.recursive_expression {
-            self.chunk
-                .write_instruction(Instruction::LoadName { atom, location });
-        }
+        self.chunk
+            .write_instruction(Instruction::LoadName { atom, location });
     }
 
     fn compile_call(
@@ -234,13 +222,11 @@ impl<'a> Compiler<'a> {
         arguments: ThinVec<ExprKind>,
         location: Location,
     ) {
-        self.context.recursive_expression = true;
         for argument in arguments.clone() {
             self.compile_expr(argument);
         }
 
         self.compile_expr(callable);
-        self.context.recursive_expression = false;
 
         self.chunk.write_instruction(Instruction::Call {
             arguments_count: arguments.len(),

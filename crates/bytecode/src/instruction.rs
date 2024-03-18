@@ -79,6 +79,8 @@ pub enum Instruction {
     Back {
         offset: usize,
     },
+
+    Pop,
 }
 
 impl Instruction {
@@ -210,6 +212,10 @@ impl Instruction {
                 bytes.push(20);
 
                 bytes.extend(offset.to_be_bytes());
+            }
+
+            Instruction::Pop => {
+                bytes.push(21);
             }
         }
 

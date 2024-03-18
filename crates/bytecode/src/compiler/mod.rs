@@ -3,6 +3,7 @@ mod stmt;
 
 use crate::chunk::Chunk;
 use crate::instruction::Instruction;
+use crate::value::Value;
 
 use syphon_ast::*;
 use syphon_errors::SyphonError;
@@ -12,6 +13,7 @@ use thin_vec::ThinVec;
 
 #[derive(Default)]
 pub struct CompilerContext {
+    manual_return: bool,
     looping: bool,
     break_points: Vec<usize>,
     continue_points: Vec<usize>,
@@ -48,7 +50,13 @@ impl<'a> Compiler<'a> {
     pub fn compile(&mut self, module: Node) -> Result<(), SyphonError> {
         self.compile_node(module)?;
 
-        if self.mode == CompilerMode::REPL {
+        if !self.context.manual_return {
+            if self.mode == CompilerMode::Function {
+                let index = self.chunk.add_constant(Value::None);
+
+                self.chunk.write_instruction(Instruction::LoadConstant { index });
+            }
+
             self.chunk.write_instruction(Instruction::Return);
         }
 

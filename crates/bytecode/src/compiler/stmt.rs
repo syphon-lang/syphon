@@ -286,6 +286,8 @@ impl<'a> Compiler<'a> {
 
         self.chunk.write_instruction(Instruction::Return);
 
+        self.context.manual_return = true;
+
         Ok(())
     }
 }

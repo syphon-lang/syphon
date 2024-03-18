@@ -235,13 +235,7 @@ impl<'a> VirtualMachine<'a> {
                 } => self.call_function(arguments_count, location)?,
 
                 Instruction::Return => {
-                    let value = if self.stack.len() == 0 {
-                        Value::None
-                    } else {
-                        self.stack.pop()
-                    };
-
-                    return Ok(value);
+                    return Ok(self.stack.pop());
                 }
 
                 Instruction::JumpIfFalse { offset } => self.jump_if_false(offset)?,

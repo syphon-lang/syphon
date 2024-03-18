@@ -29,6 +29,8 @@ struct Frame {
     ip: usize,
 
     locals: FxHashMap<Atom, Local>,
+
+    stack_start: usize,
 }
 
 pub struct VirtualMachine<'a> {
@@ -134,8 +136,9 @@ impl<'a> VirtualMachine<'a> {
 
             self.frames.push(Frame {
                 function,
-                locals: FxHashMap::default(),
                 ip: 0,
+                locals: FxHashMap::default(),
+                stack_start: 0,
             });
         } else {
             self.gc.deref_mut(self.frames.top().function).body = chunk;
@@ -527,22 +530,28 @@ impl<'a> VirtualMachine<'a> {
 
     #[inline]
     fn store_name(&mut self, atom: Atom, mutable: bool) {
-        if let Some(past_local) = self.frames.top_mut().locals.get_mut(&atom) {
-            let new_value = self.stack.pop();
+        let frame = self.frames.top_mut();
 
-            *self.stack.get_mut(past_local.stack_index) = new_value;
-            past_local.mutable = mutable;
-        } else {
-            let stack_index = self.stack.len() - 1;
+        if let Some(past_local) = frame.locals.get_mut(&atom) {
+            if past_local.stack_index >= frame.stack_start {
+                let new_value = self.stack.pop();
 
-            self.frames.top_mut().locals.insert(
-                atom,
-                Local {
-                    stack_index,
-                    mutable,
-                },
-            );
+                *self.stack.get_mut(past_local.stack_index) = new_value;
+                past_local.mutable = mutable;
+
+                return;
+            }
         }
+
+        let stack_index = self.stack.len() - 1;
+
+        frame.locals.insert(
+            atom,
+            Local {
+                stack_index,
+                mutable,
+            },
+        );
     }
 
     fn load_name(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
@@ -618,17 +627,12 @@ impl<'a> VirtualMachine<'a> {
                     ));
                 }
 
-                let previous_stack_len = self.stack.len();
-
-                let previous_frame = self.frames.top();
-
                 self.frames.push(Frame {
                     function: reference,
-                    locals: previous_frame.locals.clone(),
+                    locals: self.frames.top().locals.clone(),
                     ip: 0,
+                    stack_start: self.stack.len(),
                 });
-
-                let new_frame = self.frames.top_mut();
 
                 function
                     .parameters
@@ -639,7 +643,7 @@ impl<'a> VirtualMachine<'a> {
 
                         let stack_index = self.stack.len() - 1;
 
-                        new_frame.locals.insert(
+                        self.frames.top_mut().locals.insert(
                             Atom::get(parameter),
                             Local {
                                 stack_index,
@@ -650,7 +654,7 @@ impl<'a> VirtualMachine<'a> {
 
                 let return_value = self.run();
 
-                self.stack.truncate(previous_stack_len);
+                self.stack.truncate(self.frames.top().stack_start);
 
                 self.frames.pop();
 

@@ -176,15 +176,15 @@ impl<'a> VirtualMachine<'a> {
 
             self.mark_and_sweep();
 
-            self.frames.top_mut().ip += 1;
-
             let instruction = unsafe {
                 self.gc
                     .deref(self.frames.top().function)
                     .body
                     .code
-                    .get_unchecked(self.frames.top().ip - 1)
+                    .get_unchecked(self.frames.top().ip)
             };
+
+            self.frames.top_mut().ip += 1;
 
             match *instruction {
                 Instruction::Neg { location } => self.negative(location)?,
@@ -520,7 +520,6 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
-    #[inline]
     fn store_name(&mut self, atom: Atom, mutable: bool) {
         let frame = self.frames.top_mut();
 

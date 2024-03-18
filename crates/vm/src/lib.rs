@@ -523,15 +523,22 @@ impl<'a> VirtualMachine<'a> {
 
     #[inline]
     fn store_name(&mut self, atom: Atom, mutable: bool) {
-        let stack_index = self.stack.len() - 1;
+        if let Some(past_local) = self.frames.top_mut().locals.get_mut(&atom) {
+            let new_value = self.stack.pop();
 
-        self.frames.top_mut().locals.insert(
-            atom,
-            Local {
-                stack_index,
-                mutable,
-            },
-        );
+            *self.stack.get_mut(past_local.stack_index) = new_value;
+            past_local.mutable = mutable;
+        } else {
+            let stack_index = self.stack.len() - 1;
+
+            self.frames.top_mut().locals.insert(
+                atom,
+                Local {
+                    stack_index,
+                    mutable,
+                },
+            );
+        }
     }
 
     fn load_name(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
@@ -571,9 +578,9 @@ impl<'a> VirtualMachine<'a> {
             return Err(SyphonError::unable_to(location, "assign to a constant"));
         }
 
-        let new_value = self.stack.top();
+        let new_value = self.stack.pop();
 
-        *self.stack.get_mut(past_local.stack_index) = *new_value;
+        *self.stack.get_mut(past_local.stack_index) = new_value;
 
         Ok(())
     }

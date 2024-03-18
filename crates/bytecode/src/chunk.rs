@@ -84,7 +84,7 @@ impl Chunk {
     }
 
     pub fn get_constant(&self, index: usize) -> &Value {
-        &self.constants[index]
+        unsafe { self.constants.get_unchecked(index) }
     }
 
     pub fn extend(&mut self, other: Chunk) {

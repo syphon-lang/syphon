@@ -40,7 +40,7 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
     let module = match parser.parse() {
         Ok(module) => module,
         Err(err) => {
-            eprintln!("{} {}", file_path, err);
+            eprintln!("{}:{}", file_path, err);
 
             return false;
         }
@@ -51,7 +51,7 @@ pub fn load_script(file_path: &str, input: &str, vm: &mut VirtualMachine) -> boo
     match compiler.compile(module) {
         Ok(()) => (),
         Err(err) => {
-            eprintln!("{} {}", file_path, err);
+            eprintln!("{}:{}", file_path, err);
 
             return false;
         }
@@ -92,7 +92,7 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
     vm.init_globals();
 
     if let Err(err) = vm.run() {
-        eprintln!("{} {}", file_path.display(), err);
+        eprintln!("{}:{}", file_path.display(), err);
 
         exit(1);
     }
@@ -119,7 +119,7 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
     let module = match parser.parse() {
         Ok(module) => module,
         Err(err) => {
-            eprintln!("{} {}", input_file_path.display(), err);
+            eprintln!("{}:{}", input_file_path.display(), err);
 
             exit(1);
         }
@@ -132,7 +132,7 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
     match compiler.compile(module) {
         Ok(()) => (),
         Err(err) => {
-            eprintln!("{} {}", input_file_path.display(), err);
+            eprintln!("{}:{}", input_file_path.display(), err);
 
             exit(1);
         }
@@ -165,7 +165,7 @@ pub fn run_repl(file_path: &str, input: String, vm: &mut VirtualMachine) -> Opti
         Ok(value) => Some(value),
 
         Err(err) => {
-            eprintln!("{} {}", file_path, err);
+            eprintln!("{}:{}", file_path, err);
 
             None
         }

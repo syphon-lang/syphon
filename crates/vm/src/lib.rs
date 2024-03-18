@@ -14,7 +14,6 @@ use rustc_hash::FxHashMap;
 
 use std::io::{stdout, BufWriter, Write};
 use std::mem::MaybeUninit;
-use std::process::exit;
 use std::time::Instant;
 
 static mut START_TIME: MaybeUninit<Instant> = MaybeUninit::uninit();
@@ -169,16 +168,22 @@ impl<'a> VirtualMachine<'a> {
             if self.frames.len() >= VirtualMachine::MAX_FRAMES
                 || self.stack.len() >= VirtualMachine::STACK_SIZE
             {
-                eprintln!("CALL STACK SIZE EXCEEDED");
-
-                exit(1);
+                return Err(SyphonError::StackOverflow);
             }
 
             self.mark_and_sweep();
 
             self.frames.top_mut().ip += 1;
 
-            match self.gc.deref(self.frames.top().function).body.code[self.frames.top().ip - 1] {
+            let instruction = unsafe {
+                self.gc
+                    .deref(self.frames.top().function)
+                    .body
+                    .code
+                    .get_unchecked(self.frames.top().ip - 1)
+            };
+
+            match *instruction {
                 Instruction::Neg { location } => self.negative(location)?,
 
                 Instruction::LogicalNot => self.logical_not()?,

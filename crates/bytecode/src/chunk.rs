@@ -159,7 +159,7 @@ impl Chunk {
 
                     let string = String::from_utf8(get_multiple(bytes, string_len)).unwrap();
 
-                    chunk.add_constant(Value::String(gc.alloc(string)));
+                    chunk.add_constant(Value::String(gc.intern(string)));
                 }
 
                 2 => {

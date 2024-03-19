@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 pub trait Trace {
@@ -70,6 +71,7 @@ pub struct GarbageCollector {
     objects: Vec<Option<ObjectHeader>>,
     free_slots: Vec<usize>,
     grey_stack: Vec<usize>,
+    strings: HashMap<String, Ref<String>>,
     bytes_allocated: usize,
     next_gc: usize,
 }
@@ -82,6 +84,7 @@ impl GarbageCollector {
             objects: Vec::new(),
             free_slots: Vec::new(),
             grey_stack: Vec::new(),
+            strings: HashMap::new(),
             bytes_allocated: 0,
             next_gc: 1024 * 2,
         }
@@ -123,6 +126,18 @@ impl GarbageCollector {
         Ref {
             index,
             phantom: PhantomData,
+        }
+    }
+
+    pub fn intern(&mut self, value: String) -> Ref<String> {
+        if let Some(reference) = self.strings.get(&value) {
+            *reference
+        } else {
+            let reference = self.alloc(value.clone());
+
+            self.strings.insert(value, reference);
+
+            reference
         }
     }
 
@@ -183,6 +198,16 @@ impl GarbageCollector {
         }
     }
 
+    fn remove_white_strings(&mut self) {
+        self.strings.retain(|_, v| {
+            self.objects
+                .get(v.index)
+                .unwrap()
+                .as_ref()
+                .is_some_and(|obj| obj.marked)
+        });
+    }
+
     fn free(&mut self, index: usize) {
         let old = self.objects[index].take().unwrap();
 
@@ -215,7 +240,7 @@ impl GarbageCollector {
         let before = self.bytes_allocated;
 
         self.trace_references();
-
+        self.remove_white_strings();
         self.sweep();
 
         self.next_gc = self.bytes_allocated * GarbageCollector::HEAP_GROW_FACTOR;

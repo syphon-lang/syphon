@@ -292,7 +292,7 @@ impl<'a> VirtualMachine<'a> {
                 string.push_str(left);
                 string.push_str(right);
 
-                let value = self.gc.alloc(string);
+                let value = self.gc.intern(string);
 
                 self.gc.mark(value);
 

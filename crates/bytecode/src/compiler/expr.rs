@@ -12,6 +12,7 @@ impl<'a> Compiler<'a> {
     pub(crate) fn compile_expr(&mut self, kind: ExprKind) {
         match kind {
             ExprKind::Identifier { symbol, location } => self.compile_identifer(symbol, location),
+
             ExprKind::String { value, .. } => self.compile_string(value),
             ExprKind::Int { value, .. } => self.compile_integer(value),
             ExprKind::Float { value, .. } => self.compile_float(value),
@@ -53,7 +54,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_string(&mut self, value: String) {
-        let index = self.chunk.add_constant(Value::String(self.gc.alloc(value)));
+        let index = self.chunk.add_constant(Value::String(self.gc.intern(value)));
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index })

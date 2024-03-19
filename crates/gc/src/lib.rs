@@ -70,7 +70,7 @@ pub struct ObjectHeader {
 pub struct GarbageCollector {
     objects: Vec<Option<ObjectHeader>>,
     free_slots: Vec<usize>,
-    grey_stack: Vec<usize>,
+    gray_stack: Vec<usize>,
     strings: HashMap<String, Ref<String>>,
     bytes_allocated: usize,
     next_gc: usize,
@@ -83,7 +83,7 @@ impl GarbageCollector {
         GarbageCollector {
             objects: Vec::new(),
             free_slots: Vec::new(),
-            grey_stack: Vec::new(),
+            gray_stack: Vec::new(),
             strings: HashMap::new(),
             bytes_allocated: 0,
             next_gc: 1024 * 2,
@@ -177,7 +177,7 @@ impl GarbageCollector {
 
             object_header.marked = true;
 
-            self.grey_stack.push(reference.index);
+            self.gray_stack.push(reference.index);
         }
     }
 
@@ -193,7 +193,7 @@ impl GarbageCollector {
     }
 
     fn trace_references(&mut self) {
-        while let Some(index) = self.grey_stack.pop() {
+        while let Some(index) = self.gray_stack.pop() {
             self.blacken(index);
         }
     }

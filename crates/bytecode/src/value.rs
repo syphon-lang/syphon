@@ -29,9 +29,10 @@ pub struct Function {
 #[derive(Clone, Copy, PartialEq)]
 pub struct NativeFunction {
     pub name: Atom,
-    pub call: fn(&mut GarbageCollector, Vec<Value>) -> Value,
+    pub call: NativeFunctionCall,
 }
 
+pub type NativeFunctionCall = fn(&mut GarbageCollector, Vec<Value>) -> Value;
 impl Value {
     #[inline]
     pub fn is_truthy(&self, gc: &GarbageCollector) -> bool {

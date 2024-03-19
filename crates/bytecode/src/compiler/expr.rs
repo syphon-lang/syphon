@@ -54,7 +54,9 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_string(&mut self, value: String) {
-        let index = self.chunk.add_constant(Value::String(self.gc.intern(value)));
+        let index = self
+            .chunk
+            .add_constant(Value::String(self.gc.intern(value)));
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index })

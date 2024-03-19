@@ -15,7 +15,7 @@ impl<T, const N: usize> Stack<T, N> {
             for _ in 0..N {
                 data.push(MaybeUninit::uninit());
             }
-            
+
             let mut stack = Stack {
                 data: data.into_boxed_slice(),
 

@@ -54,7 +54,8 @@ impl<'a> Compiler<'a> {
             if self.mode == CompilerMode::Function {
                 let index = self.chunk.add_constant(Value::None);
 
-                self.chunk.write_instruction(Instruction::LoadConstant { index });
+                self.chunk
+                    .write_instruction(Instruction::LoadConstant { index });
             }
 
             self.chunk.write_instruction(Instruction::Return);

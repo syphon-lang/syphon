@@ -4,7 +4,7 @@ use stack::Stack;
 
 use syphon_bytecode::chunk::{Atom, Chunk};
 use syphon_bytecode::instruction::Instruction;
-use syphon_bytecode::value::{Function, NativeFunction, Value};
+use syphon_bytecode::value::{Function, NativeFunction, NativeFunctionCall, Value};
 
 use syphon_errors::SyphonError;
 use syphon_gc::{GarbageCollector, Ref, Trace, TraceFormatter};
@@ -61,69 +61,51 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
+    fn add_global_native(&mut self, name: &str, call: NativeFunctionCall) {
+        let atom = Atom::new(name.to_owned());
+
+        self.globals.insert(
+            atom,
+            Value::NativeFunction(NativeFunction { name: atom, call }),
+        );
+    }
+
     pub fn init_globals(&mut self) {
-        let print_atom = Atom::new("print".to_owned());
+        self.add_global_native("print", |gc, args| {
+            let lock = stdout().lock();
 
-        let print_fn = NativeFunction {
-            name: print_atom,
-            call: |gc, args| {
-                let lock = stdout().lock();
+            let mut writer = BufWriter::new(lock);
 
-                let mut writer = BufWriter::new(lock);
+            args.iter().enumerate().for_each(|(i, value)| {
+                let _ = write!(writer, "{}", TraceFormatter::new(value.clone(), gc));
 
-                args.iter().enumerate().for_each(|(i, value)| {
-                    let _ = write!(writer, "{}", TraceFormatter::new(value.clone(), gc));
+                if i < args.len() - 1 {
+                    let _ = write!(writer, " ");
+                }
+            });
 
-                    if i < args.len() - 1 {
-                        let _ = write!(writer, " ");
-                    }
-                });
+            Value::None
+        });
 
-                Value::None
-            },
-        }
-        .into();
+        self.add_global_native("println", |gc, args| {
+            let lock = stdout().lock();
 
-        let println_atom = Atom::new("println".to_owned());
+            let mut writer = BufWriter::new(lock);
 
-        let println_fn = NativeFunction {
-            name: println_atom,
-            call: |gc, args| {
-                let lock = stdout().lock();
+            args.iter().for_each(|value| {
+                let _ = write!(writer, "{} ", TraceFormatter::new(value.clone(), gc));
+            });
 
-                let mut writer = BufWriter::new(lock);
+            let _ = writeln!(writer);
 
-                args.iter().for_each(|value| {
-                    let _ = write!(writer, "{} ", TraceFormatter::new(value.clone(), gc));
-                });
+            Value::None
+        });
 
-                let _ = writeln!(writer);
+        self.add_global_native("time", |_, _| {
+            let start_time = unsafe { START_TIME.assume_init() };
 
-                Value::None
-            },
-        }
-        .into();
-
-        let time_atom = Atom::new("time".to_owned());
-
-        let time_fn = NativeFunction {
-            name: time_atom,
-            call: |_, _| {
-                let start_time = unsafe { START_TIME.assume_init() };
-
-                Value::Int(start_time.elapsed().as_nanos() as i64)
-            },
-        }
-        .into();
-
-        self.globals
-            .insert(print_atom, Value::NativeFunction(print_fn));
-
-        self.globals
-            .insert(println_atom, Value::NativeFunction(println_fn));
-
-        self.globals
-            .insert(time_atom, Value::NativeFunction(time_fn));
+            Value::Int(start_time.elapsed().as_nanos() as i64)
+        });
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {

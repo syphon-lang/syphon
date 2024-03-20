@@ -16,6 +16,7 @@ use rand::{thread_rng, Rng};
 
 use std::io::{stdout, BufWriter, Write};
 use std::mem::MaybeUninit;
+use std::process::exit;
 use std::time::Instant;
 
 static mut START_TIME: MaybeUninit<Instant> = MaybeUninit::uninit();
@@ -163,6 +164,12 @@ impl<'a> VirtualMachine<'a> {
 
                 (_, _) => Value::None,
             }
+        });
+
+        self.add_global_native("exit", Some(1), |_, args| match args[0] {
+            Value::Int(status_code) => exit(status_code.rem_euclid(256) as i32),
+
+            _ => exit(1),
         });
     }
 

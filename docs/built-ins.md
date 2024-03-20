@@ -58,3 +58,13 @@ random(0.1, 0.2) # 0.1783036218123609
 random(0, 0) # 0
 random("", "") # none
 ```
+
+- exit
+
+Exits from the process with the status code provided, the status code maps to 0-255 range and if you provide any value other than integer it will exit with 1 instead
+
+```
+exit(10) # exits with 10
+exit(-2) # exits with 254 instead
+exit("") # exits with 1 because "" is not an integer
+```

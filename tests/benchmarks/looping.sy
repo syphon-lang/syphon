@@ -1,0 +1,10 @@
+let start = time();
+
+let i = 0;
+while i < 10000000 {
+    i = i + 1;
+}
+
+let end = time();
+
+println("Took", (end - start) * 10 ** -6, "ms");

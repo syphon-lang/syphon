@@ -61,23 +61,32 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
-    fn add_global_native(&mut self, name: &str, call: NativeFunctionCall) {
+    fn add_global_native(
+        &mut self,
+        name: &str,
+        parameters_count: Option<usize>,
+        call: NativeFunctionCall,
+    ) {
         let atom = Atom::new(name.to_owned());
 
         self.globals.insert(
             atom,
-            Value::NativeFunction(NativeFunction { name: atom, call }),
+            Value::NativeFunction(NativeFunction {
+                name: atom,
+                parameters_count,
+                call,
+            }),
         );
     }
 
     pub fn init_globals(&mut self) {
-        self.add_global_native("print", |gc, args| {
+        self.add_global_native("print", None, |gc, args| {
             let lock = stdout().lock();
 
             let mut writer = BufWriter::new(lock);
 
             args.iter().enumerate().for_each(|(i, value)| {
-                let _ = write!(writer, "{}", TraceFormatter::new(value.clone(), gc));
+                let _ = write!(writer, "{}", TraceFormatter::new(*value, gc));
 
                 if i < args.len() - 1 {
                     let _ = write!(writer, " ");
@@ -87,13 +96,13 @@ impl<'a> VirtualMachine<'a> {
             Value::None
         });
 
-        self.add_global_native("println", |gc, args| {
+        self.add_global_native("println", None, |gc, args| {
             let lock = stdout().lock();
 
             let mut writer = BufWriter::new(lock);
 
             args.iter().for_each(|value| {
-                let _ = write!(writer, "{} ", TraceFormatter::new(value.clone(), gc));
+                let _ = write!(writer, "{} ", TraceFormatter::new(*value, gc));
             });
 
             let _ = writeln!(writer);
@@ -101,7 +110,7 @@ impl<'a> VirtualMachine<'a> {
             Value::None
         });
 
-        self.add_global_native("time", |_, _| {
+        self.add_global_native("time", Some(0), |_, _| {
             let start_time = unsafe { START_TIME.assume_init() };
 
             Value::Int(start_time.elapsed().as_nanos() as i64)
@@ -571,6 +580,31 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
+    fn check_arguments_count(
+        &self,
+        location: Location,
+        parameters_count: usize,
+        arguments_count: usize,
+    ) -> Result<(), SyphonError> {
+        if parameters_count != arguments_count {
+            Err(SyphonError::expected_got(
+                location,
+                format!(
+                    "{} {}",
+                    parameters_count,
+                    match parameters_count == 1 {
+                        true => "argument",
+                        false => "arguments",
+                    }
+                )
+                .as_str(),
+                arguments_count.to_string().as_str(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     fn call_function(
         &mut self,
         arguments_count: usize,
@@ -584,21 +618,7 @@ impl<'a> VirtualMachine<'a> {
             Value::Function(reference) => {
                 let function = self.gc.deref(reference);
 
-                if function.parameters.len() != arguments_count {
-                    return Err(SyphonError::expected_got(
-                        location,
-                        format!(
-                            "{} {}",
-                            function.parameters.len(),
-                            match function.parameters.len() == 1 {
-                                true => "argument",
-                                false => "arguments",
-                            }
-                        )
-                        .as_str(),
-                        arguments_count.to_string().as_str(),
-                    ));
-                }
+                self.check_arguments_count(location, function.parameters.len(), arguments_count)?;
 
                 self.frames.push(Frame {
                     function: reference,
@@ -639,6 +659,10 @@ impl<'a> VirtualMachine<'a> {
             }
 
             Value::NativeFunction(function) => {
+                if let Some(parameters_count) = function.parameters_count {
+                    self.check_arguments_count(location, parameters_count, arguments_count)?;
+                }
+
                 let return_value = (function.call)(self.gc, arguments);
 
                 return_value.trace(self.gc);

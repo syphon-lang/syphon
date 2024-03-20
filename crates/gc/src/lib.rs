@@ -54,10 +54,7 @@ impl<T: ?Sized> Copy for Ref<T> {}
 
 impl<T: ?Sized> Clone for Ref<T> {
     fn clone(&self) -> Self {
-        Self {
-            index: self.index,
-            phantom: PhantomData,
-        }
+        *self
     }
 }
 

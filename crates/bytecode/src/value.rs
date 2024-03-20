@@ -29,6 +29,7 @@ pub struct Function {
 #[derive(Clone, Copy, PartialEq)]
 pub struct NativeFunction {
     pub name: Atom,
+    pub parameters_count: Option<usize>,
     pub call: NativeFunctionCall,
 }
 

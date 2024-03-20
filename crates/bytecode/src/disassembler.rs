@@ -61,7 +61,7 @@ fn disassemble_instruction(
         }
 
         Instruction::LoadConstant { index } => {
-            let constant = chunk.get_constant(*index).clone();
+            let constant = *chunk.get_constant(*index);
 
             format!(
                 "LoadConstant {} ({})",

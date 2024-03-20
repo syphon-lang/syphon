@@ -12,6 +12,8 @@ use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
+use rand::{thread_rng, Rng};
+
 use std::io::{stdout, BufWriter, Write};
 use std::mem::MaybeUninit;
 use std::time::Instant;
@@ -114,6 +116,53 @@ impl<'a> VirtualMachine<'a> {
             let start_time = unsafe { START_TIME.assume_init() };
 
             Value::Int(start_time.elapsed().as_nanos() as i64)
+        });
+
+        self.add_global_native("random", Some(2), |_, args| {
+            let mut rng = thread_rng();
+
+            match (args[0], args[1]) {
+                (Value::Int(min), Value::Int(max)) => {
+                    let min = min as f64;
+                    let max = max as f64;
+
+                    if min == max {
+                        return Value::Float(min);
+                    }
+
+                    Value::Float(rng.gen_range(if min > max { max..min } else { min..max }))
+                }
+
+                (Value::Int(min), Value::Float(max)) => {
+                    let min = min as f64;
+
+                    if min == max {
+                        return Value::Float(min);
+                    }
+
+                    Value::Float(rng.gen_range(if min > max { max..min } else { min..max }))
+                }
+
+                (Value::Float(min), Value::Int(max)) => {
+                    let max = max as f64;
+
+                    if min == max {
+                        return Value::Float(min);
+                    }
+
+                    Value::Float(rng.gen_range(if min > max { max..min } else { min..max }))
+                }
+
+                (Value::Float(min), Value::Float(max)) => {
+                    if min == max {
+                        return Value::Float(min);
+                    }
+
+                    Value::Float(rng.gen_range(if min > max { max..min } else { min..max }))
+                }
+
+                (_, _) => Value::None,
+            }
         });
     }
 

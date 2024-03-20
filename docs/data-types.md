@@ -39,3 +39,11 @@ true or false
 true
 false
 ```
+
+## None
+
+A value represents nothing
+
+```
+none
+```

@@ -64,3 +64,9 @@ while condition {
 
 }
 ```
+
+## Comments
+
+```
+# This is a comment
+```

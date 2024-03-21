@@ -136,7 +136,7 @@ impl From<String> for BinaryOperator {
 #[derive(Debug, Clone)]
 pub enum ExprKind {
     Identifier {
-        symbol: String,
+        name: String,
         location: Location,
     },
 

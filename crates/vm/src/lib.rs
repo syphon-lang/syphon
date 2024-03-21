@@ -797,7 +797,7 @@ impl<'a> VirtualMachine<'a> {
         };
 
         if index.is_negative() {
-            index = index + array.values.len() as i64;
+            index += array.values.len() as i64;
         }
 
         if index.is_negative() || index >= array.values.len() as i64 {

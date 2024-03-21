@@ -26,12 +26,19 @@ impl<'a> Parser<'a> {
         Ok(match self.peek() {
             Token::Operator(Operator::Minus) => self.parse_unary_operation()?,
             Token::Operator(Operator::Bang) => self.parse_unary_operation()?,
+
             Token::Delimiter(Delimiter::LParen) => self.parse_parentheses_expression()?,
+
             Token::Delimiter(Delimiter::LBracket) => self.parse_array()?,
-            Token::Identifier(symbol) => self.parse_identifier(symbol),
+
+            Token::Identifier(name) => self.parse_identifier(name),
+
             Token::String(value) => self.parse_string(value),
+
             Token::Int(value) => self.parse_integer(value),
+
             Token::Float(value) => self.parse_float(value),
+
             Token::Bool(value) => self.parse_boolean(value),
 
             Token::Keyword(Keyword::None) => self.parse_none(),
@@ -114,11 +121,11 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_identifier(&mut self, symbol: String) -> ExprKind {
+    fn parse_identifier(&mut self, name: String) -> ExprKind {
         self.next_token();
 
         ExprKind::Identifier {
-            symbol,
+            name,
             location: self.lexer.cursor.location,
         }
     }
@@ -210,7 +217,7 @@ impl<'a> Parser<'a> {
 
     fn parse_assign(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
         let name = match expr {
-            ExprKind::Identifier { symbol, .. } => symbol,
+            ExprKind::Identifier { name: symbol, .. } => symbol,
             _ => return Err(SyphonError::expected(self.lexer.cursor.location, "a name")),
         };
 

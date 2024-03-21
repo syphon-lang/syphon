@@ -67,7 +67,9 @@ impl<'a> Compiler<'a> {
     fn compile_node(&mut self, node: Node) -> Result<(), SyphonError> {
         match node {
             Node::Module { body } => self.compile_nodes(body),
+
             Node::Stmt(kind) => self.compile_stmt(*kind),
+
             Node::Expr(kind) => {
                 self.compile_expr(*kind);
 

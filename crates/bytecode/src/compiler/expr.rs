@@ -11,13 +11,18 @@ use thin_vec::ThinVec;
 impl<'a> Compiler<'a> {
     pub(crate) fn compile_expr(&mut self, kind: ExprKind) {
         match kind {
-            ExprKind::Identifier { symbol, location } => self.compile_identifer(symbol, location),
+            ExprKind::Identifier { name, location } => self.compile_identifer(name, location),
 
             ExprKind::String { value, .. } => self.compile_string(value),
+
             ExprKind::Int { value, .. } => self.compile_integer(value),
+
             ExprKind::Float { value, .. } => self.compile_float(value),
+
             ExprKind::Bool { value, .. } => self.compile_boolean(value),
+
             ExprKind::Array { values, .. } => self.compile_array(values),
+
             ExprKind::None { .. } => self.compile_none(),
 
             ExprKind::UnaryOperation {
@@ -53,9 +58,9 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn compile_identifer(&mut self, symbol: String, location: Location) {
+    fn compile_identifer(&mut self, name: String, location: Location) {
         self.chunk.write_instruction(Instruction::LoadName {
-            atom: Atom::new(symbol),
+            atom: Atom::new(name),
             location,
         })
     }

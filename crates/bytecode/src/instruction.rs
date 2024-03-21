@@ -85,6 +85,10 @@ pub enum Instruction {
     MakeArray {
         length: usize,
     },
+
+    LoadSubscript {
+        location: Location,
+    },
 }
 
 impl Instruction {
@@ -226,6 +230,12 @@ impl Instruction {
                 bytes.push(22);
 
                 bytes.extend(length.to_be_bytes());
+            }
+
+            Instruction::LoadSubscript { location } => {
+                bytes.push(23);
+
+                bytes.extend(location.to_bytes());
             }
         }
 

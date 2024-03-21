@@ -315,6 +315,8 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 Instruction::MakeArray { length } => self.make_array(length),
+
+                Instruction::LoadSubscript { location } => self.load_subscript(location)?,
             }
         }
     }
@@ -779,5 +781,38 @@ impl<'a> VirtualMachine<'a> {
 
         self.stack
             .push(Value::Array(self.gc.alloc(Array { values })));
+    }
+
+    fn load_subscript(&mut self, location: Location) -> Result<(), SyphonError> {
+        let mut index = match self.stack.pop() {
+            Value::Int(index) => index,
+
+            _ => return Err(SyphonError::expected(location, "an index of type 'int'")),
+        };
+
+        let array = match self.stack.pop() {
+            Value::Array(reference) => self.gc.deref(reference),
+
+            _ => return Err(SyphonError::expected(location, "an array")),
+        };
+
+        if index.is_negative() {
+            index = index + array.values.len() as i64;
+        }
+
+        if index.is_negative() || index >= array.values.len() as i64 {
+            return Err(SyphonError::unable_to(
+                location,
+                "subscript the array, index out of bounds",
+            ));
+        }
+
+        let result = array.values[index as usize];
+
+        result.trace(self.gc);
+
+        self.stack.push(result);
+
+        Ok(())
     }
 }

@@ -83,8 +83,6 @@ impl<'a> Parser<'a> {
     fn parse_array(&mut self) -> Result<ExprKind, SyphonError> {
         self.next_token();
 
-        let location = self.lexer.cursor.location;
-
         let mut values = ThinVec::new();
 
         if !self.eat(Token::Delimiter(Delimiter::RBracket)) {
@@ -110,7 +108,10 @@ impl<'a> Parser<'a> {
 
         self.eat(Token::Delimiter(Delimiter::Semicolon));
 
-        Ok(ExprKind::Array { values, location })
+        Ok(ExprKind::Array {
+            values,
+            location: self.lexer.cursor.location,
+        })
     }
 
     fn parse_identifier(&mut self, symbol: String) -> ExprKind {
@@ -187,6 +188,8 @@ impl<'a> Parser<'a> {
 
             Token::Delimiter(Delimiter::LParen) => self.parse_function_call(left),
 
+            Token::Delimiter(Delimiter::LBracket) => self.parse_array_subscript(left),
+
             _ => Ok(left),
         }
     }
@@ -228,6 +231,29 @@ impl<'a> Parser<'a> {
         Ok(ExprKind::Call {
             callable: callable.into(),
             arguments,
+            location: self.lexer.cursor.location,
+        })
+    }
+
+    fn parse_array_subscript(&mut self, array: ExprKind) -> Result<ExprKind, SyphonError> {
+        self.next_token();
+
+        if self.peek() == Token::Delimiter(Delimiter::RBracket) {
+            return Err(SyphonError::expected(
+                self.lexer.cursor.location,
+                "an index",
+            ));
+        }
+
+        let index = self.parse_expr_kind(Precedence::Lowest)?;
+
+        if !self.eat(Token::Delimiter(Delimiter::RBracket)) {
+            return Err(SyphonError::expected(self.lexer.cursor.location, "a ']'"));
+        };
+
+        Ok(ExprKind::ArraySubscript {
+            array: array.into(),
+            index: index.into(),
             location: self.lexer.cursor.location,
         })
     }

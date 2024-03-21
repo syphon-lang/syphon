@@ -165,6 +165,12 @@ pub enum ExprKind {
         location: Location,
     },
 
+    ArraySubscript {
+        array: Box<ExprKind>,
+        index: Box<ExprKind>,
+        location: Location,
+    },
+
     None {
         location: Location,
     },

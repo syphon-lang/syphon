@@ -10,6 +10,7 @@ pub enum Precedence {
     Exponent,
     Prefix,
     Call,
+    Subscript,
 }
 
 impl From<&Token> for Precedence {
@@ -27,6 +28,7 @@ impl From<&Token> for Precedence {
             },
 
             Token::Delimiter(Delimiter::LParen) => Precedence::Call,
+            Token::Delimiter(Delimiter::LBracket) => Precedence::Subscript,
             Token::Delimiter(Delimiter::Assign) => Precedence::Assign,
 
             _ => Precedence::Lowest,

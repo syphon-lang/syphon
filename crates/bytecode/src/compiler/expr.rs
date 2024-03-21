@@ -44,6 +44,12 @@ impl<'a> Compiler<'a> {
                 arguments,
                 location,
             } => self.compile_call(*callable, arguments, location),
+
+            ExprKind::ArraySubscript {
+                array,
+                index,
+                location,
+            } => self.compile_array_subscript(*array, *index, location),
         }
     }
 
@@ -247,5 +253,14 @@ impl<'a> Compiler<'a> {
             arguments_count: arguments.len(),
             location,
         });
+    }
+
+    fn compile_array_subscript(&mut self, array: ExprKind, index: ExprKind, location: Location) {
+        self.compile_expr(array);
+
+        self.compile_expr(index);
+
+        self.chunk
+            .write_instruction(Instruction::LoadSubscript { location });
     }
 }

@@ -81,6 +81,10 @@ pub enum Instruction {
     },
 
     Pop,
+
+    MakeArray {
+        length: usize,
+    },
 }
 
 impl Instruction {
@@ -216,6 +220,12 @@ impl Instruction {
 
             Instruction::Pop => {
                 bytes.push(21);
+            }
+
+            Instruction::MakeArray { length } => {
+                bytes.push(22);
+
+                bytes.extend(length.to_be_bytes());
             }
         }
 

@@ -27,6 +27,7 @@ impl<'a> Parser<'a> {
             Token::Operator(Operator::Minus) => self.parse_unary_operation()?,
             Token::Operator(Operator::Bang) => self.parse_unary_operation()?,
             Token::Delimiter(Delimiter::LParen) => self.parse_parentheses_expression()?,
+            Token::Delimiter(Delimiter::LBracket) => self.parse_array()?,
             Token::Identifier(symbol) => self.parse_identifier(symbol),
             Token::String(value) => self.parse_string(value),
             Token::Int(value) => self.parse_integer(value),
@@ -77,6 +78,39 @@ impl<'a> Parser<'a> {
         }
 
         Ok(value)
+    }
+
+    fn parse_array(&mut self) -> Result<ExprKind, SyphonError> {
+        self.next_token();
+
+        let location = self.lexer.cursor.location;
+
+        let mut values = ThinVec::new();
+
+        if !self.eat(Token::Delimiter(Delimiter::RBracket)) {
+            let mut value = self.parse_expr_kind(Precedence::Lowest)?;
+            values.push(value);
+
+            while self.eat(Token::Delimiter(Delimiter::Comma)) {
+                if self.peek() == Token::Delimiter(Delimiter::RBracket) {
+                    break;
+                }
+
+                value = self.parse_expr_kind(Precedence::Lowest)?;
+                values.push(value);
+            }
+
+            if !self.eat(Token::Delimiter(Delimiter::RBracket)) {
+                return Err(SyphonError::expected(
+                    self.lexer.cursor.location,
+                    "array expression ends with ']'",
+                ));
+            }
+        }
+
+        self.eat(Token::Delimiter(Delimiter::Semicolon));
+
+        Ok(ExprKind::Array { values, location })
     }
 
     fn parse_identifier(&mut self, symbol: String) -> ExprKind {

@@ -160,6 +160,11 @@ pub enum ExprKind {
         location: Location,
     },
 
+    Array {
+        values: ThinVec<ExprKind>,
+        location: Location,
+    },
+
     None {
         location: Location,
     },

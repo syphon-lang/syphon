@@ -1,5 +1,5 @@
 use crate::instruction::Instruction;
-use crate::value::{Function, Value};
+use crate::value::Value;
 
 use syphon_gc::GarbageCollector;
 use syphon_location::Location;
@@ -150,57 +150,8 @@ impl Chunk {
             let constant_tag = bytes.next().unwrap();
 
             match constant_tag {
-                0 => {
-                    chunk.add_constant(Value::None);
-                }
-
-                1 => {
-                    let string_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let string = String::from_utf8(get_multiple(bytes, string_len)).unwrap();
-
-                    chunk.add_constant(Value::String(gc.intern(string)));
-                }
-
-                2 => {
-                    chunk.add_constant(Value::Int(i64::from_be_bytes(get_8_bytes(bytes))));
-                }
-
-                3 => {
-                    chunk.add_constant(Value::Float(f64::from_be_bytes(get_8_bytes(bytes))));
-                }
-
-                4 => {
-                    chunk.add_constant(Value::Bool(true));
-                }
-
-                5 => {
-                    chunk.add_constant(Value::Bool(false));
-                }
-
-                6 => {
-                    let name = Atom::from_be_bytes(get_8_bytes(bytes));
-
-                    let parameters_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let mut parameters = Vec::with_capacity(parameters_len);
-
-                    for _ in 0..parameters_len {
-                        let parameter_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-                        let parameter =
-                            String::from_utf8(get_multiple(bytes, parameter_len)).unwrap();
-
-                        parameters.push(parameter);
-                    }
-
-                    let body = Chunk::parse(bytes, gc)?;
-
-                    chunk.add_constant(Value::Function(gc.alloc(Function {
-                        name,
-                        parameters,
-                        body,
-                    })));
+                0..=7 => {
+                    chunk.add_constant(Value::from_bytes(bytes, gc, constant_tag)?);
                 }
 
                 _ => {
@@ -365,6 +316,12 @@ impl Chunk {
                 }
 
                 21 => chunk.write_instruction(Instruction::Pop),
+
+                22 => {
+                    let length = usize::from_be_bytes(get_8_bytes(bytes));
+
+                    chunk.write_instruction(Instruction::MakeArray { length });
+                }
 
                 _ => {
                     eprintln!("invalid syc file: invalid code tag: {}", code_tag);

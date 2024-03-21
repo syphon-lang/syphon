@@ -2,6 +2,8 @@ use crate::chunk::{Atom, Chunk};
 
 use syphon_gc::{GarbageCollector, Ref, Trace};
 
+use thin_vec::ThinVec;
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum Value {
     None,
@@ -14,12 +16,19 @@ pub enum Value {
 
     Bool(bool),
 
+    Array(Ref<Array>),
+
     Function(Ref<Function>),
 
     NativeFunction(NativeFunction),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
+pub struct Array {
+    pub values: ThinVec<Value>,
+}
+
+#[derive(PartialEq)]
 pub struct Function {
     pub name: Atom,
     pub parameters: Vec<String>,
@@ -40,8 +49,8 @@ impl Value {
         match self {
             Value::None => false,
 
-            Value::String(value) => {
-                let value = gc.deref(*value);
+            Value::String(reference) => {
+                let value = gc.deref(*reference);
 
                 !value.is_empty()
             }
@@ -51,6 +60,12 @@ impl Value {
             &Value::Float(value) => value != 0.0,
 
             &Value::Bool(value) => value,
+
+            Value::Array(reference) => {
+                let value = gc.deref(*reference);
+
+                !value.values.is_empty()
+            }
 
             _ => true,
         }
@@ -103,10 +118,122 @@ impl Value {
                 bytes.extend(function.body.to_bytes(gc));
             }
 
+            Value::Array(reference) => {
+                let array = gc.deref(*reference);
+
+                bytes.push(7);
+
+                bytes.extend(array.values.len().to_be_bytes());
+                for value in array.values.iter() {
+                    if value == self {
+                        bytes.push(8);
+                    } else {
+                        bytes.extend(value.to_bytes(gc));
+                    }
+                }
+            }
+
             _ => unreachable!(),
         }
 
         bytes
+    }
+
+    pub fn from_bytes(
+        bytes: &mut impl Iterator<Item = u8>,
+        gc: &mut GarbageCollector,
+        tag: u8,
+    ) -> Option<Value> {
+        fn get_8_bytes(bytes: &mut impl Iterator<Item = u8>) -> [u8; 8] {
+            [
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+            ]
+        }
+
+        fn get_multiple(bytes: &mut impl Iterator<Item = u8>, len: usize) -> Vec<u8> {
+            let mut data = Vec::with_capacity(len);
+
+            for _ in 0..len {
+                data.push(bytes.next().unwrap());
+            }
+
+            data
+        }
+
+        Some(match tag {
+            0 => Value::None,
+
+            1 => {
+                let string_len = usize::from_be_bytes(get_8_bytes(bytes));
+
+                let string = String::from_utf8(get_multiple(bytes, string_len)).unwrap();
+
+                Value::String(gc.intern(string))
+            }
+
+            2 => Value::Int(i64::from_be_bytes(get_8_bytes(bytes))),
+
+            3 => Value::Float(f64::from_be_bytes(get_8_bytes(bytes))),
+
+            4 => Value::Bool(true),
+
+            5 => Value::Bool(false),
+
+            6 => {
+                let name = Atom::from_be_bytes(get_8_bytes(bytes));
+
+                let parameters_len = usize::from_be_bytes(get_8_bytes(bytes));
+
+                let mut parameters = Vec::with_capacity(parameters_len);
+
+                for _ in 0..parameters_len {
+                    let parameter_len = usize::from_be_bytes(get_8_bytes(bytes));
+
+                    let parameter = String::from_utf8(get_multiple(bytes, parameter_len)).unwrap();
+
+                    parameters.push(parameter);
+                }
+
+                let body = Chunk::parse(bytes, gc)?;
+
+                Value::Function(gc.alloc(Function {
+                    name,
+                    parameters,
+                    body,
+                }))
+            }
+
+            7 => {
+                let array_len = usize::from_be_bytes(get_8_bytes(bytes));
+
+                let array_reference = gc.alloc(Array {
+                    values: ThinVec::with_capacity(array_len),
+                });
+
+                for _ in 0..array_len {
+                    let tag = bytes.next().unwrap();
+
+                    let value = if tag == 8 {
+                        Value::Array(array_reference)
+                    } else {
+                        Value::from_bytes(bytes, gc, tag)?
+                    };
+
+                    gc.deref_mut(array_reference).values.push(value);
+                }
+
+                Value::Array(array_reference)
+            }
+
+            _ => unreachable!(),
+        })
     }
 }
 
@@ -116,14 +243,36 @@ impl Trace for Value {
             Value::None => write!(f, "none"),
 
             Value::String(reference) => {
-                let value = gc.deref(*reference);
+                let string = gc.deref(*reference);
 
-                value.format(gc, f)
+                string.format(gc, f)
             }
 
             Value::Int(value) => write!(f, "{}", value),
             Value::Float(value) => write!(f, "{}", value),
             Value::Bool(value) => write!(f, "{}", value),
+
+            Value::Array(reference) => {
+                let array = gc.deref(*reference);
+
+                write!(f, "[")?;
+
+                for (i, value) in array.values.iter().enumerate() {
+                    if value == self {
+                        write!(f, "..")?;
+                    } else {
+                        value.format(gc, f)?;
+                    }
+
+                    if i < array.values.len() - 1 {
+                        write!(f, ",")?;
+                    }
+                }
+
+                write!(f, "]")?;
+
+                Ok(())
+            }
 
             Value::Function(reference) => {
                 let function = gc.deref(*reference);
@@ -164,6 +313,28 @@ impl Trace for Function {
     fn trace(&self, gc: &mut GarbageCollector) {
         for constant in self.body.constants.iter() {
             constant.trace(gc);
+        }
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl Trace for Array {
+    fn format(&self, _: &GarbageCollector, _: &mut std::fmt::Formatter) -> std::fmt::Result {
+        unreachable!()
+    }
+
+    fn trace(&self, gc: &mut GarbageCollector) {
+        for value in self.values.iter() {
+            value.trace(gc);
         }
     }
 

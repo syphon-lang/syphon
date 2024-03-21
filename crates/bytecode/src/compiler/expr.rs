@@ -17,6 +17,7 @@ impl<'a> Compiler<'a> {
             ExprKind::Int { value, .. } => self.compile_integer(value),
             ExprKind::Float { value, .. } => self.compile_float(value),
             ExprKind::Bool { value, .. } => self.compile_boolean(value),
+            ExprKind::Array { values, .. } => self.compile_array(values),
             ExprKind::None { .. } => self.compile_none(),
 
             ExprKind::UnaryOperation {
@@ -81,6 +82,17 @@ impl<'a> Compiler<'a> {
 
         self.chunk
             .write_instruction(Instruction::LoadConstant { index })
+    }
+
+    fn compile_array(&mut self, values: ThinVec<ExprKind>) {
+        let length = values.len();
+
+        for value in values {
+            self.compile_expr(value);
+        }
+
+        self.chunk
+            .write_instruction(Instruction::MakeArray { length })
     }
 
     fn compile_none(&mut self) {

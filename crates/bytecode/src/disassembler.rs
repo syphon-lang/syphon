@@ -48,17 +48,11 @@ fn disassemble_instruction(
         Instruction::LessThan { .. } => "LessThan".to_owned(),
         Instruction::GreaterThan { .. } => "GreaterThan".to_owned(),
 
-        Instruction::StoreName { atom, .. } => {
-            format!("StoreName {} ({})", atom, atom.get_name())
-        }
+        Instruction::StoreName { atom, .. } => format!("StoreName {} ({})", atom, atom.get_name()),
 
-        Instruction::Assign { atom, .. } => {
-            format!("Assign {} ({})", atom, atom.get_name())
-        }
+        Instruction::Assign { atom, .. } => format!("Assign {} ({})", atom, atom.get_name()),
 
-        Instruction::LoadName { atom, .. } => {
-            format!("LoadName {} ({})", atom, atom.get_name())
-        }
+        Instruction::LoadName { atom, .. } => format!("LoadName {} ({})", atom, atom.get_name()),
 
         Instruction::LoadConstant { index } => {
             let constant = *chunk.get_constant(*index);
@@ -72,24 +66,18 @@ fn disassemble_instruction(
 
         Instruction::Call {
             arguments_count, ..
-        } => {
-            format!("Call ({})", arguments_count)
-        }
+        } => format!("Call ({})", arguments_count),
 
         Instruction::Return => "Return".to_owned(),
 
-        Instruction::JumpIfFalse { offset } => {
-            format!("JumpIfFalse ({})", offset)
-        }
+        Instruction::JumpIfFalse { offset } => format!("JumpIfFalse ({})", offset),
 
-        Instruction::Jump { offset } => {
-            format!("Jump ({})", offset)
-        }
+        Instruction::Jump { offset } => format!("Jump ({})", offset),
 
-        Instruction::Back { offset } => {
-            format!("Back ({})", offset)
-        }
+        Instruction::Back { offset } => format!("Back ({})", offset),
 
         Instruction::Pop => "Pop".to_owned(),
+
+        Instruction::MakeArray { length } => format!("MakeArray ({})", length),
     }
 }

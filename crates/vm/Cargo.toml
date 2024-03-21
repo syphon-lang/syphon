@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 rustc-hash = { workspace = true }
 rand = { workspace = true }
+thin-vec = { workspace = true }
 
 syphon_bytecode = { path = "../bytecode" }
 syphon_errors = { path = "../errors" }

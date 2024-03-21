@@ -335,6 +335,7 @@ dependencies = [
  "syphon_errors",
  "syphon_gc",
  "syphon_location",
+ "thin-vec",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@ use stack::Stack;
 
 use syphon_bytecode::chunk::{Atom, Chunk};
 use syphon_bytecode::instruction::Instruction;
-use syphon_bytecode::value::{Function, NativeFunction, NativeFunctionCall, Value};
+use syphon_bytecode::value::{Array, Function, NativeFunction, NativeFunctionCall, Value};
 
 use syphon_errors::SyphonError;
 use syphon_gc::{GarbageCollector, Ref, Trace, TraceFormatter};
@@ -13,6 +13,7 @@ use syphon_location::Location;
 use rustc_hash::FxHashMap;
 
 use rand::{thread_rng, Rng};
+use thin_vec::ThinVec;
 
 use std::io::{stdout, BufWriter, Write};
 use std::mem::MaybeUninit;
@@ -183,6 +184,8 @@ impl<'a> VirtualMachine<'a> {
 
             Value::Bool(_) => Value::String(gc.intern("bool".to_owned())),
 
+            Value::Array(_) => Value::String(gc.intern("array".to_owned())),
+
             Value::Function(_) | Value::NativeFunction(_) => {
                 Value::String(gc.intern("function".to_owned()))
             }
@@ -310,6 +313,8 @@ impl<'a> VirtualMachine<'a> {
                 Instruction::Pop => {
                     self.stack.pop();
                 }
+
+                Instruction::MakeArray { length } => self.make_array(length),
             }
         }
     }
@@ -767,5 +772,12 @@ impl<'a> VirtualMachine<'a> {
     #[inline]
     fn back(&mut self, offset: usize) {
         self.frames.top_mut().ip -= offset + 1;
+    }
+
+    fn make_array(&mut self, length: usize) {
+        let values = ThinVec::from(self.stack.pop_multiple(length));
+
+        self.stack
+            .push(Value::Array(self.gc.alloc(Array { values })));
     }
 }

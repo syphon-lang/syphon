@@ -83,5 +83,6 @@ typeof("") # string
 typeof(1) # int
 typeof(1.5) # float
 typeof(true) # bool
+typeof([]) # array
 typeof(print) # function
 ```

@@ -51,7 +51,7 @@ impl<'a> Compiler<'a> {
         self.compile_node(module)?;
 
         if !self.context.manual_return {
-            if self.mode == CompilerMode::Function {
+            if self.mode == CompilerMode::Function || self.chunk.code.is_empty() {
                 let index = self.chunk.add_constant(Value::None);
 
                 self.chunk

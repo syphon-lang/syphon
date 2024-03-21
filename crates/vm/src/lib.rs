@@ -171,6 +171,22 @@ impl<'a> VirtualMachine<'a> {
 
             _ => exit(1),
         });
+
+        self.add_global_native("typeof", Some(1), |gc, args| match args[0] {
+            Value::None => Value::String(gc.intern("none".to_owned())),
+
+            Value::String(_) => Value::String(gc.intern("string".to_owned())),
+
+            Value::Int(_) => Value::String(gc.intern("int".to_owned())),
+
+            Value::Float(_) => Value::String(gc.intern("float".to_owned())),
+
+            Value::Bool(_) => Value::String(gc.intern("bool".to_owned())),
+
+            Value::Function(_) | Value::NativeFunction(_) => {
+                Value::String(gc.intern("function".to_owned()))
+            }
+        })
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {

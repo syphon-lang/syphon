@@ -63,8 +63,25 @@ random("", "") # none
 
 Exits from the process with the status code provided, the status code maps to 0-255 range and if you provide any value other than integer it will exit with 1 instead
 
+Usage:
+
 ```
 exit(10) # exits with 10
 exit(-2) # exits with 254 instead
 exit("") # exits with 1 because "" is not an integer
+```
+
+- typeof
+
+Gives you the type of provided value in a string
+
+Usage:
+
+```
+typeof(none) # none
+typeof("") # string
+typeof(1) # int
+typeof(1.5) # float
+typeof(true) # bool
+typeof(print) # function
 ```

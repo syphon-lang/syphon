@@ -14,7 +14,8 @@ use thin_vec::ThinVec;
 #[derive(Default)]
 pub struct CompilerContext {
     manual_return: bool,
-    looping: bool,
+    compiling_conditional: bool,
+    compiling_loop: bool,
     break_points: Vec<usize>,
     continue_points: Vec<usize>,
 }
@@ -50,6 +51,12 @@ impl<'a> Compiler<'a> {
     pub fn compile(&mut self, module: Node) -> Result<(), SyphonError> {
         self.compile_node(module)?;
 
+        self.end_module();
+
+        Ok(())
+    }
+
+    fn end_module(&mut self) {
         if !self.context.manual_return {
             if self.mode == CompilerMode::Function || self.chunk.code.is_empty() {
                 let index = self.chunk.add_constant(Value::None);
@@ -60,8 +67,6 @@ impl<'a> Compiler<'a> {
 
             self.chunk.write_instruction(Instruction::Return);
         }
-
-        Ok(())
     }
 
     fn compile_node(&mut self, node: Node) -> Result<(), SyphonError> {

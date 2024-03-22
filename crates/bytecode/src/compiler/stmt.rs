@@ -59,9 +59,9 @@ impl<'a> Compiler<'a> {
             body: {
                 let mut compiler = Compiler::new(CompilerMode::Function, self.gc);
 
-                for node in function.body {
-                    compiler.compile(node)?;
-                }
+                compiler.compile_nodes(function.body)?;
+
+                compiler.end_module();
 
                 compiler.get_chunk()
             },
@@ -99,6 +99,10 @@ impl<'a> Compiler<'a> {
 
         let mut backtrack_points = Vec::new();
 
+        let was_compiling_conditinal = self.context.compiling_conditional;
+
+        self.context.compiling_conditional = true;
+
         for i in 0..conditional.conditions.len() {
             let condition_point = self.chunk.code.len();
 
@@ -135,6 +139,8 @@ impl<'a> Compiler<'a> {
         if let Some(fallback) = conditional.fallback {
             self.compile_nodes(fallback)?;
         }
+
+        self.context.compiling_conditional = was_compiling_conditinal;
 
         let after_fallback_point = self.chunk.code.len() - 1;
 
@@ -180,9 +186,9 @@ impl<'a> Compiler<'a> {
 
         let previous_continue_points_len = self.context.continue_points.len();
 
-        let previous_looping_bool = self.context.looping;
+        let was_compiling_loop = self.context.compiling_loop;
 
-        self.context.looping = true;
+        self.context.compiling_loop = true;
 
         self.compile_nodes(while_stmt.body)?;
 
@@ -214,7 +220,7 @@ impl<'a> Compiler<'a> {
                 }
             });
 
-        self.context.looping = previous_looping_bool;
+        self.context.compiling_loop = was_compiling_loop;
 
         self.context
             .break_points
@@ -235,7 +241,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_break(&mut self, break_stmt: Break) -> Result<(), SyphonError> {
-        if !self.context.looping {
+        if !self.context.compiling_loop {
             return Err(SyphonError::unable_to(
                 break_stmt.location,
                 "break outside a loop",
@@ -251,7 +257,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_continue(&mut self, continue_stmt: Continue) -> Result<(), SyphonError> {
-        if !self.context.looping {
+        if !self.context.compiling_loop {
             return Err(SyphonError::unable_to(
                 continue_stmt.location,
                 "continue outside a loop",
@@ -286,7 +292,9 @@ impl<'a> Compiler<'a> {
 
         self.chunk.write_instruction(Instruction::Return);
 
-        self.context.manual_return = true;
+        if !self.context.compiling_loop && !self.context.compiling_conditional {
+            self.context.manual_return = true;
+        }
 
         Ok(())
     }

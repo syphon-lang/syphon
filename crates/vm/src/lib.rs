@@ -807,7 +807,7 @@ impl<'a> VirtualMachine<'a> {
             ));
         }
 
-        let result = array.values[index as usize];
+        let result = unsafe { *array.values.get_unchecked(index as usize) };
 
         result.trace(self.gc);
 

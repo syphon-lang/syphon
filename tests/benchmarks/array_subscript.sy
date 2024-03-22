@@ -1,0 +1,15 @@
+let arr = [0, 1, 2, 3, 4, 5];
+let arr_len = 6;
+
+let start = time();
+
+let i = 0;
+while i < 10000000 {
+    arr[i % arr_len];
+
+    i = i + 1;
+}
+
+let end = time();
+
+println("Took", (end - start) * 10 ** -6, "ms");

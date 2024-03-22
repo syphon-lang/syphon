@@ -89,6 +89,10 @@ pub enum Instruction {
     LoadSubscript {
         location: Location,
     },
+
+    StoreSubscript {
+        location: Location,
+    },
 }
 
 impl Instruction {
@@ -234,6 +238,12 @@ impl Instruction {
 
             Instruction::LoadSubscript { location } => {
                 bytes.push(23);
+
+                bytes.extend(location.to_bytes());
+            }
+
+            Instruction::StoreSubscript { location } => {
+                bytes.push(24);
 
                 bytes.extend(location.to_bytes());
             }

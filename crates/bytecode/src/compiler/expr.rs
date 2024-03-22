@@ -44,6 +44,13 @@ impl<'a> Compiler<'a> {
                 location,
             } => self.compile_assign(name, *value, location),
 
+            ExprKind::AssignSubscript {
+                array,
+                index,
+                value,
+                location,
+            } => self.compile_assign_subscript(*array, *index, *value, location),
+
             ExprKind::Call {
                 callable,
                 arguments,
@@ -231,15 +238,33 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_assign(&mut self, name: String, value: ExprKind, location: Location) {
+        self.compile_expr(value.clone());
+
+        self.chunk.write_instruction(Instruction::Assign {
+            atom: Atom::new(name),
+            location,
+        });
+
         self.compile_expr(value);
+    }
 
-        let atom = Atom::new(name);
+    fn compile_assign_subscript(
+        &mut self,
+        array: ExprKind,
+        index: ExprKind,
+        value: ExprKind,
+        location: Location,
+    ) {
+        self.compile_expr(array);
+
+        self.compile_expr(index);
+
+        self.compile_expr(value.clone());
 
         self.chunk
-            .write_instruction(Instruction::Assign { atom, location });
+            .write_instruction(Instruction::StoreSubscript { location });
 
-        self.chunk
-            .write_instruction(Instruction::LoadName { atom, location });
+        self.compile_expr(value);
     }
 
     fn compile_call(

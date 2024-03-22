@@ -81,5 +81,7 @@ fn disassemble_instruction(
         Instruction::MakeArray { length } => format!("MakeArray ({})", length),
 
         Instruction::LoadSubscript { .. } => "LoadSubscript".to_owned(),
+
+        Instruction::StoreSubscript { .. } => "StoreSubscript".to_owned(),
     }
 }

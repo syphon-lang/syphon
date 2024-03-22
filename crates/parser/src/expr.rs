@@ -216,20 +216,37 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_assign(&mut self, expr: ExprKind) -> Result<ExprKind, SyphonError> {
-        let name = match expr {
-            ExprKind::Identifier { name: symbol, .. } => symbol,
-            _ => return Err(SyphonError::expected(self.lexer.cursor.location, "a name")),
-        };
+        match expr {
+            ExprKind::Identifier { name, .. } => {
+                self.next_token();
 
-        self.eat(Token::Delimiter(Delimiter::Assign));
+                let value = self.parse_expr_kind(Precedence::Lowest)?;
 
-        let value = self.parse_expr_kind(Precedence::Lowest)?;
+                Ok(ExprKind::Assign {
+                    name,
+                    value: value.into(),
+                    location: self.lexer.cursor.location,
+                })
+            }
 
-        Ok(ExprKind::Assign {
-            name,
-            value: value.into(),
-            location: self.lexer.cursor.location,
-        })
+            ExprKind::ArraySubscript { array, index, .. } => {
+                self.next_token();
+
+                let value = self.parse_expr_kind(Precedence::Lowest)?;
+
+                Ok(ExprKind::AssignSubscript {
+                    array,
+                    index,
+                    value: value.into(),
+                    location: self.lexer.cursor.location,
+                })
+            }
+
+            _ => Err(SyphonError::expected(
+                self.lexer.cursor.location,
+                "a name or subscript",
+            )),
+        }
     }
 
     fn parse_function_call(&mut self, callable: ExprKind) -> Result<ExprKind, SyphonError> {

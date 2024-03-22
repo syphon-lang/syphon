@@ -194,6 +194,13 @@ pub enum ExprKind {
         location: Location,
     },
 
+    AssignSubscript {
+        array: Box<ExprKind>,
+        index: Box<ExprKind>,
+        value: Box<ExprKind>,
+        location: Location,
+    },
+
     Call {
         callable: Box<ExprKind>,
         arguments: ThinVec<ExprKind>,

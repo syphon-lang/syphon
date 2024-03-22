@@ -329,6 +329,12 @@ impl Chunk {
                     chunk.write_instruction(Instruction::LoadSubscript { location });
                 }
 
+                24 => {
+                    let location = Location::from_bytes(bytes);
+
+                    chunk.write_instruction(Instruction::StoreSubscript { location });
+                }
+
                 _ => {
                     eprintln!("invalid syc file: invalid code tag: {}", code_tag);
 

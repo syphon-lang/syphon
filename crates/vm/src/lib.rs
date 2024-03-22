@@ -713,7 +713,7 @@ impl<'a> VirtualMachine<'a> {
                     .iter()
                     .enumerate()
                     .for_each(|(i, parameter)| {
-                        self.stack.push(arguments[arguments.len() - 1 - i]);
+                        self.stack.push(arguments[i]);
 
                         let stack_index = self.stack.len() - 1;
 

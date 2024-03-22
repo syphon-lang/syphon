@@ -40,9 +40,8 @@ pub fn start() {
         let mut opened = input.chars().filter(|&c| c == '{').count();
         let mut closed = input.chars().filter(|&c| c == '}').count();
 
-        let mut nested = 1;
         while opened > closed {
-            print!("..{}", "  ".repeat(nested));
+            print!("..{}", "  ".repeat(opened));
             stdout().flush().unwrap();
 
             let mut input_nest = String::new();
@@ -52,7 +51,6 @@ pub fn start() {
             closed += input_nest.chars().filter(|&c| c == '}').count();
             opened += input_nest.chars().filter(|&c| c == '{').count();
 
-            nested += 1;
         }
 
         let Some(value) = runner::run_repl("<stdin>", input, &mut vm) else {

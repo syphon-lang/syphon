@@ -70,3 +70,14 @@ while condition {
 ```
 # This is a comment
 ```
+
+## Array Subscript
+
+```
+let a = [0, 1, 2, 3, 4, 5];
+
+a[0] # 0
+a[-1] # 5
+a[6] # error: index out of bounds
+a[-7] # error: index out of bounds
+```

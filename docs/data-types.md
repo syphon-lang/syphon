@@ -33,11 +33,19 @@ A list of characters
 
 ## Boolean
 
-true or false
+A true or A false
 
 ```
 true
 false
+```
+
+## Array
+
+A list of values
+
+```
+[0, 1, "two", false, 4]
 ```
 
 ## None

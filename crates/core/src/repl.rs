@@ -49,13 +49,13 @@ fn handle_multi_line(
     open_character: char,
     close_character: char,
 ) -> bool {
-    let mut open = input.chars().filter(|&c| c == open_character).count();
+    let mut open_character_count = input.chars().filter(|&c| c == open_character).count();
 
-    let mut close = input.chars().filter(|&c| c == close_character).count();
+    let mut close_character_count = input.chars().filter(|&c| c == close_character).count();
 
-    let used_open = open > close;
+    let used_open = open_character_count > close_character_count;
 
-    while open > close {
+    while open_character_count > close_character_count {
         print!(".. ");
         stdout().flush().unwrap();
 
@@ -63,11 +63,10 @@ fn handle_multi_line(
 
         reader.read_line(&mut input_nest).unwrap();
 
-        *input += input_nest.as_str();
+        open_character_count += input_nest.chars().filter(|&c| c == open_character).count();
+        close_character_count += input_nest.chars().filter(|&c| c == close_character).count();
 
-        open += input_nest.chars().filter(|&c| c == open_character).count();
-
-        close += input_nest.chars().filter(|&c| c == close_character).count();
+        input.push_str(input_nest.as_str());
     }
 
     used_open

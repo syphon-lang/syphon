@@ -32,6 +32,8 @@ impl<'a> Compiler<'a> {
         match var.value {
             Some(value) => self.compile_expr(value),
             None => {
+                self.chunk.locations.push(var.location);
+
                 let index = self.chunk.add_constant(Value::None);
 
                 self.chunk

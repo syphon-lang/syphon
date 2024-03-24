@@ -242,25 +242,16 @@ impl<'a> VirtualMachine<'a> {
 
             self.mark_and_sweep();
 
-            let instruction = unsafe {
-                *self
-                    .gc
-                    .deref(self.frames.top().function)
-                    .body
-                    .instructions
-                    .get_unchecked(self.frames.top().ip)
-            };
+            let frame = self.frames.top_mut();
+            let function = self.gc.deref(frame.function);
 
-            let instruction_location = unsafe {
-                *self
-                    .gc
-                    .deref(self.frames.top().function)
-                    .body
-                    .locations
-                    .get_unchecked(self.frames.top().ip)
-            };
+            assert!(frame.ip < function.body.instructions.len());
+            assert!(frame.ip < function.body.locations.len());
 
-            self.frames.top_mut().ip += 1;
+            let instruction = function.body.instructions[frame.ip];
+            let instruction_location = function.body.locations[frame.ip];
+
+            frame.ip += 1;
 
             match instruction {
                 Instruction::Neg => self.negative(instruction_location)?,
@@ -294,11 +285,7 @@ impl<'a> VirtualMachine<'a> {
                 Instruction::Assign { atom } => self.assign(atom, instruction_location)?,
 
                 Instruction::LoadConstant { index } => {
-                    let constant = *self
-                        .gc
-                        .deref(self.frames.top().function)
-                        .body
-                        .get_constant(index);
+                    let constant = *function.body.get_constant(index);
 
                     constant.trace(self.gc);
 
@@ -313,11 +300,21 @@ impl<'a> VirtualMachine<'a> {
                     return Ok(self.stack.pop());
                 }
 
-                Instruction::JumpIfFalse { offset } => self.jump_if_false(offset)?,
+                Instruction::JumpIfFalse { offset } => {
+                    let value = self.stack.pop();
 
-                Instruction::Jump { offset } => self.jump(offset),
+                    if !value.is_truthy(self.gc) {
+                        frame.ip += offset;
+                    }
+                }
 
-                Instruction::Back { offset } => self.back(offset),
+                Instruction::Jump { offset } => {
+                    frame.ip += offset;
+                }
+
+                Instruction::Back { offset } => {
+                    frame.ip -= offset + 1;
+                }
 
                 Instruction::Pop => {
                     self.stack.pop();
@@ -766,27 +763,6 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
-    #[inline]
-    fn jump_if_false(&mut self, offset: usize) -> Result<(), SyphonError> {
-        let value = self.stack.pop();
-
-        if !value.is_truthy(self.gc) {
-            self.frames.top_mut().ip += offset;
-        }
-
-        Ok(())
-    }
-
-    #[inline]
-    fn jump(&mut self, offset: usize) {
-        self.frames.top_mut().ip += offset;
-    }
-
-    #[inline]
-    fn back(&mut self, offset: usize) {
-        self.frames.top_mut().ip -= offset + 1;
-    }
-
     fn make_array(&mut self, length: usize) {
         let values = ThinVec::from(self.stack.pop_multiple(length));
 
@@ -818,7 +794,7 @@ impl<'a> VirtualMachine<'a> {
             ));
         }
 
-        let result = unsafe { *array.values.get_unchecked(index as usize) };
+        let result = array.values[index as usize];
 
         result.trace(self.gc);
 
@@ -853,7 +829,7 @@ impl<'a> VirtualMachine<'a> {
             ));
         }
 
-        unsafe { *array.values.get_unchecked_mut(index as usize) = value };
+        array.values[index as usize] = value;
 
         Ok(())
     }

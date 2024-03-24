@@ -163,7 +163,7 @@ impl<'a> VirtualMachine<'a> {
                     Value::Float(rng.gen_range(if min > max { max..min } else { min..max }))
                 }
 
-                (_, _) => Value::None,
+                _ => Value::None,
             }
         });
 
@@ -274,9 +274,9 @@ impl<'a> VirtualMachine<'a> {
 
                 Instruction::GreaterThan => self.greater_than(instruction_location)?,
 
-                Instruction::Equals => self.equals(instruction_location)?,
+                Instruction::Equals => self.equals(),
 
-                Instruction::NotEquals => self.not_equals(instruction_location)?,
+                Instruction::NotEquals => self.not_equals(),
 
                 Instruction::StoreName { atom, mutable } => self.store_name(atom, mutable),
 
@@ -546,7 +546,7 @@ impl<'a> VirtualMachine<'a> {
         Ok(())
     }
 
-    fn equals(&mut self, location: Location) -> Result<(), SyphonError> {
+    fn equals(&mut self) {
         let right = self.stack.pop();
 
         let left = self.stack.pop();
@@ -566,21 +566,12 @@ impl<'a> VirtualMachine<'a> {
             }
 
             (Value::None, Value::None) => Value::Bool(true),
-            (Value::None, ..) => Value::Bool(false),
-            (.., Value::None) => Value::Bool(false),
 
-            _ => {
-                return Err(SyphonError::unable_to(
-                    location,
-                    "apply '==' binary operator",
-                ));
-            }
+            _ => Value::Bool(false),
         });
-
-        Ok(())
     }
 
-    fn not_equals(&mut self, location: Location) -> Result<(), SyphonError> {
+    fn not_equals(&mut self) {
         let right = self.stack.pop();
 
         let left = self.stack.pop();
@@ -600,18 +591,9 @@ impl<'a> VirtualMachine<'a> {
             }
 
             (Value::None, Value::None) => Value::Bool(false),
-            (Value::None, ..) => Value::Bool(true),
-            (.., Value::None) => Value::Bool(true),
 
-            _ => {
-                return Err(SyphonError::unable_to(
-                    location,
-                    "apply '!=' binary operator",
-                ));
-            }
+            _ => Value::Bool(true),
         });
-
-        Ok(())
     }
 
     fn store_name(&mut self, atom: Atom, mutable: bool) {

@@ -2,6 +2,3 @@
 name = "syphon_lexer"
 version = "0.1.0"
 edition = "2021"
-
-[dependencies]
-syphon_location = { path = "../location" }

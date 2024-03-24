@@ -1,37 +1,32 @@
-use syphon_location::Location;
+use crate::span::Span;
 
 use std::str::Chars;
 
 #[derive(Clone)]
 pub struct Cursor<'a> {
     chars: Chars<'a>,
-    pub location: Location,
+    pub pos: usize,
 }
 
 impl<'a> Cursor<'a> {
-    pub fn new(chars: Chars) -> Cursor {
-        Cursor {
-            chars,
-            location: Location::default(),
-        }
+    pub const fn new(chars: Chars) -> Cursor {
+        Cursor { chars, pos: 0 }
     }
 
     #[inline]
     pub fn consume(&mut self) -> Option<char> {
-        let ch = self.chars.next();
+        self.pos += 1;
 
-        if ch.is_some_and(|ch| ch == '\n') {
-            self.location.line += 1;
-            self.location.column = 1;
-        } else if ch.is_some() {
-            self.location.column += 1;
-        }
-
-        ch
+        self.chars.next()
     }
 
     #[inline]
     pub fn peek(&self) -> Option<char> {
         self.chars.clone().next()
+    }
+
+    #[inline]
+    pub fn span(&self) -> Span {
+        Span::new(self.pos, self.pos)
     }
 }

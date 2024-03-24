@@ -143,7 +143,7 @@ impl Value {
         bytes: &mut impl Iterator<Item = u8>,
         gc: &mut GarbageCollector,
         tag: u8,
-    ) -> Option<Value> {
+    ) -> Value {
         fn get_8_bytes(bytes: &mut impl Iterator<Item = u8>) -> [u8; 8] {
             [
                 bytes.next().unwrap(),
@@ -167,12 +167,11 @@ impl Value {
             data
         }
 
-        Some(match tag {
+        match tag {
             0 => Value::None,
 
             1 => {
                 let string_len = usize::from_be_bytes(get_8_bytes(bytes));
-
                 let string = String::from_utf8(get_multiple(bytes, string_len)).unwrap();
 
                 Value::String(gc.intern(string))
@@ -190,18 +189,16 @@ impl Value {
                 let name = Atom::from_be_bytes(get_8_bytes(bytes));
 
                 let parameters_len = usize::from_be_bytes(get_8_bytes(bytes));
-
                 let mut parameters = Vec::with_capacity(parameters_len);
 
                 for _ in 0..parameters_len {
                     let parameter_len = usize::from_be_bytes(get_8_bytes(bytes));
-
                     let parameter = String::from_utf8(get_multiple(bytes, parameter_len)).unwrap();
 
                     parameters.push(parameter);
                 }
 
-                let body = Chunk::parse(bytes, gc)?;
+                let body = Chunk::parse(bytes, gc);
 
                 Value::Function(gc.alloc(Function {
                     name,
@@ -223,7 +220,7 @@ impl Value {
                     let value = if tag == 8 {
                         Value::Array(array_reference)
                     } else {
-                        Value::from_bytes(bytes, gc, tag)?
+                        Value::from_bytes(bytes, gc, tag)
                     };
 
                     gc.deref_mut(array_reference).values.push(value);
@@ -233,7 +230,7 @@ impl Value {
             }
 
             _ => unreachable!(),
-        })
+        }
     }
 }
 

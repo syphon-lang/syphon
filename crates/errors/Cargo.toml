@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 derive_more = { workspace = true }
 
-syphon_location = { path = "../location" }
+syphon_ast = { path = "../ast" }

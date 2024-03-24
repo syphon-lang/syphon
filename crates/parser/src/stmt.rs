@@ -3,13 +3,13 @@ use precedence::Precedence;
 
 impl<'a> Parser<'a> {
     pub(crate) fn parse_stmt(&mut self) -> Result<Node, SyphonError> {
-        match self.peek() {
-            Token::Keyword(keyword) => match keyword {
+        match self.peek_token().kind {
+            TokenKind::Keyword(keyword) => match keyword {
                 Keyword::Fn => self.parse_function_declaration(),
                 Keyword::Let => self.parse_variable_declaration(true),
                 Keyword::Const => self.parse_variable_declaration(false),
                 Keyword::If => self.parse_conditional(),
-                Keyword::While => self.parse_while(),
+                Keyword::While => self.parse_while_loop(),
                 Keyword::Break => self.parse_break(),
                 Keyword::Continue => self.parse_continue(),
                 Keyword::Return => self.parse_return(),
@@ -17,32 +17,57 @@ impl<'a> Parser<'a> {
                 _ => self.parse_expr(),
             },
 
-            Token::Invalid => Err(SyphonError::invalid(self.lexer.cursor.location, "token")),
+            TokenKind::Invalid => Err(SyphonError::invalid(
+                self.token_location(&self.peek_token()),
+                "token",
+            )),
 
             _ => self.parse_expr(),
         }
     }
 
     fn parse_function_declaration(&mut self) -> Result<Node, SyphonError> {
-        self.next_token();
+        let fn_token = self.next_token();
 
-        let Token::Identifier(name) = self.next_token() else {
+        let name_token = self.next_token();
+
+        if name_token.kind != TokenKind::Identifier {
             return Err(SyphonError::expected(
-                self.lexer.cursor.location,
+                self.token_location(&self.peek_token()),
                 "function name",
             ));
         };
 
+        let name = self.token_value(&name_token).to_owned();
+
         let parameters = self.parse_function_parameters()?;
 
-        let body = self.parse_function_body()?;
+        let mut body = ThinVec::new();
+
+        if !self.expect(TokenKind::Delimiter(Delimiter::LBrace)) {
+            return Err(SyphonError::expected(
+                self.token_location(&self.peek_token()),
+                "function body starts with '{'",
+            ));
+        }
+
+        while !self.expect(TokenKind::Delimiter(Delimiter::RBrace)) {
+            if self.peek_token().kind == TokenKind::EOF {
+                return Err(SyphonError::expected(
+                    self.token_location(&self.peek_token()),
+                    "function body ends with '}'",
+                ));
+            }
+
+            body.push(self.parse_stmt()?);
+        }
 
         Ok(Node::Stmt(
             StmtKind::FunctionDeclaration(Function {
                 name,
                 parameters,
                 body,
-                location: self.lexer.cursor.location,
+                location: self.token_location(&fn_token),
             })
             .into(),
         ))
@@ -51,20 +76,20 @@ impl<'a> Parser<'a> {
     fn parse_function_parameters(&mut self) -> Result<Vec<FunctionParameter>, SyphonError> {
         let mut parameters = Vec::new();
 
-        if !self.eat(Token::Delimiter(Delimiter::LParen)) {
+        if !self.expect(TokenKind::Delimiter(Delimiter::LParen)) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.location,
+                self.token_location(&self.peek_token()),
                 "function parameters starts with '('",
             ));
         }
 
-        if !self.eat(Token::Delimiter(Delimiter::RParen)) {
+        if !self.expect(TokenKind::Delimiter(Delimiter::RParen)) {
             let mut parameter = self.parse_function_parameter()?;
 
             parameters.push(parameter);
 
-            while self.eat(Token::Delimiter(Delimiter::Comma)) {
-                if self.peek() == Token::Delimiter(Delimiter::RParen) {
+            while self.expect(TokenKind::Delimiter(Delimiter::Comma)) {
+                if self.peek_token().kind == TokenKind::Delimiter(Delimiter::RParen) {
                     break;
                 }
 
@@ -73,9 +98,9 @@ impl<'a> Parser<'a> {
                 parameters.push(parameter);
             }
 
-            if !self.eat(Token::Delimiter(Delimiter::RParen)) {
+            if !self.expect(TokenKind::Delimiter(Delimiter::RParen)) {
                 return Err(SyphonError::expected(
-                    self.lexer.cursor.location,
+                    self.token_location(&self.peek_token()),
                     "function parameters ends with ')'",
                 ));
             }
@@ -85,56 +110,46 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_function_parameter(&mut self) -> Result<FunctionParameter, SyphonError> {
-        let name = match self.next_token() {
-            Token::Identifier(name) => name,
+        let token = self.next_token();
 
-            _ => {
-                return Err(SyphonError::expected(
-                    self.lexer.cursor.location,
-                    "function parameter name",
-                ));
-            }
+        let location = self.token_location(&token);
+
+        if token.kind != TokenKind::Identifier {
+            return Err(SyphonError::expected(location, "function parameter name"));
         };
 
-        Ok(FunctionParameter {
-            name,
-            location: self.lexer.cursor.location,
-        })
-    }
+        let name = self.token_value(&token).to_owned();
 
-    fn parse_function_body(&mut self) -> Result<ThinVec<Node>, SyphonError> {
-        let mut body = ThinVec::new();
-
-        if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
-            return Err(SyphonError::expected(
-                self.lexer.cursor.location,
-                "function body starts with '{'",
-            ));
-        }
-
-        while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
-            body.push(self.parse_stmt()?)
-        }
-
-        Ok(body)
+        Ok(FunctionParameter { name, location })
     }
 
     fn parse_variable_declaration(&mut self, mutable: bool) -> Result<Node, SyphonError> {
-        self.next_token();
+        let let_token = self.next_token();
 
-        let Token::Identifier(name) = self.next_token() else {
+        let name_token = self.next_token();
+
+        if name_token.kind != TokenKind::Identifier {
             return Err(SyphonError::expected(
-                self.lexer.cursor.location,
+                self.token_location(&self.peek_token()),
                 "variable name",
             ));
         };
 
-        let value = match self.next_token() {
-            Token::Delimiter(Delimiter::Assign) => Some(self.parse_expr_kind(Precedence::Lowest)?),
-            Token::Delimiter(Delimiter::Semicolon) => {
+        let name = self.token_value(&name_token).to_owned();
+
+        let value = match self.peek_token().kind {
+            TokenKind::Delimiter(Delimiter::Assign) => {
+                self.next_token();
+
+                Some(self.parse_expr_kind(Precedence::Lowest)?)
+            }
+
+            TokenKind::Delimiter(Delimiter::Semicolon) => {
+                let token = self.next_token();
+
                 if !mutable {
                     return Err(SyphonError::unable_to(
-                        self.lexer.cursor.location,
+                        self.token_location(&token),
                         "none-initialize a constant",
                     ));
                 }
@@ -142,30 +157,30 @@ impl<'a> Parser<'a> {
                 None
             }
             _ => {
+                let token = self.next_token();
+
                 return Err(SyphonError::unexpected(
-                    self.lexer.cursor.location,
+                    self.token_location(&token),
                     "token",
-                    self.peek().to_string().as_str(),
+                    self.token_value(&token),
                 ));
             }
         };
 
-        self.eat(Token::Delimiter(Delimiter::Semicolon));
+        self.expect(TokenKind::Delimiter(Delimiter::Semicolon));
 
         Ok(Node::Stmt(
             StmtKind::VariableDeclaration(Variable {
                 mutable,
                 name,
                 value,
-                location: self.lexer.cursor.location,
+                location: self.token_location(&let_token),
             })
             .into(),
         ))
     }
 
     fn parse_conditional(&mut self) -> Result<Node, SyphonError> {
-        let location = self.lexer.cursor.location;
-
         let mut conditions = ThinVec::new();
         let mut bodies = ThinVec::new();
         let mut fallback = None;
@@ -175,30 +190,50 @@ impl<'a> Parser<'a> {
 
             conditions.push(self.parse_expr_kind(Precedence::Lowest)?);
 
-            if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
-                return Err(SyphonError::expected(self.lexer.cursor.location, "a '{'"));
+            if !self.expect(TokenKind::Delimiter(Delimiter::LBrace)) {
+                return Err(SyphonError::expected(
+                    self.token_location(&self.peek_token()),
+                    "conditional body starts with '{'",
+                ));
             }
 
             let mut body = ThinVec::new();
 
-            while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
+            while !self.expect(TokenKind::Delimiter(Delimiter::RBrace)) {
+                if self.peek_token().kind == TokenKind::EOF {
+                    return Err(SyphonError::expected(
+                        self.token_location(&self.peek_token()),
+                        "conditional body ends with '}'",
+                    ));
+                }
+
                 body.push(self.parse_stmt()?);
             }
 
             bodies.push(body);
 
-            if self.eat(Token::Keyword(Keyword::Else)) {
-                if self.peek() == Token::Keyword(Keyword::If) {
+            if self.expect(TokenKind::Keyword(Keyword::Else)) {
+                if self.peek_token().kind == TokenKind::Keyword(Keyword::If) {
                     continue;
                 }
 
-                if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
-                    return Err(SyphonError::expected(self.lexer.cursor.location, "a '{'"));
+                if !self.expect(TokenKind::Delimiter(Delimiter::LBrace)) {
+                    return Err(SyphonError::expected(
+                        self.token_location(&self.peek_token()),
+                        "fallback body starts with '{'",
+                    ));
                 }
 
                 let mut body = ThinVec::new();
 
-                while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
+                while !self.expect(TokenKind::Delimiter(Delimiter::RBrace)) {
+                    if self.peek_token().kind == TokenKind::EOF {
+                        return Err(SyphonError::expected(
+                            self.token_location(&self.peek_token()),
+                            "fallback body ends with '}'",
+                        ));
+                    }
+
                     body.push(self.parse_stmt()?);
                 }
 
@@ -213,26 +248,34 @@ impl<'a> Parser<'a> {
                 conditions,
                 bodies,
                 fallback,
-                location,
+                location: self.token_location(&self.peek_token()),
             })
             .into(),
         ))
     }
 
-    fn parse_while(&mut self) -> Result<Node, SyphonError> {
-        let location = self.lexer.cursor.location;
-
+    fn parse_while_loop(&mut self) -> Result<Node, SyphonError> {
         self.next_token();
 
         let condition = self.parse_expr_kind(Precedence::Lowest)?;
 
-        let mut body = ThinVec::new();
-
-        if !self.eat(Token::Delimiter(Delimiter::LBrace)) {
-            return Err(SyphonError::expected(self.lexer.cursor.location, "a '{'"));
+        if !self.expect(TokenKind::Delimiter(Delimiter::LBrace)) {
+            return Err(SyphonError::expected(
+                self.token_location(&self.peek_token()),
+                "while loop body starts with '{'",
+            ));
         }
 
-        while self.peek() != Token::EOF && !self.eat(Token::Delimiter(Delimiter::RBrace)) {
+        let mut body = ThinVec::new();
+
+        while !self.expect(TokenKind::Delimiter(Delimiter::RBrace)) {
+            if self.peek_token().kind == TokenKind::EOF {
+                return Err(SyphonError::expected(
+                    self.token_location(&self.peek_token()),
+                    "while loop body ends with '}'",
+                ));
+            }
+
             body.push(self.parse_stmt()?);
         }
 
@@ -240,39 +283,43 @@ impl<'a> Parser<'a> {
             StmtKind::While(While {
                 condition,
                 body,
-                location,
+                location: self.token_location(&self.peek_token()),
             })
             .into(),
         ))
     }
 
     fn parse_break(&mut self) -> Result<Node, SyphonError> {
-        let location = self.lexer.cursor.location;
+        let token = self.next_token();
 
-        self.next_token();
+        self.expect(TokenKind::Delimiter(Delimiter::Semicolon));
 
-        self.eat(Token::Delimiter(Delimiter::Semicolon));
-
-        Ok(Node::Stmt(StmtKind::Break(Break { location }).into()))
+        Ok(Node::Stmt(
+            StmtKind::Break(Break {
+                location: self.token_location(&token),
+            })
+            .into(),
+        ))
     }
 
     fn parse_continue(&mut self) -> Result<Node, SyphonError> {
-        let location = self.lexer.cursor.location;
+        let token = self.next_token();
 
-        self.next_token();
+        self.expect(TokenKind::Delimiter(Delimiter::Semicolon));
 
-        self.eat(Token::Delimiter(Delimiter::Semicolon));
-
-        Ok(Node::Stmt(StmtKind::Continue(Continue { location }).into()))
+        Ok(Node::Stmt(
+            StmtKind::Continue(Continue {
+                location: self.token_location(&token),
+            })
+            .into(),
+        ))
     }
 
     fn parse_return(&mut self) -> Result<Node, SyphonError> {
-        let location = self.lexer.cursor.location;
+        let token = self.next_token();
 
-        self.next_token();
-
-        let value = match self.peek() {
-            Token::Delimiter(Delimiter::Semicolon) => {
+        let value = match self.peek_token().kind {
+            TokenKind::Delimiter(Delimiter::Semicolon) => {
                 self.next_token();
 
                 None
@@ -282,7 +329,11 @@ impl<'a> Parser<'a> {
         };
 
         Ok(Node::Stmt(
-            StmtKind::Return(Return { value, location }).into(),
+            StmtKind::Return(Return {
+                value,
+                location: self.token_location(&token),
+            })
+            .into(),
         ))
     }
 }

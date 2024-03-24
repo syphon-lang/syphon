@@ -73,6 +73,12 @@ pub struct GarbageCollector {
     next_gc: usize,
 }
 
+impl Default for GarbageCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GarbageCollector {
     const HEAP_GROW_FACTOR: usize = 2;
 

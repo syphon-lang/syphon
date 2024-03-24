@@ -11,5 +11,4 @@ once_cell = { workspace = true }
 syphon_ast = { path = "../ast" }
 syphon_errors = { path = "../errors" }
 syphon_gc = { path = "../gc" }
-syphon_location = { path = "../location" }
 syphon_parser = { path = "../parser" }

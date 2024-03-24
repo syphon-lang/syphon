@@ -1,7 +1,9 @@
 mod cursor;
+pub mod span;
 pub mod token;
 
 use cursor::Cursor;
+use span::Span;
 use token::*;
 
 #[derive(Clone)]
@@ -30,56 +32,63 @@ impl<'a> Lexer<'a> {
 
         self.skip_whitespace();
 
-        let ch = match self.cursor.consume() {
-            Some(ch) => ch,
-            None => return Token::EOF,
+        let start = self.cursor.span();
+
+        let Some(ch) = self.cursor.consume() else {
+            return Token::new(TokenKind::EOF, start);
         };
 
-        match ch {
+        let kind = match ch {
             '=' => mini_condition!(
                 '=',
-                Token::Operator(Operator::Equals),
-                Token::Delimiter(Delimiter::Assign)
+                TokenKind::Operator(Operator::Equals),
+                TokenKind::Delimiter(Delimiter::Assign)
             ),
             '!' => mini_condition!(
                 '=',
-                Token::Operator(Operator::NotEquals),
-                Token::Operator(Operator::Bang)
+                TokenKind::Operator(Operator::NotEquals),
+                TokenKind::Operator(Operator::Bang)
             ),
 
-            '+' => Token::Operator(Operator::Plus),
-            '-' => Token::Operator(Operator::Minus),
-            '/' => Token::Operator(Operator::ForwardSlash),
+            '+' => TokenKind::Operator(Operator::Plus),
+            '-' => TokenKind::Operator(Operator::Minus),
+            '/' => TokenKind::Operator(Operator::ForwardSlash),
             '*' => mini_condition!(
                 '*',
-                Token::Operator(Operator::DoubleStar),
-                Token::Operator(Operator::Star)
+                TokenKind::Operator(Operator::DoubleStar),
+                TokenKind::Operator(Operator::Star)
             ),
-            '%' => Token::Operator(Operator::Percent),
+            '%' => TokenKind::Operator(Operator::Percent),
 
-            '<' => Token::Operator(Operator::LessThan),
-            '>' => Token::Operator(Operator::GreaterThan),
+            '<' => TokenKind::Operator(Operator::LessThan),
+            '>' => TokenKind::Operator(Operator::GreaterThan),
 
-            ',' => Token::Delimiter(Delimiter::Comma),
-            ':' => Token::Delimiter(Delimiter::Colon),
-            ';' => Token::Delimiter(Delimiter::Semicolon),
-            '.' => Token::Delimiter(Delimiter::Period),
-            '(' => Token::Delimiter(Delimiter::LParen),
-            ')' => Token::Delimiter(Delimiter::RParen),
-            '[' => Token::Delimiter(Delimiter::LBracket),
-            ']' => Token::Delimiter(Delimiter::RBracket),
-            '{' => Token::Delimiter(Delimiter::LBrace),
-            '}' => Token::Delimiter(Delimiter::RBrace),
+            ',' => TokenKind::Delimiter(Delimiter::Comma),
+            ':' => TokenKind::Delimiter(Delimiter::Colon),
+            ';' => TokenKind::Delimiter(Delimiter::Semicolon),
+            '.' => TokenKind::Delimiter(Delimiter::Period),
+            '(' => TokenKind::Delimiter(Delimiter::LParen),
+            ')' => TokenKind::Delimiter(Delimiter::RParen),
+            '[' => TokenKind::Delimiter(Delimiter::LBracket),
+            ']' => TokenKind::Delimiter(Delimiter::RBracket),
+            '{' => TokenKind::Delimiter(Delimiter::LBrace),
+            '}' => TokenKind::Delimiter(Delimiter::RBrace),
 
-            '#' => self.skip_comment(),
+            '#' => return self.skip_comment(),
 
-            '"' | '\'' => self.read_string(),
-            'a'..='z' | 'A'..='Z' | '_' => self.read_identifier(ch),
-            '0'..='9' => self.read_number(ch),
-            _ => Token::Invalid,
-        }
+            '"' | '\'' => return self.read_string(start + 1),
+
+            'a'..='z' | 'A'..='Z' | '_' => return self.read_identifier(start, ch),
+
+            '0'..='9' => return self.read_number(start),
+
+            _ => TokenKind::Invalid,
+        };
+
+        Token::new(kind, start.to(self.cursor.span()))
     }
 
+    #[inline]
     fn skip_whitespace(&mut self) {
         while self.cursor.peek().is_some_and(|ch| ch.is_whitespace()) {
             self.cursor.consume();
@@ -94,67 +103,72 @@ impl<'a> Lexer<'a> {
         self.next_token()
     }
 
-    fn read_string(&mut self) -> Token {
-        let mut literal = String::new();
+    fn read_string(&mut self, start: Span) -> Token {
+        let mut end = self.cursor.span();
 
         while let Some(ch) = self.cursor.consume() {
             match ch {
                 '"' | '\'' => break,
-                _ => literal.push(ch),
+
+                _ => end = self.cursor.span(),
             }
         }
 
-        Token::String(literal)
+        Token::new(TokenKind::String, start.to(end))
     }
 
-    fn read_identifier(&mut self, ch: char) -> Token {
+    fn read_identifier(&mut self, start: Span, ch: char) -> Token {
         let mut literal = String::from(ch);
 
         while let Some(ch) = self.cursor.peek() {
             match ch {
                 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => literal.push(ch),
+
                 _ => break,
             }
 
             self.cursor.consume();
         }
 
-        match literal.as_str() {
-            "true" | "false" => Token::Bool(literal.parse().unwrap()),
+        let kind = match literal.as_str() {
+            "true" | "false" => TokenKind::Bool,
 
-            "fn" => Token::Keyword(Keyword::Fn),
-            "let" => Token::Keyword(Keyword::Let),
-            "const" => Token::Keyword(Keyword::Const),
-            "if" => Token::Keyword(Keyword::If),
-            "else" => Token::Keyword(Keyword::Else),
-            "while" => Token::Keyword(Keyword::While),
-            "break" => Token::Keyword(Keyword::Break),
-            "continue" => Token::Keyword(Keyword::Continue),
-            "return" => Token::Keyword(Keyword::Return),
-            "none" => Token::Keyword(Keyword::None),
+            "fn" => TokenKind::Keyword(Keyword::Fn),
+            "let" => TokenKind::Keyword(Keyword::Let),
+            "const" => TokenKind::Keyword(Keyword::Const),
+            "if" => TokenKind::Keyword(Keyword::If),
+            "else" => TokenKind::Keyword(Keyword::Else),
+            "while" => TokenKind::Keyword(Keyword::While),
+            "break" => TokenKind::Keyword(Keyword::Break),
+            "continue" => TokenKind::Keyword(Keyword::Continue),
+            "return" => TokenKind::Keyword(Keyword::Return),
+            "none" => TokenKind::Keyword(Keyword::None),
 
-            _ => Token::Identifier(literal),
-        }
+            _ => TokenKind::Identifier,
+        };
+
+        Token::new(kind, start.to(self.cursor.span()))
     }
 
-    fn read_number(&mut self, ch: char) -> Token {
-        let mut literal = String::from(ch);
+    fn read_number(&mut self, start: Span) -> Token {
+        let mut is_float = false;
 
         while let Some(ch) = self.cursor.peek() {
             match ch {
-                '0'..='9' | '.' => literal.push(ch),
+                '0'..='9' => (),
+                '.' => is_float = true,
                 _ => break,
             }
 
             self.cursor.consume();
         }
 
-        if let Ok(integer) = literal.parse::<i64>() {
-            Token::Int(integer)
-        } else if let Ok(float) = literal.parse::<f64>() {
-            Token::Float(float)
+        let kind = if is_float {
+            TokenKind::Float
         } else {
-            Token::Invalid
-        }
+            TokenKind::Int
+        };
+
+        Token::new(kind, start.to(self.cursor.span()))
     }
 }

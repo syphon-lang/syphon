@@ -39,7 +39,7 @@ pub struct Compiler<'a> {
 impl<'a> Compiler<'a> {
     pub fn new(mode: CompilerMode, gc: &mut GarbageCollector) -> Compiler {
         Compiler {
-            chunk: Chunk::new(),
+            chunk: Chunk::default(),
 
             gc,
 
@@ -58,14 +58,19 @@ impl<'a> Compiler<'a> {
 
     fn end_module(&mut self) {
         if !self.context.manual_return {
-            if self.mode == CompilerMode::Function || self.chunk.code.is_empty() {
+            if self.mode == CompilerMode::Function || self.chunk.instructions.is_empty() {
+                self.chunk.locations.push(Location::dummy());
+
                 let index = self.chunk.add_constant(Value::None);
 
                 self.chunk
-                    .write_instruction(Instruction::LoadConstant { index });
+                    .instructions
+                    .push(Instruction::LoadConstant { index });
             }
 
-            self.chunk.write_instruction(Instruction::Return);
+            self.chunk.locations.push(Location::dummy());
+
+            self.chunk.instructions.push(Instruction::Return);
         }
     }
 
@@ -79,7 +84,9 @@ impl<'a> Compiler<'a> {
                 self.compile_expr(*kind);
 
                 if self.mode != CompilerMode::REPL {
-                    self.chunk.write_instruction(Instruction::Pop);
+                    self.chunk.locations.push(Location::dummy());
+
+                    self.chunk.instructions.push(Instruction::Pop);
                 }
 
                 Ok(())

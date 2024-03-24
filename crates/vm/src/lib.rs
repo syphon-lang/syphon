@@ -6,9 +6,9 @@ use syphon_bytecode::chunk::{Atom, Chunk};
 use syphon_bytecode::instruction::Instruction;
 use syphon_bytecode::value::{Array, Function, NativeFunction, NativeFunctionCall, Value};
 
+use syphon_ast::Location;
 use syphon_errors::SyphonError;
 use syphon_gc::{GarbageCollector, Ref, Trace, TraceFormatter};
-use syphon_location::Location;
 
 use rustc_hash::FxHashMap;
 
@@ -243,45 +243,55 @@ impl<'a> VirtualMachine<'a> {
             self.mark_and_sweep();
 
             let instruction = unsafe {
-                self.gc
+                *self
+                    .gc
                     .deref(self.frames.top().function)
                     .body
-                    .code
+                    .instructions
+                    .get_unchecked(self.frames.top().ip)
+            };
+
+            let instruction_location = unsafe {
+                *self
+                    .gc
+                    .deref(self.frames.top().function)
+                    .body
+                    .locations
                     .get_unchecked(self.frames.top().ip)
             };
 
             self.frames.top_mut().ip += 1;
 
-            match *instruction {
-                Instruction::Neg { location } => self.negative(location)?,
+            match instruction {
+                Instruction::Neg => self.negative(instruction_location)?,
 
                 Instruction::LogicalNot => self.logical_not()?,
 
-                Instruction::Add { location } => self.add(location)?,
+                Instruction::Add => self.add(instruction_location)?,
 
-                Instruction::Sub { location } => self.subtract(location)?,
+                Instruction::Sub => self.subtract(instruction_location)?,
 
-                Instruction::Div { location } => self.divide(location)?,
+                Instruction::Div => self.divide(instruction_location)?,
 
-                Instruction::Mult { location } => self.multiply(location)?,
+                Instruction::Mult => self.multiply(instruction_location)?,
 
-                Instruction::Exponent { location } => self.exponent(location)?,
+                Instruction::Exponent => self.exponent(instruction_location)?,
 
-                Instruction::Modulo { location } => self.modulo(location)?,
+                Instruction::Modulo => self.modulo(instruction_location)?,
 
-                Instruction::LessThan { location } => self.less_than(location)?,
+                Instruction::LessThan => self.less_than(instruction_location)?,
 
-                Instruction::GreaterThan { location } => self.greater_than(location)?,
+                Instruction::GreaterThan => self.greater_than(instruction_location)?,
 
-                Instruction::Equals { location } => self.equals(location)?,
+                Instruction::Equals => self.equals(instruction_location)?,
 
-                Instruction::NotEquals { location } => self.not_equals(location)?,
+                Instruction::NotEquals => self.not_equals(instruction_location)?,
 
                 Instruction::StoreName { atom, mutable } => self.store_name(atom, mutable),
 
-                Instruction::LoadName { atom, location } => self.load_name(atom, location)?,
+                Instruction::LoadName { atom } => self.load_name(atom, instruction_location)?,
 
-                Instruction::Assign { atom, location } => self.assign(atom, location)?,
+                Instruction::Assign { atom } => self.assign(atom, instruction_location)?,
 
                 Instruction::LoadConstant { index } => {
                     let constant = *self
@@ -295,10 +305,9 @@ impl<'a> VirtualMachine<'a> {
                     self.stack.push(constant);
                 }
 
-                Instruction::Call {
-                    arguments_count,
-                    location,
-                } => self.call_function(arguments_count, location)?,
+                Instruction::Call { arguments_count } => {
+                    self.call_function(arguments_count, instruction_location)?
+                }
 
                 Instruction::Return => {
                     return Ok(self.stack.pop());
@@ -316,9 +325,9 @@ impl<'a> VirtualMachine<'a> {
 
                 Instruction::MakeArray { length } => self.make_array(length),
 
-                Instruction::LoadSubscript { location } => self.load_subscript(location)?,
+                Instruction::LoadSubscript => self.load_subscript(instruction_location)?,
 
-                Instruction::StoreSubscript { location } => self.store_subscript(location)?,
+                Instruction::StoreSubscript => self.store_subscript(instruction_location)?,
             }
         }
     }
@@ -501,7 +510,7 @@ impl<'a> VirtualMachine<'a> {
 
         let left = self.stack.pop();
 
-        self.stack.push(match (right, left) {
+        self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left > right),
             (Value::Int(left), Value::Float(right)) => Value::Bool(left as f64 > right),
             (Value::Float(left), Value::Int(right)) => Value::Bool(left > right as f64),
@@ -523,7 +532,7 @@ impl<'a> VirtualMachine<'a> {
 
         let left = self.stack.pop();
 
-        self.stack.push(match (right, left) {
+        self.stack.push(match (left, right) {
             (Value::Int(left), Value::Int(right)) => Value::Bool(left < right),
             (Value::Int(left), Value::Float(right)) => Value::Bool((left as f64) < right),
             (Value::Float(left), Value::Int(right)) => Value::Bool(left < right as f64),

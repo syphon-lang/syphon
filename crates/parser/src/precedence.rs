@@ -15,8 +15,8 @@ pub enum Precedence {
 
 impl From<&Token> for Precedence {
     fn from(value: &Token) -> Precedence {
-        match value {
-            Token::Operator(operator) => match operator {
+        match &value.kind {
+            TokenKind::Operator(operator) => match operator {
                 Operator::Equals
                 | Operator::NotEquals
                 | Operator::LessThan
@@ -27,9 +27,9 @@ impl From<&Token> for Precedence {
                 _ => Precedence::Lowest,
             },
 
-            Token::Delimiter(Delimiter::LParen) => Precedence::Call,
-            Token::Delimiter(Delimiter::LBracket) => Precedence::Subscript,
-            Token::Delimiter(Delimiter::Assign) => Precedence::Assign,
+            TokenKind::Delimiter(Delimiter::LParen) => Precedence::Call,
+            TokenKind::Delimiter(Delimiter::LBracket) => Precedence::Subscript,
+            TokenKind::Delimiter(Delimiter::Assign) => Precedence::Assign,
 
             _ => Precedence::Lowest,
         }

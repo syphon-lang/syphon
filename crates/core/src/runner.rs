@@ -3,7 +3,6 @@ use syphon_bytecode::compiler::{Compiler, CompilerMode};
 use syphon_bytecode::disassembler::disassemble;
 use syphon_bytecode::value::Value;
 use syphon_gc::GarbageCollector;
-use syphon_lexer::Lexer;
 use syphon_parser::Parser;
 use syphon_vm::VirtualMachine;
 
@@ -19,7 +18,7 @@ fn parse_syc(input: Vec<u8>, gc: &mut GarbageCollector) -> Option<Chunk> {
         return None;
     }
 
-    Chunk::parse(&mut bytes, gc)
+    Some(Chunk::parse(&mut bytes, gc))
 }
 
 fn load_syc(input: Vec<u8>, vm: &mut VirtualMachine) -> bool {
@@ -38,9 +37,7 @@ pub fn load_script(
     mode: CompilerMode,
     vm: &mut VirtualMachine,
 ) -> bool {
-    let lexer = Lexer::new(input);
-
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(input);
 
     let module = match parser.parse() {
         Ok(module) => module,
@@ -78,6 +75,10 @@ pub fn run_file(file_path: &PathBuf) -> io::Result<()> {
 
     reader.read_to_end(&mut file_content)?;
 
+    if file_content.is_empty() {
+        return Ok(());
+    }
+
     let mut gc = GarbageCollector::new();
 
     let mut vm = VirtualMachine::new(&mut gc);
@@ -111,16 +112,14 @@ pub fn compile_file(input_file_path: &PathBuf) -> io::Result<()> {
 
     let reader = BufReader::new(input_file);
 
-    let mut file_content = String::new();
+    let mut input_file_content = String::new();
 
     for line in reader.lines() {
-        file_content.push_str(line?.as_str());
-        file_content.push('\n');
+        input_file_content.push_str(line?.as_str());
+        input_file_content.push('\n');
     }
 
-    let lexer = Lexer::new(&file_content);
-
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(&input_file_content);
 
     let module = match parser.parse() {
         Ok(module) => module,

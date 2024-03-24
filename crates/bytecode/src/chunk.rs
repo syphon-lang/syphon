@@ -1,8 +1,8 @@
 use crate::instruction::Instruction;
 use crate::value::Value;
 
+use syphon_ast::Location;
 use syphon_gc::GarbageCollector;
-use syphon_location::Location;
 
 use derive_more::Display;
 
@@ -58,47 +58,30 @@ impl Atom {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq)]
 pub struct Chunk {
-    pub code: Vec<Instruction>,
+    pub instructions: Vec<Instruction>,
+    pub locations: Vec<Location>,
     pub constants: Vec<Value>,
 }
 
 impl Chunk {
-    pub fn new() -> Chunk {
-        Chunk {
-            code: Vec::new(),
-            constants: Vec::new(),
-        }
-    }
-
-    pub fn write_instruction(&mut self, instruction: Instruction) {
-        self.code.push(instruction);
-    }
-
+    #[inline]
     pub fn add_constant(&mut self, value: Value) -> usize {
         self.constants.iter().position(|c| c == &value).unwrap_or({
             self.constants.push(value);
+
             self.constants.len() - 1
         })
     }
 
+    #[inline]
     pub fn get_constant(&self, index: usize) -> &Value {
         unsafe { self.constants.get_unchecked(index) }
     }
 
-    pub fn extend(&mut self, other: Chunk) {
-        self.constants.extend(other.constants);
-        self.code.extend(other.code);
-    }
-
     pub fn to_bytes(&self, gc: &GarbageCollector) -> Vec<u8> {
         let mut bytes = Vec::new();
-
-        bytes.extend(self.constants.len().to_be_bytes());
-        for constant in self.constants.iter() {
-            bytes.extend(constant.to_bytes(gc));
-        }
 
         let atoms_lock = ATOMS.lock().unwrap();
 
@@ -110,16 +93,26 @@ impl Chunk {
             bytes.extend(atom.to_be_bytes());
         });
 
-        bytes.extend(self.code.len().to_be_bytes());
-        self.code.iter().for_each(|instruction| {
+        bytes.extend(self.constants.len().to_be_bytes());
+        for constant in self.constants.iter() {
+            bytes.extend(constant.to_bytes(gc));
+        }
+
+        bytes.extend(self.locations.len().to_be_bytes());
+        for location in self.instructions.iter() {
+            bytes.extend(location.to_bytes());
+        }
+
+        bytes.extend(self.instructions.len().to_be_bytes());
+        self.instructions.iter().for_each(|instruction| {
             bytes.extend(instruction.to_bytes());
         });
 
         bytes
     }
 
-    pub fn parse(bytes: &mut impl Iterator<Item = u8>, gc: &mut GarbageCollector) -> Option<Chunk> {
-        let mut chunk = Chunk::new();
+    pub fn parse(bytes: &mut impl Iterator<Item = u8>, gc: &mut GarbageCollector) -> Chunk {
+        let mut chunk = Chunk::default();
 
         fn get_8_bytes(bytes: &mut impl Iterator<Item = u8>) -> [u8; 8] {
             [
@@ -144,31 +137,11 @@ impl Chunk {
             data
         }
 
-        let constants_len = usize::from_be_bytes(get_8_bytes(bytes));
-
-        for _ in 0..constants_len {
-            let constant_tag = bytes.next().unwrap();
-
-            match constant_tag {
-                0..=7 => {
-                    chunk.add_constant(Value::from_bytes(bytes, gc, constant_tag)?);
-                }
-
-                _ => {
-                    eprintln!("invalid syc file: invalid constant tag: {}", constant_tag);
-
-                    return None;
-                }
-            };
-        }
-
         let mut atoms_lock = ATOMS.lock().unwrap();
 
         let atoms_len = usize::from_be_bytes(get_8_bytes(bytes));
-
         for _ in 0..atoms_len {
             let name_len = usize::from_be_bytes(get_8_bytes(bytes));
-
             let name = String::from_utf8(get_multiple(bytes, name_len)).unwrap();
 
             let atom = Atom::from_be_bytes(get_8_bytes(bytes));
@@ -176,173 +149,29 @@ impl Chunk {
             atoms_lock.insert(name, atom);
         }
 
-        let code_len = usize::from_be_bytes(get_8_bytes(bytes));
+        let constants_len = usize::from_be_bytes(get_8_bytes(bytes));
+        for _ in 0..constants_len {
+            let constant_tag = bytes.next().unwrap();
 
-        for _ in 0..code_len {
-            let code_tag = bytes.next().unwrap();
-
-            match code_tag {
-                0 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Neg { location });
-                }
-
-                1 => {
-                    chunk.write_instruction(Instruction::LogicalNot);
-                }
-
-                2 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Add { location });
-                }
-
-                3 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Sub { location });
-                }
-
-                4 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Div { location });
-                }
-
-                5 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Mult { location });
-                }
-
-                6 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Exponent { location });
-                }
-
-                7 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Modulo { location });
-                }
-
-                8 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Equals { location });
-                }
-
-                9 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::NotEquals { location });
-                }
-
-                10 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::LessThan { location });
-                }
-
-                11 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::GreaterThan { location });
-                }
-
-                12 => {
-                    let atom = Atom::from_be_bytes(get_8_bytes(bytes));
-
-                    let mutable = bytes.next().unwrap() == 1;
-
-                    chunk.write_instruction(Instruction::StoreName { atom, mutable });
-                }
-
-                13 => {
-                    let atom = Atom::from_be_bytes(get_8_bytes(bytes));
-
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Assign { atom, location });
-                }
-
-                14 => {
-                    let atom = Atom::from_be_bytes(get_8_bytes(bytes));
-
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::LoadName { atom, location });
-                }
-
-                15 => {
-                    let arguments_count = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::Call {
-                        arguments_count,
-                        location,
-                    });
-                }
-
-                16 => {
-                    let index = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    chunk.write_instruction(Instruction::LoadConstant { index });
-                }
-
-                17 => {
-                    chunk.write_instruction(Instruction::Return);
-                }
-
-                18 => {
-                    let offset = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    chunk.write_instruction(Instruction::JumpIfFalse { offset });
-                }
-
-                19 => {
-                    let offset = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    chunk.write_instruction(Instruction::Jump { offset });
-                }
-
-                20 => {
-                    let offset = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    chunk.write_instruction(Instruction::Back { offset });
-                }
-
-                21 => chunk.write_instruction(Instruction::Pop),
-
-                22 => {
-                    let length = usize::from_be_bytes(get_8_bytes(bytes));
-
-                    chunk.write_instruction(Instruction::MakeArray { length });
-                }
-
-                23 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::LoadSubscript { location });
-                }
-
-                24 => {
-                    let location = Location::from_bytes(bytes);
-
-                    chunk.write_instruction(Instruction::StoreSubscript { location });
-                }
-
-                _ => {
-                    eprintln!("invalid syc file: invalid code tag: {}", code_tag);
-
-                    return None;
-                }
-            }
+            chunk.add_constant(Value::from_bytes(bytes, gc, constant_tag));
         }
 
-        Some(chunk)
+        let locations_len = usize::from_be_bytes(get_8_bytes(bytes));
+        for _ in 0..locations_len {
+            let location = Location::from_bytes(bytes);
+
+            chunk.locations.push(location);
+        }
+
+        let instructions_len = usize::from_be_bytes(get_8_bytes(bytes));
+        for _ in 0..instructions_len {
+            let instruction_tag = bytes.next().unwrap();
+
+            chunk
+                .instructions
+                .push(Instruction::from_bytes(bytes, instruction_tag));
+        }
+
+        chunk
     }
 }

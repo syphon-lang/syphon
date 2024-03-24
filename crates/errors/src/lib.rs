@@ -1,4 +1,4 @@
-use syphon_location::Location;
+use syphon_ast::Location;
 
 use derive_more::{Display, Error};
 

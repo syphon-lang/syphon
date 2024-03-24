@@ -1,201 +1,92 @@
-use syphon_location::Location;
-
 use crate::chunk::Atom;
 
-#[derive(Clone, PartialEq)]
-#[repr(u8)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Instruction {
-    Neg {
-        location: Location,
-    },
+    Neg,
     LogicalNot,
 
-    Add {
-        location: Location,
-    },
-    Sub {
-        location: Location,
-    },
-    Div {
-        location: Location,
-    },
-    Mult {
-        location: Location,
-    },
-    Exponent {
-        location: Location,
-    },
-    Modulo {
-        location: Location,
-    },
+    Add,
+    Sub,
+    Div,
+    Mult,
+    Exponent,
+    Modulo,
 
-    Equals {
-        location: Location,
-    },
-    NotEquals {
-        location: Location,
-    },
-    LessThan {
-        location: Location,
-    },
-    GreaterThan {
-        location: Location,
-    },
+    Equals,
+    NotEquals,
+    LessThan,
+    GreaterThan,
 
-    StoreName {
-        atom: Atom,
-        mutable: bool,
-    },
+    StoreName { atom: Atom, mutable: bool },
+    LoadName { atom: Atom },
 
-    Assign {
-        atom: Atom,
-        location: Location,
-    },
+    Assign { atom: Atom },
 
-    LoadName {
-        atom: Atom,
-        location: Location,
-    },
+    Call { arguments_count: usize },
 
-    Call {
-        arguments_count: usize,
-        location: Location,
-    },
-
-    LoadConstant {
-        index: usize,
-    },
+    LoadConstant { index: usize },
 
     Return,
 
-    JumpIfFalse {
-        offset: usize,
-    },
-
-    Jump {
-        offset: usize,
-    },
-
-    Back {
-        offset: usize,
-    },
+    JumpIfFalse { offset: usize },
+    Jump { offset: usize },
+    Back { offset: usize },
 
     Pop,
 
-    MakeArray {
-        length: usize,
-    },
-
-    LoadSubscript {
-        location: Location,
-    },
-
-    StoreSubscript {
-        location: Location,
-    },
+    MakeArray { length: usize },
+    LoadSubscript,
+    StoreSubscript,
 }
 
 impl Instruction {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
-        match self {
-            Instruction::Neg { location } => {
-                bytes.push(0);
-                bytes.extend(location.to_bytes());
-            }
+        match *self {
+            Instruction::Neg => bytes.push(0),
+            Instruction::LogicalNot => bytes.push(1),
 
-            Instruction::LogicalNot => {
-                bytes.push(1);
-            }
+            Instruction::Add => bytes.push(2),
+            Instruction::Sub => bytes.push(3),
+            Instruction::Div => bytes.push(4),
+            Instruction::Mult => bytes.push(5),
+            Instruction::Exponent => bytes.push(6),
+            Instruction::Modulo => bytes.push(7),
 
-            Instruction::Add { location } => {
-                bytes.push(2);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::Sub { location } => {
-                bytes.push(3);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::Div { location } => {
-                bytes.push(4);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::Mult { location } => {
-                bytes.push(5);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::Exponent { location } => {
-                bytes.push(6);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::Modulo { location } => {
-                bytes.push(7);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::Equals { location } => {
-                bytes.push(8);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::NotEquals { location } => {
-                bytes.push(9);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::LessThan { location } => {
-                bytes.push(10);
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::GreaterThan { location } => {
-                bytes.push(11);
-                bytes.extend(location.to_bytes());
-            }
+            Instruction::Equals => bytes.push(8),
+            Instruction::NotEquals => bytes.push(9),
+            Instruction::LessThan => bytes.push(10),
+            Instruction::GreaterThan => bytes.push(11),
 
             Instruction::StoreName { atom, mutable } => {
                 bytes.push(12);
 
                 bytes.extend(atom.to_be_bytes());
 
-                if *mutable {
+                if mutable {
                     bytes.push(1);
                 } else {
                     bytes.push(0);
                 }
             }
 
-            Instruction::Assign { atom, location } => {
+            Instruction::LoadName { atom } => {
                 bytes.push(13);
 
                 bytes.extend(atom.to_be_bytes());
-
-                bytes.extend(location.to_bytes());
             }
 
-            Instruction::LoadName { atom, location } => {
+            Instruction::Assign { atom } => {
                 bytes.push(14);
 
                 bytes.extend(atom.to_be_bytes());
-
-                bytes.extend(location.to_bytes());
             }
 
-            Instruction::Call {
-                arguments_count,
-                location,
-            } => {
+            Instruction::Call { arguments_count } => {
                 bytes.push(15);
 
                 bytes.extend(arguments_count.to_be_bytes());
-
-                bytes.extend(location.to_bytes());
             }
 
             Instruction::LoadConstant { index } => {
@@ -204,9 +95,7 @@ impl Instruction {
                 bytes.extend(index.to_be_bytes());
             }
 
-            Instruction::Return => {
-                bytes.push(17);
-            }
+            Instruction::Return => bytes.push(17),
 
             Instruction::JumpIfFalse { offset } => {
                 bytes.push(18);
@@ -226,9 +115,7 @@ impl Instruction {
                 bytes.extend(offset.to_be_bytes());
             }
 
-            Instruction::Pop => {
-                bytes.push(21);
-            }
+            Instruction::Pop => bytes.push(21),
 
             Instruction::MakeArray { length } => {
                 bytes.push(22);
@@ -236,19 +123,107 @@ impl Instruction {
                 bytes.extend(length.to_be_bytes());
             }
 
-            Instruction::LoadSubscript { location } => {
-                bytes.push(23);
-
-                bytes.extend(location.to_bytes());
-            }
-
-            Instruction::StoreSubscript { location } => {
-                bytes.push(24);
-
-                bytes.extend(location.to_bytes());
-            }
+            Instruction::LoadSubscript => bytes.push(23),
+            Instruction::StoreSubscript => bytes.push(24),
         }
 
         bytes
+    }
+
+    pub fn from_bytes(bytes: &mut impl Iterator<Item = u8>, tag: u8) -> Instruction {
+        fn get_8_bytes(bytes: &mut impl Iterator<Item = u8>) -> [u8; 8] {
+            [
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+                bytes.next().unwrap(),
+            ]
+        }
+
+        match tag {
+            0 => Instruction::Neg,
+            1 => Instruction::LogicalNot,
+
+            2 => Instruction::Add,
+            3 => Instruction::Sub,
+            4 => Instruction::Div,
+            5 => Instruction::Mult,
+            6 => Instruction::Exponent,
+            7 => Instruction::Modulo,
+
+            8 => Instruction::Equals,
+            9 => Instruction::NotEquals,
+            10 => Instruction::LessThan,
+            11 => Instruction::GreaterThan,
+
+            12 => {
+                let atom = Atom::from_be_bytes(get_8_bytes(bytes));
+
+                let mutable = bytes.next().unwrap() == 1;
+
+                Instruction::StoreName { atom, mutable }
+            }
+
+            13 => {
+                let atom = Atom::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::LoadName { atom }
+            }
+
+            14 => {
+                let atom = Atom::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::Assign { atom }
+            }
+
+            15 => {
+                let arguments_count = usize::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::Call { arguments_count }
+            }
+
+            16 => {
+                let index = usize::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::LoadConstant { index }
+            }
+
+            17 => Instruction::Return,
+
+            18 => {
+                let offset = usize::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::JumpIfFalse { offset }
+            }
+
+            19 => {
+                let offset = usize::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::Jump { offset }
+            }
+
+            20 => {
+                let offset = usize::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::Back { offset }
+            }
+
+            21 => Instruction::Pop,
+
+            22 => {
+                let length = usize::from_be_bytes(get_8_bytes(bytes));
+
+                Instruction::MakeArray { length }
+            }
+
+            23 => Instruction::LoadSubscript,
+            24 => Instruction::StoreSubscript,
+
+            _ => unreachable!(),
+        }
     }
 }

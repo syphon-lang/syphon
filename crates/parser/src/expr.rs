@@ -13,8 +13,8 @@ impl<'a> Parser<'a> {
     ) -> Result<ExprKind, SyphonError> {
         let mut left = self.parse_unary_expression()?;
 
-        while !self.eat(Token::Delimiter(Delimiter::Semicolon))
-            && precedence < Precedence::from(&self.peek())
+        while !self.expect(TokenKind::Delimiter(Delimiter::Semicolon))
+            && precedence < Precedence::from(&self.peek_token())
         {
             left = self.parse_binary_expression(left)?;
         }
@@ -23,31 +23,31 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_unary_expression(&mut self) -> Result<ExprKind, SyphonError> {
-        Ok(match self.peek() {
-            Token::Operator(Operator::Minus) => self.parse_unary_operation()?,
-            Token::Operator(Operator::Bang) => self.parse_unary_operation()?,
+        Ok(match self.peek_token().kind {
+            TokenKind::Operator(Operator::Minus) => self.parse_unary_operation()?,
+            TokenKind::Operator(Operator::Bang) => self.parse_unary_operation()?,
 
-            Token::Delimiter(Delimiter::LParen) => self.parse_parentheses_expression()?,
+            TokenKind::Delimiter(Delimiter::LParen) => self.parse_parentheses_expression()?,
 
-            Token::Delimiter(Delimiter::LBracket) => self.parse_array()?,
+            TokenKind::Delimiter(Delimiter::LBracket) => self.parse_array()?,
 
-            Token::Identifier(name) => self.parse_identifier(name),
+            TokenKind::Identifier => self.parse_identifier(),
 
-            Token::String(value) => self.parse_string(value),
+            TokenKind::String => self.parse_string(),
 
-            Token::Int(value) => self.parse_integer(value),
+            TokenKind::Int => self.parse_integer()?,
 
-            Token::Float(value) => self.parse_float(value),
+            TokenKind::Float => self.parse_float()?,
 
-            Token::Bool(value) => self.parse_boolean(value),
+            TokenKind::Bool => self.parse_bool(),
 
-            Token::Keyword(Keyword::None) => self.parse_none(),
+            TokenKind::Keyword(Keyword::None) => self.parse_none(),
 
             _ => {
                 return Err(SyphonError::unexpected(
-                    self.lexer.cursor.location,
+                    self.token_location(&self.peek_token()),
                     "token",
-                    self.peek().to_string().as_str(),
+                    self.token_value(&self.peek_token()),
                 ))
             }
         })
@@ -59,27 +59,27 @@ impl<'a> Parser<'a> {
         let right = self.parse_expr_kind(Precedence::Prefix)?;
 
         Ok(ExprKind::UnaryOperation {
-            operator: UnaryOperator::from(operator.as_char()),
+            operator: UnaryOperator::from(self.token_value(&operator).chars().next().unwrap()),
             right: right.into(),
-            location: self.lexer.cursor.location,
+            location: self.token_location(&self.peek_token()),
         })
     }
 
     fn parse_parentheses_expression(&mut self) -> Result<ExprKind, SyphonError> {
         self.next_token();
 
-        if self.eat(Token::Delimiter(Delimiter::RParen)) {
+        if self.expect(TokenKind::Delimiter(Delimiter::RParen)) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.location,
+                self.token_location(&self.peek_token()),
                 "expression inside '()'",
             ));
         }
 
         let value = self.parse_expr_kind(Precedence::Lowest)?;
 
-        if !self.eat(Token::Delimiter(Delimiter::RParen)) {
+        if !self.expect(TokenKind::Delimiter(Delimiter::RParen)) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.location,
+                self.token_location(&self.peek_token()),
                 "to close '(' with ')'",
             ));
         }
@@ -92,12 +92,12 @@ impl<'a> Parser<'a> {
 
         let mut values = ThinVec::new();
 
-        if !self.eat(Token::Delimiter(Delimiter::RBracket)) {
+        if !self.expect(TokenKind::Delimiter(Delimiter::RBracket)) {
             let mut value = self.parse_expr_kind(Precedence::Lowest)?;
             values.push(value);
 
-            while self.eat(Token::Delimiter(Delimiter::Comma)) {
-                if self.peek() == Token::Delimiter(Delimiter::RBracket) {
+            while self.expect(TokenKind::Delimiter(Delimiter::Comma)) {
+                if self.peek_token().kind == TokenKind::Delimiter(Delimiter::RBracket) {
                     break;
                 }
 
@@ -105,78 +105,84 @@ impl<'a> Parser<'a> {
                 values.push(value);
             }
 
-            if !self.eat(Token::Delimiter(Delimiter::RBracket)) {
+            if !self.expect(TokenKind::Delimiter(Delimiter::RBracket)) {
                 return Err(SyphonError::expected(
-                    self.lexer.cursor.location,
+                    self.token_location(&self.peek_token()),
                     "array expression ends with ']'",
                 ));
             }
         }
 
-        self.eat(Token::Delimiter(Delimiter::Semicolon));
+        self.expect(TokenKind::Delimiter(Delimiter::Semicolon));
 
         Ok(ExprKind::Array {
             values,
-            location: self.lexer.cursor.location,
+            location: self.token_location(&self.peek_token()),
         })
     }
 
-    fn parse_identifier(&mut self, name: String) -> ExprKind {
-        self.next_token();
+    fn parse_identifier(&mut self) -> ExprKind {
+        let token = self.next_token();
 
         ExprKind::Identifier {
-            name,
-            location: self.lexer.cursor.location,
+            name: self.token_value(&token).to_owned(),
+            location: self.token_location(&token),
         }
     }
 
-    fn parse_string(&mut self, value: String) -> ExprKind {
-        self.next_token();
+    fn parse_string(&mut self) -> ExprKind {
+        let token = self.next_token();
 
         ExprKind::String {
-            value,
-            location: self.lexer.cursor.location,
+            value: self.token_value(&token).to_owned(),
+            location: self.token_location(&token),
         }
     }
 
-    fn parse_integer(&mut self, value: i64) -> ExprKind {
-        self.next_token();
+    fn parse_integer(&mut self) -> Result<ExprKind, SyphonError> {
+        let token = self.next_token();
 
-        ExprKind::Int {
-            value,
-            location: self.lexer.cursor.location,
-        }
+        let location = self.token_location(&token);
+
+        let Ok(value) = self.token_value(&token).parse() else {
+            return Err(SyphonError::invalid(location, "integer"));
+        };
+
+        Ok(ExprKind::Int { value, location })
     }
 
-    fn parse_float(&mut self, value: f64) -> ExprKind {
-        self.next_token();
+    fn parse_float(&mut self) -> Result<ExprKind, SyphonError> {
+        let token = self.next_token();
 
-        ExprKind::Float {
-            value,
-            location: self.lexer.cursor.location,
-        }
+        let location = self.token_location(&token);
+
+        let Ok(value) = self.token_value(&token).parse() else {
+            return Err(SyphonError::invalid(location, "float"));
+        };
+
+        Ok(ExprKind::Float { value, location })
     }
 
-    fn parse_boolean(&mut self, value: bool) -> ExprKind {
-        self.next_token();
+    fn parse_bool(&mut self) -> ExprKind {
+        let token = self.next_token();
 
         ExprKind::Bool {
-            value,
-            location: self.lexer.cursor.location,
+            value: self.token_value(&token).parse().unwrap(),
+            location: self.token_location(&token),
         }
     }
 
     fn parse_none(&mut self) -> ExprKind {
-        self.next_token();
+        let token = self.next_token();
 
         ExprKind::None {
-            location: self.lexer.cursor.location,
+            location: self.token_location(&token),
         }
     }
 
     fn parse_binary_expression(&mut self, left: ExprKind) -> Result<ExprKind, SyphonError> {
-        match self.peek() {
-            Token::Operator(operator) => match operator {
+        match self.peek_token().kind {
+            TokenKind::Operator(operator) => match operator {
                 Operator::Equals => self.parse_binary_operation(left),
                 Operator::NotEquals => self.parse_binary_operation(left),
                 Operator::LessThan => self.parse_binary_operation(left),
@@ -191,11 +197,11 @@ impl<'a> Parser<'a> {
                 _ => Ok(left),
             },
 
-            Token::Delimiter(Delimiter::Assign) => self.parse_assign(left),
+            TokenKind::Delimiter(Delimiter::Assign) => self.parse_assign(left),
 
-            Token::Delimiter(Delimiter::LParen) => self.parse_function_call(left),
+            TokenKind::Delimiter(Delimiter::LParen) => self.parse_function_call(left),
 
-            Token::Delimiter(Delimiter::LBracket) => self.parse_array_subscript(left),
+            TokenKind::Delimiter(Delimiter::LBracket) => self.parse_array_subscript(left),
 
             _ => Ok(left),
         }
@@ -209,9 +215,9 @@ impl<'a> Parser<'a> {
 
         Ok(ExprKind::BinaryOperation {
             left: left.into(),
-            operator: BinaryOperator::from(operator.to_string()),
+            operator: BinaryOperator::from(self.token_value(&operator)),
             right: right.into(),
-            location: self.lexer.cursor.location,
+            location: self.token_location(&self.peek_token()),
         })
     }
 
@@ -225,7 +231,7 @@ impl<'a> Parser<'a> {
                 Ok(ExprKind::Assign {
                     name,
                     value: value.into(),
-                    location: self.lexer.cursor.location,
+                    location: self.token_location(&self.peek_token()),
                 })
             }
 
@@ -238,12 +244,12 @@ impl<'a> Parser<'a> {
                     array,
                     index,
                     value: value.into(),
-                    location: self.lexer.cursor.location,
+                    location: self.token_location(&self.peek_token()),
                 })
             }
 
             _ => Err(SyphonError::expected(
-                self.lexer.cursor.location,
+                self.token_location(&self.peek_token()),
                 "a name or subscript",
             )),
         }
@@ -255,44 +261,47 @@ impl<'a> Parser<'a> {
         Ok(ExprKind::Call {
             callable: callable.into(),
             arguments,
-            location: self.lexer.cursor.location,
+            location: self.token_location(&self.peek_token()),
         })
     }
 
     fn parse_array_subscript(&mut self, array: ExprKind) -> Result<ExprKind, SyphonError> {
         self.next_token();
 
-        if self.peek() == Token::Delimiter(Delimiter::RBracket) {
+        if self.peek_token().kind == TokenKind::Delimiter(Delimiter::RBracket) {
             return Err(SyphonError::expected(
-                self.lexer.cursor.location,
+                self.token_location(&self.peek_token()),
                 "an index",
             ));
         }
 
         let index = self.parse_expr_kind(Precedence::Lowest)?;
 
-        if !self.eat(Token::Delimiter(Delimiter::RBracket)) {
-            return Err(SyphonError::expected(self.lexer.cursor.location, "a ']'"));
+        if !self.expect(TokenKind::Delimiter(Delimiter::RBracket)) {
+            return Err(SyphonError::expected(
+                self.token_location(&self.peek_token()),
+                "a ']'",
+            ));
         };
 
         Ok(ExprKind::ArraySubscript {
             array: array.into(),
             index: index.into(),
-            location: self.lexer.cursor.location,
+            location: self.token_location(&self.peek_token()),
         })
     }
 
     fn parse_function_call_arguments(&mut self) -> Result<ThinVec<ExprKind>, SyphonError> {
         let mut arguments = ThinVec::new();
 
-        self.eat(Token::Delimiter(Delimiter::LParen));
+        self.expect(TokenKind::Delimiter(Delimiter::LParen));
 
-        if !self.eat(Token::Delimiter(Delimiter::RParen)) {
+        if !self.expect(TokenKind::Delimiter(Delimiter::RParen)) {
             let mut argument = self.parse_expr_kind(Precedence::Lowest)?;
             arguments.push(argument);
 
-            while self.eat(Token::Delimiter(Delimiter::Comma)) {
-                if self.peek() == Token::Delimiter(Delimiter::RParen) {
+            while self.expect(TokenKind::Delimiter(Delimiter::Comma)) {
+                if self.peek_token().kind == TokenKind::Delimiter(Delimiter::RParen) {
                     break;
                 }
 
@@ -300,15 +309,15 @@ impl<'a> Parser<'a> {
                 arguments.push(argument);
             }
 
-            if !self.eat(Token::Delimiter(Delimiter::RParen)) {
+            if !self.expect(TokenKind::Delimiter(Delimiter::RParen)) {
                 return Err(SyphonError::expected(
-                    self.lexer.cursor.location,
+                    self.token_location(&self.peek_token()),
                     "function call ends with ')'",
                 ));
             }
         }
 
-        self.eat(Token::Delimiter(Delimiter::Semicolon));
+        self.expect(TokenKind::Delimiter(Delimiter::Semicolon));
 
         Ok(arguments)
     }

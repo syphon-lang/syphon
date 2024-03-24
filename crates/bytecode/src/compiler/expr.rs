@@ -4,7 +4,6 @@ use crate::instruction::Instruction;
 use crate::value::Value;
 
 use syphon_ast::*;
-use syphon_location::Location;
 
 use thin_vec::ThinVec;
 
@@ -13,17 +12,17 @@ impl<'a> Compiler<'a> {
         match kind {
             ExprKind::Identifier { name, location } => self.compile_identifer(name, location),
 
-            ExprKind::String { value, .. } => self.compile_string(value),
+            ExprKind::String { value, location } => self.compile_string(value, location),
 
-            ExprKind::Int { value, .. } => self.compile_integer(value),
+            ExprKind::Int { value, location } => self.compile_integer(value, location),
 
-            ExprKind::Float { value, .. } => self.compile_float(value),
+            ExprKind::Float { value, location } => self.compile_float(value, location),
 
-            ExprKind::Bool { value, .. } => self.compile_boolean(value),
+            ExprKind::Bool { value, location } => self.compile_boolean(value, location),
 
-            ExprKind::Array { values, .. } => self.compile_array(values),
+            ExprKind::Array { values, location } => self.compile_array(values, location),
 
-            ExprKind::None { .. } => self.compile_none(),
+            ExprKind::None { location } => self.compile_none(location),
 
             ExprKind::UnaryOperation {
                 operator,
@@ -66,58 +65,77 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_identifer(&mut self, name: String, location: Location) {
-        self.chunk.write_instruction(Instruction::LoadName {
+        self.chunk.locations.push(location);
+
+        self.chunk.instructions.push(Instruction::LoadName {
             atom: Atom::new(name),
-            location,
         })
     }
 
-    fn compile_string(&mut self, value: String) {
+    fn compile_string(&mut self, value: String, location: Location) {
+        self.chunk.locations.push(location);
+
         let index = self
             .chunk
             .add_constant(Value::String(self.gc.intern(value)));
 
         self.chunk
-            .write_instruction(Instruction::LoadConstant { index })
+            .instructions
+            .push(Instruction::LoadConstant { index })
     }
 
-    fn compile_integer(&mut self, value: i64) {
+    fn compile_integer(&mut self, value: i64, location: Location) {
+        self.chunk.locations.push(location);
+
         let index = self.chunk.add_constant(Value::Int(value));
 
         self.chunk
-            .write_instruction(Instruction::LoadConstant { index })
+            .instructions
+            .push(Instruction::LoadConstant { index })
     }
 
-    fn compile_float(&mut self, value: f64) {
+    fn compile_float(&mut self, value: f64, location: Location) {
+        self.chunk.locations.push(location);
+
         let index = self.chunk.add_constant(Value::Float(value));
 
         self.chunk
-            .write_instruction(Instruction::LoadConstant { index })
+            .instructions
+            .push(Instruction::LoadConstant { index })
     }
 
-    fn compile_boolean(&mut self, value: bool) {
+    fn compile_boolean(&mut self, value: bool, location: Location) {
+        self.chunk.locations.push(location);
+
         let index = self.chunk.add_constant(Value::Bool(value));
 
         self.chunk
-            .write_instruction(Instruction::LoadConstant { index })
+            .instructions
+            .push(Instruction::LoadConstant { index })
     }
 
-    fn compile_array(&mut self, values: ThinVec<ExprKind>) {
+    fn compile_array(&mut self, values: ThinVec<ExprKind>, location: Location) {
         let length = values.len();
 
         for value in values {
             self.compile_expr(value);
         }
 
+        self.chunk.locations.push(location);
+
         self.chunk
-            .write_instruction(Instruction::MakeArray { length })
+            .instructions
+            .push(Instruction::MakeArray { length })
     }
 
-    fn compile_none(&mut self) {
+    fn compile_none(&mut self, location: Location) {
+        self.chunk.locations.push(location);
+
         let index = self.chunk.add_constant(Value::None);
 
         self.chunk
-            .write_instruction(Instruction::LoadConstant { index })
+            .instructions
+            .push(Instruction::LoadConstant { index })
     }
 
     fn compile_unary_operation(
@@ -128,10 +146,12 @@ impl<'a> Compiler<'a> {
     ) {
         self.compile_expr(right);
 
-        match operator {
-            UnaryOperator::Minus => self.chunk.write_instruction(Instruction::Neg { location }),
+        self.chunk.locations.push(location);
 
-            UnaryOperator::Bang => self.chunk.write_instruction(Instruction::LogicalNot),
+        match operator {
+            UnaryOperator::Minus => self.chunk.instructions.push(Instruction::Neg),
+
+            UnaryOperator::Bang => self.chunk.instructions.push(Instruction::LogicalNot),
         }
     }
 
@@ -154,25 +174,25 @@ impl<'a> Compiler<'a> {
                             }
                         );
 
-                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                        self.chunk.instructions.push(Instruction::LoadConstant { index });
                     }
 
                     (ExprKind::Float { value: left, .. }, ExprKind::Int { value: right, .. }) => {
                         let index = self.chunk.add_constant(Value::Float((left) $operator (right as f64)));
 
-                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                        self.chunk.instructions.push(Instruction::LoadConstant { index });
                     }
 
                     (ExprKind::Int { value: left, .. }, ExprKind::Float { value: right, .. }) => {
                         let index = self.chunk.add_constant(Value::Float((left as f64) $operator (right)));
 
-                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                        self.chunk.instructions.push(Instruction::LoadConstant { index });
                     }
 
                     (ExprKind::Float { value: left, .. }, ExprKind::Float { value: right, .. }) => {
                         let index = self.chunk.add_constant(Value::Float((left) $operator (right)));
 
-                        self.chunk.write_instruction(Instruction::LoadConstant { index });
+                        self.chunk.instructions.push(Instruction::LoadConstant { index });
                     }
 
                     (left, right) => {
@@ -187,19 +207,35 @@ impl<'a> Compiler<'a> {
 
         match operator {
             BinaryOperator::Plus => {
-                constant_folding!(+, self.chunk.write_instruction(Instruction::Add { location }))
+                constant_folding!(+, {
+                    self.chunk.locations.push(location);
+
+                    self.chunk.instructions.push(Instruction::Add)
+                })
             }
 
             BinaryOperator::Minus => {
-                constant_folding!(-, self.chunk.write_instruction(Instruction::Sub { location }))
+                constant_folding!(-, {
+                    self.chunk.locations.push(location);
+
+                    self.chunk.instructions.push(Instruction::Sub)
+                })
             }
 
             BinaryOperator::ForwardSlash => {
-                constant_folding!(/, self.chunk.write_instruction(Instruction::Div { location }))
+                constant_folding!(/, {
+                    self.chunk.locations.push(location);
+
+                    self.chunk.instructions.push(Instruction::Div)
+                })
             }
 
             BinaryOperator::Star => {
-                constant_folding!(*, self.chunk.write_instruction(Instruction::Mult { location }))
+                constant_folding!(*, {
+                    self.chunk.locations.push(location);
+
+                    self.chunk.instructions.push(Instruction::Mult)
+                })
             }
 
             _ => {
@@ -208,30 +244,20 @@ impl<'a> Compiler<'a> {
             }
         }
 
+        self.chunk.locations.push(location);
+
         match operator {
-            BinaryOperator::DoubleStar => self
-                .chunk
-                .write_instruction(Instruction::Exponent { location }),
+            BinaryOperator::DoubleStar => self.chunk.instructions.push(Instruction::Exponent),
 
-            BinaryOperator::Percent => self
-                .chunk
-                .write_instruction(Instruction::Modulo { location }),
+            BinaryOperator::Percent => self.chunk.instructions.push(Instruction::Modulo),
 
-            BinaryOperator::Equals => self
-                .chunk
-                .write_instruction(Instruction::Equals { location }),
+            BinaryOperator::Equals => self.chunk.instructions.push(Instruction::Equals),
 
-            BinaryOperator::NotEquals => self
-                .chunk
-                .write_instruction(Instruction::NotEquals { location }),
+            BinaryOperator::NotEquals => self.chunk.instructions.push(Instruction::NotEquals),
 
-            BinaryOperator::LessThan => self
-                .chunk
-                .write_instruction(Instruction::LessThan { location }),
+            BinaryOperator::LessThan => self.chunk.instructions.push(Instruction::LessThan),
 
-            BinaryOperator::GreaterThan => self
-                .chunk
-                .write_instruction(Instruction::GreaterThan { location }),
+            BinaryOperator::GreaterThan => self.chunk.instructions.push(Instruction::GreaterThan),
 
             _ => (),
         }
@@ -240,9 +266,10 @@ impl<'a> Compiler<'a> {
     fn compile_assign(&mut self, name: String, value: ExprKind, location: Location) {
         self.compile_expr(value.clone());
 
-        self.chunk.write_instruction(Instruction::Assign {
+        self.chunk.locations.push(location);
+
+        self.chunk.instructions.push(Instruction::Assign {
             atom: Atom::new(name),
-            location,
         });
 
         self.compile_expr(value);
@@ -261,8 +288,9 @@ impl<'a> Compiler<'a> {
 
         self.compile_expr(value.clone());
 
-        self.chunk
-            .write_instruction(Instruction::StoreSubscript { location });
+        self.chunk.locations.push(location);
+
+        self.chunk.instructions.push(Instruction::StoreSubscript);
 
         self.compile_expr(value);
     }
@@ -279,9 +307,10 @@ impl<'a> Compiler<'a> {
 
         self.compile_expr(callable);
 
-        self.chunk.write_instruction(Instruction::Call {
+        self.chunk.locations.push(location);
+
+        self.chunk.instructions.push(Instruction::Call {
             arguments_count: arguments.len(),
-            location,
         });
     }
 
@@ -290,7 +319,8 @@ impl<'a> Compiler<'a> {
 
         self.compile_expr(index);
 
-        self.chunk
-            .write_instruction(Instruction::LoadSubscript { location });
+        self.chunk.locations.push(location);
+
+        self.chunk.instructions.push(Instruction::LoadSubscript);
     }
 }

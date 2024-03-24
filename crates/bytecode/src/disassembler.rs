@@ -9,7 +9,7 @@ pub fn disassemble(chunk_name: &str, chunk: &Chunk, gc: &GarbageCollector) -> St
 
     disassembled.push_str(format!("\nDisassembly of '{}'\n", chunk_name).as_str());
 
-    chunk.code.iter().for_each(|instruction| {
+    chunk.instructions.iter().for_each(|instruction| {
         disassembled.push('\t');
         disassembled.push_str(disassemble_instruction(chunk, instruction, gc).as_str());
         disassembled.push('\n');

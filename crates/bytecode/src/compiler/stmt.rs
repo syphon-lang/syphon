@@ -35,20 +35,26 @@ impl<'a> Compiler<'a> {
                 let index = self.chunk.add_constant(Value::None);
 
                 self.chunk
-                    .write_instruction(Instruction::LoadConstant { index });
+                    .instructions
+                    .push(Instruction::LoadConstant { index });
             }
         };
 
-        self.chunk.write_instruction(Instruction::StoreName {
+        self.chunk.locations.push(var.location);
+
+        self.chunk.instructions.push(Instruction::StoreName {
             atom: Atom::new(var.name),
             mutable: var.mutable,
         });
 
         if self.mode == CompilerMode::REPL {
+            self.chunk.locations.push(var.location);
+
             let index = self.chunk.add_constant(Value::None);
 
             self.chunk
-                .write_instruction(Instruction::LoadConstant { index });
+                .instructions
+                .push(Instruction::LoadConstant { index });
         }
     }
 
@@ -67,23 +73,31 @@ impl<'a> Compiler<'a> {
             },
         };
 
+        self.chunk.locations.push(function.location);
+
         let index = self
             .chunk
             .add_constant(Value::Function(self.gc.alloc(bytecode_function)));
 
         self.chunk
-            .write_instruction(Instruction::LoadConstant { index });
+            .instructions
+            .push(Instruction::LoadConstant { index });
 
-        self.chunk.write_instruction(Instruction::StoreName {
+        self.chunk.locations.push(function.location);
+
+        self.chunk.instructions.push(Instruction::StoreName {
             atom: Atom::new(function.name),
             mutable: false,
         });
 
         if self.mode == CompilerMode::REPL {
+            self.chunk.locations.push(function.location);
+
             let index = self.chunk.add_constant(Value::None);
 
             self.chunk
-                .write_instruction(Instruction::LoadConstant { index });
+                .instructions
+                .push(Instruction::LoadConstant { index });
         }
 
         Ok(())
@@ -104,21 +118,27 @@ impl<'a> Compiler<'a> {
         self.context.compiling_conditional = true;
 
         for i in 0..conditional.conditions.len() {
-            let condition_point = self.chunk.code.len();
+            let condition_point = self.chunk.instructions.len();
 
             self.compile_expr(conditional.conditions[i].clone());
 
-            self.chunk
-                .write_instruction(Instruction::JumpIfFalse { offset: 0 });
+            self.chunk.locations.push(conditional.location);
 
-            let jump_if_false_point = self.chunk.code.len() - 1;
+            self.chunk
+                .instructions
+                .push(Instruction::JumpIfFalse { offset: 0 });
+
+            let jump_if_false_point = self.chunk.instructions.len() - 1;
 
             self.compile_nodes(conditional.bodies[i].clone())?;
 
-            self.chunk
-                .write_instruction(Instruction::Jump { offset: 0 });
+            self.chunk.locations.push(conditional.location);
 
-            let jump_point = self.chunk.code.len() - 1;
+            self.chunk
+                .instructions
+                .push(Instruction::Jump { offset: 0 });
+
+            let jump_point = self.chunk.instructions.len() - 1;
 
             backtrack_points.push(BacktrackPoint {
                 condition_point,
@@ -127,22 +147,25 @@ impl<'a> Compiler<'a> {
             });
         }
 
-        if self.mode == CompilerMode::REPL {
-            let index = self.chunk.add_constant(Value::None);
-
-            self.chunk
-                .write_instruction(Instruction::LoadConstant { index });
-        }
-
-        let before_fallback_point = self.chunk.code.len() - 1;
+        let before_fallback_point = self.chunk.instructions.len() - 1;
 
         if let Some(fallback) = conditional.fallback {
             self.compile_nodes(fallback)?;
         }
 
+        if self.mode == CompilerMode::REPL {
+            self.chunk.locations.push(conditional.location);
+
+            let index = self.chunk.add_constant(Value::None);
+
+            self.chunk
+                .instructions
+                .push(Instruction::LoadConstant { index });
+        }
+
         self.context.compiling_conditional = was_compiling_conditinal;
 
-        let after_fallback_point = self.chunk.code.len() - 1;
+        let after_fallback_point = self.chunk.instructions.len() - 1;
 
         let mut backtrack_points_iter = backtrack_points.iter();
 
@@ -160,11 +183,11 @@ impl<'a> Compiler<'a> {
                 .next()
                 .unwrap_or(&default_point);
 
-            self.chunk.code[point.jump_if_false_point] = Instruction::JumpIfFalse {
+            self.chunk.instructions[point.jump_if_false_point] = Instruction::JumpIfFalse {
                 offset: next_point.condition_point - point.jump_if_false_point,
             };
 
-            self.chunk.code[point.jump_point] = Instruction::Jump {
+            self.chunk.instructions[point.jump_point] = Instruction::Jump {
                 offset: after_fallback_point - point.jump_point,
             }
         }
@@ -173,14 +196,17 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_while(&mut self, while_stmt: While) -> Result<(), SyphonError> {
-        let condition_point = self.chunk.code.len();
+        let condition_point = self.chunk.instructions.len();
 
         self.compile_expr(while_stmt.condition);
 
-        self.chunk
-            .write_instruction(Instruction::JumpIfFalse { offset: 0 });
+        self.chunk.locations.push(while_stmt.location);
 
-        let jump_if_false_point = self.chunk.code.len() - 1;
+        self.chunk
+            .instructions
+            .push(Instruction::JumpIfFalse { offset: 0 });
+
+        let jump_if_false_point = self.chunk.instructions.len() - 1;
 
         let previous_break_points_len = self.context.break_points.len();
 
@@ -192,12 +218,14 @@ impl<'a> Compiler<'a> {
 
         self.compile_nodes(while_stmt.body)?;
 
-        self.chunk.code[jump_if_false_point] = Instruction::JumpIfFalse {
-            offset: self.chunk.code.len() - jump_if_false_point,
+        self.chunk.instructions[jump_if_false_point] = Instruction::JumpIfFalse {
+            offset: self.chunk.instructions.len() - jump_if_false_point,
         };
 
-        self.chunk.write_instruction(Instruction::Back {
-            offset: self.chunk.code.len() - condition_point,
+        self.chunk.locations.push(while_stmt.location);
+
+        self.chunk.instructions.push(Instruction::Back {
+            offset: self.chunk.instructions.len() - condition_point,
         });
 
         self.context
@@ -205,8 +233,8 @@ impl<'a> Compiler<'a> {
             .iter()
             .skip(previous_break_points_len)
             .for_each(|break_point| {
-                self.chunk.code[*break_point] = Instruction::Jump {
-                    offset: self.chunk.code.len() - break_point,
+                self.chunk.instructions[*break_point] = Instruction::Jump {
+                    offset: self.chunk.instructions.len() - break_point,
                 }
             });
 
@@ -215,7 +243,7 @@ impl<'a> Compiler<'a> {
             .iter()
             .skip(previous_continue_points_len)
             .for_each(|continue_point| {
-                self.chunk.code[*continue_point] = Instruction::Back {
+                self.chunk.instructions[*continue_point] = Instruction::Back {
                     offset: continue_point - condition_point,
                 }
             });
@@ -231,10 +259,13 @@ impl<'a> Compiler<'a> {
             .truncate(previous_continue_points_len);
 
         if self.mode == CompilerMode::REPL {
+            self.chunk.locations.push(while_stmt.location);
+
             let index = self.chunk.add_constant(Value::None);
 
             self.chunk
-                .write_instruction(Instruction::LoadConstant { index });
+                .instructions
+                .push(Instruction::LoadConstant { index });
         }
 
         Ok(())
@@ -248,10 +279,15 @@ impl<'a> Compiler<'a> {
             ));
         }
 
-        self.chunk
-            .write_instruction(Instruction::Jump { offset: 0 });
+        self.chunk.locations.push(break_stmt.location);
 
-        self.context.break_points.push(self.chunk.code.len() - 1);
+        self.chunk
+            .instructions
+            .push(Instruction::Jump { offset: 0 });
+
+        self.context
+            .break_points
+            .push(self.chunk.instructions.len() - 1);
 
         Ok(())
     }
@@ -264,10 +300,15 @@ impl<'a> Compiler<'a> {
             ));
         }
 
-        self.chunk
-            .write_instruction(Instruction::Jump { offset: 0 });
+        self.chunk.locations.push(continue_stmt.location);
 
-        self.context.continue_points.push(self.chunk.code.len() - 1);
+        self.chunk
+            .instructions
+            .push(Instruction::Jump { offset: 0 });
+
+        self.context
+            .continue_points
+            .push(self.chunk.instructions.len() - 1);
 
         Ok(())
     }
@@ -283,14 +324,19 @@ impl<'a> Compiler<'a> {
         match return_stmt.value {
             Some(value) => self.compile_expr(value),
             None => {
+                self.chunk.locations.push(return_stmt.location);
+
                 let index = self.chunk.add_constant(Value::None);
 
                 self.chunk
-                    .write_instruction(Instruction::LoadConstant { index });
+                    .instructions
+                    .push(Instruction::LoadConstant { index });
             }
         };
 
-        self.chunk.write_instruction(Instruction::Return);
+        self.chunk.locations.push(return_stmt.location);
+
+        self.chunk.instructions.push(Instruction::Return);
 
         if !self.context.compiling_loop && !self.context.compiling_conditional {
             self.context.manual_return = true;

@@ -557,6 +557,14 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Int(right)) => Value::Bool(left == right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Bool(left == right),
             (Value::String(left), Value::String(right)) => Value::Bool(left == right),
+
+            (Value::Array(left_reference), Value::Array(right_reference)) => {
+                let left = self.gc.deref(left_reference);
+                let right = self.gc.deref(right_reference);
+
+                Value::Bool(left.values == right.values)
+            }
+
             (Value::None, Value::None) => Value::Bool(true),
             (Value::None, ..) => Value::Bool(false),
             (.., Value::None) => Value::Bool(false),
@@ -583,6 +591,14 @@ impl<'a> VirtualMachine<'a> {
             (Value::Float(left), Value::Int(right)) => Value::Bool(left != right as f64),
             (Value::Float(left), Value::Float(right)) => Value::Bool(left != right),
             (Value::String(left), Value::String(right)) => Value::Bool(left != right),
+
+            (Value::Array(left_reference), Value::Array(right_reference)) => {
+                let left = self.gc.deref(left_reference);
+                let right = self.gc.deref(right_reference);
+
+                Value::Bool(left.values != right.values)
+            }
+
             (Value::None, Value::None) => Value::Bool(false),
             (Value::None, ..) => Value::Bool(true),
             (.., Value::None) => Value::Bool(true),

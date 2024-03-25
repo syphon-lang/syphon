@@ -34,19 +34,17 @@ impl Atom {
     pub fn get(name: &str) -> Atom {
         let atoms_lock = ATOMS.lock().unwrap();
 
-        unsafe { *atoms_lock.get(name).unwrap_unchecked() }
+        *atoms_lock.get(name).unwrap()
     }
 
     pub fn get_name(&self) -> String {
         let atoms_lock = ATOMS.lock().unwrap();
 
-        unsafe {
-            atoms_lock
-                .iter()
-                .find_map(|(k, v)| if v == self { Some(k) } else { None })
-                .unwrap_unchecked()
-                .to_owned()
-        }
+        atoms_lock
+            .iter()
+            .find_map(|(k, v)| if v == self { Some(k) } else { None })
+            .unwrap()
+            .to_owned()
     }
 
     pub fn from_be_bytes(bytes: [u8; std::mem::size_of::<usize>()]) -> Atom {
@@ -92,6 +90,8 @@ impl Chunk {
 
             bytes.extend(atom.to_be_bytes());
         });
+
+        drop(atoms_lock);
 
         bytes.extend(self.constants.len().to_be_bytes());
         for constant in self.constants.iter() {

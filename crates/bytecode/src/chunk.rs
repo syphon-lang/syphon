@@ -149,6 +149,8 @@ impl Chunk {
             atoms_lock.insert(name, atom);
         }
 
+        drop(atoms_lock);
+
         let constants_len = usize::from_be_bytes(get_8_bytes(bytes));
         for _ in 0..constants_len {
             let constant_tag = bytes.next().unwrap();

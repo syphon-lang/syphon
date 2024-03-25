@@ -1,0 +1,43 @@
+let arr = [0, 1, 2, 3, 4, 5];
+let arr_len = 6;
+
+println("First state of the Array:", arr);
+
+arr[-1] = 6;
+
+println("Assigned a Subscript:", arr[-1] == 6);
+
+arr[-1] = arr[-1];
+
+println("Assigned a Subscript with its own value:", arr[-1] == 6);
+
+let temp = arr[0];
+arr[0] = arr[-1];
+arr[-1] = temp;
+
+println("Swapped two Subscripts:", arr[0] == 6, arr[-1] == 0);
+
+let i = 0;
+
+while i < arr_len {
+    arr[i] = 0;
+
+    i = i + 1;
+}
+
+let zero_arr = [0, 0, 0, 0, 0, 0];
+
+println("Zeroed all values in the Array:", arr == zero_arr);
+
+let i = 0;
+
+while i < arr_len {
+    arr[i] = random(0, 10);
+
+    i = i + 1;
+}
+
+
+println("Randomized all values in the Array:", arr != zero_arr);
+
+println("Final state of the Array:", arr);

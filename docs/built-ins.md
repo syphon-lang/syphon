@@ -86,3 +86,27 @@ typeof(true) # bool
 typeof([]) # array
 typeof(print) # function
 ```
+
+- array_push
+
+Pushes the value provided into an array, returns none always and does not care if you provided non-array types
+
+```
+let arr = [];
+
+array_push(arr, 5) # arr is now [5]
+
+array_push(2, 5) # does not care
+```
+
+- array_pop
+
+Pops the last value in the array, checks if the array is empty but does not care and will just return none also just like the array_push if you provided non-array types it will return none
+
+```
+let arr = [5];
+
+array_pop(arr) # 5
+array_pop(arr) # none
+array_pop(2) # none
+```

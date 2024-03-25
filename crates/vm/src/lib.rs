@@ -123,6 +123,8 @@ impl<'a> VirtualMachine<'a> {
         self.add_global_native("random", Some(2), |_, args| {
             let mut rng = thread_rng();
 
+            assert_eq!(args.len(), 2);
+
             match (args[0], args[1]) {
                 (Value::Int(min), Value::Int(max)) => {
                     let min = min as f64;
@@ -167,29 +169,67 @@ impl<'a> VirtualMachine<'a> {
             }
         });
 
-        self.add_global_native("exit", Some(1), |_, args| match args[0] {
-            Value::Int(status_code) => exit(status_code.rem_euclid(256) as i32),
+        self.add_global_native("exit", Some(1), |_, args| {
+            assert_eq!(args.len(), 1);
 
-            _ => exit(1),
+            match args[0] {
+                    Value::Int(status_code) => exit(status_code.rem_euclid(256) as i32),
+
+                    _ => exit(1),
+                }
         });
 
-        self.add_global_native("typeof", Some(1), |gc, args| match args[0] {
-            Value::None => Value::String(gc.intern("none".to_owned())),
+        self.add_global_native("typeof", Some(1), |gc, args| {
+            assert_eq!(args.len(), 1);
 
-            Value::String(_) => Value::String(gc.intern("string".to_owned())),
+            match args[0] {
+                    Value::None => Value::String(gc.intern("none".to_owned())),
 
-            Value::Int(_) => Value::String(gc.intern("int".to_owned())),
+                    Value::String(_) => Value::String(gc.intern("string".to_owned())),
 
-            Value::Float(_) => Value::String(gc.intern("float".to_owned())),
+                    Value::Int(_) => Value::String(gc.intern("int".to_owned())),
 
-            Value::Bool(_) => Value::String(gc.intern("bool".to_owned())),
+                    Value::Float(_) => Value::String(gc.intern("float".to_owned())),
 
-            Value::Array(_) => Value::String(gc.intern("array".to_owned())),
+                    Value::Bool(_) => Value::String(gc.intern("bool".to_owned())),
 
-            Value::Function(_) | Value::NativeFunction(_) => {
-                Value::String(gc.intern("function".to_owned()))
+                    Value::Array(_) => Value::String(gc.intern("array".to_owned())),
+
+                    Value::Function(_) | Value::NativeFunction(_) => {
+                        Value::String(gc.intern("function".to_owned()))
+                    }
+                }
+        });
+
+        self.add_global_native("array_push", Some(2), |gc, args| {
+            assert_eq!(args.len(), 2);
+
+            let Value::Array(array_reference) = args[0] else {
+                return Value::None;
+            };
+
+            let array = gc.deref_mut(array_reference);
+
+            array.values.push(args[1]);
+
+            Value::None 
+        });
+
+        self.add_global_native("array_pop", Some(1), |gc, args| {
+            assert_eq!(args.len(), 1);
+
+            let Value::Array(array_reference) = args[0] else {
+                return Value::None;
+            };
+
+            let array = gc.deref_mut(array_reference);
+
+            if array.values.is_empty() {
+                return Value::None;
             }
-        })
+
+            array.values.pop().unwrap()
+        });
     }
 
     pub fn load_chunk(&mut self, chunk: Chunk) {

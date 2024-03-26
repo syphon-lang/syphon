@@ -89,7 +89,7 @@ impl GarbageCollector {
             gray_stack: Vec::new(),
             strings: HashMap::new(),
             bytes_allocated: 0,
-            next_gc: 1024 * 2,
+            next_gc: 1024 * 1024,
         }
     }
 

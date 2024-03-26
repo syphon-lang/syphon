@@ -256,13 +256,13 @@ impl Trace for Value {
 
                 for (i, value) in array.values.iter().enumerate() {
                     if value == self {
-                        write!(f, "..")?;
+                        write!(f, "[...]")?;
                     } else {
                         value.format(gc, f)?;
                     }
 
                     if i < array.values.len() - 1 {
-                        write!(f, ",")?;
+                        write!(f, ", ")?;
                     }
                 }
 
@@ -286,6 +286,8 @@ impl Trace for Value {
     fn trace(&self, gc: &mut GarbageCollector) {
         match self {
             Value::String(reference) => gc.mark(*reference),
+
+            Value::Array(reference) => gc.mark(*reference),
 
             Value::Function(reference) => gc.mark(*reference),
 

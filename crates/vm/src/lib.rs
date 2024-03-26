@@ -762,7 +762,7 @@ impl<'a> VirtualMachine<'a> {
                         let stack_index = self.stack.len() - 1;
 
                         self.frames.top_mut().locals.insert(
-                            Atom::get(parameter),
+                            Atom::new(parameter.to_owned()),
                             Local {
                                 stack_index,
                                 mutable: true,
@@ -816,7 +816,7 @@ impl<'a> VirtualMachine<'a> {
         };
 
         let array = match self.stack.pop() {
-            Value::Array(reference) => self.gc.deref(reference),
+            Value::Array(reference) => self.gc.deref_mut(reference),
 
             _ => return Err(SyphonError::expected(location, "an array")),
         };

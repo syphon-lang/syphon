@@ -31,12 +31,6 @@ impl Atom {
         atom
     }
 
-    pub fn get(name: &str) -> Atom {
-        let atoms_lock = ATOMS.lock().unwrap();
-
-        *atoms_lock.get(name).unwrap()
-    }
-
     pub fn get_name(&self) -> String {
         let atoms_lock = ATOMS.lock().unwrap();
 

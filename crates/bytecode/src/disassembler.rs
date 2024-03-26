@@ -9,20 +9,21 @@ pub fn disassemble(chunk_name: &str, chunk: &Chunk, gc: &GarbageCollector) -> St
 
     disassembled.push_str(format!("\nDisassembly of '{}'\n", chunk_name).as_str());
 
-    chunk.instructions.iter().for_each(|instruction| {
+    for (ip, instruction) in chunk.instructions.iter().enumerate() {
+        disassembled.push_str(ip.to_string().as_str());
         disassembled.push('\t');
         disassembled.push_str(disassemble_instruction(chunk, instruction, gc).as_str());
         disassembled.push('\n');
-    });
+    }
 
-    chunk.constants.iter().for_each(|constant| {
+    for constant in chunk.constants.iter() {
         if let Value::Function(reference) = constant {
             let function = gc.deref(*reference);
 
             disassembled
                 .push_str(disassemble(&function.name.get_name(), &function.body, gc).as_str());
         }
-    });
+    }
 
     disassembled
 }

@@ -76,12 +76,12 @@ impl Instruction {
             }
 
             Instruction::LoadConstant { index } => {
-                bytes.push(16);
+                bytes.push(15);
 
                 bytes.extend(index.to_be_bytes());
             }
 
-            Instruction::Return => bytes.push(17),
+            Instruction::Return => bytes.push(16),
 
             Instruction::JumpIfFalse { offset } => {
                 bytes.push(17);

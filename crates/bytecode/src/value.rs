@@ -83,6 +83,7 @@ impl Value {
                 let value = gc.deref(*reference);
 
                 bytes.push(1);
+
                 bytes.extend(value.len().to_be_bytes());
                 bytes.extend(value.as_bytes());
             }

@@ -78,12 +78,12 @@ impl Chunk {
         let atoms_lock = ATOMS.lock().unwrap();
 
         bytes.extend(atoms_lock.len().to_be_bytes());
-        atoms_lock.iter().for_each(|(name, atom)| {
+        for (name, atom) in atoms_lock.iter() {
             bytes.extend(name.len().to_be_bytes());
             bytes.extend(name.as_bytes());
 
             bytes.extend(atom.to_be_bytes());
-        });
+        }
 
         drop(atoms_lock);
 
@@ -93,14 +93,14 @@ impl Chunk {
         }
 
         bytes.extend(self.locations.len().to_be_bytes());
-        for location in self.instructions.iter() {
+        for location in self.locations.iter() {
             bytes.extend(location.to_bytes());
         }
 
         bytes.extend(self.instructions.len().to_be_bytes());
-        self.instructions.iter().for_each(|instruction| {
+        for instruction in self.instructions.iter() {
             bytes.extend(instruction.to_bytes());
-        });
+        }
 
         bytes
     }

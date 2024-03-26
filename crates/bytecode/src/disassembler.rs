@@ -33,26 +33,24 @@ fn disassemble_instruction(
     gc: &GarbageCollector,
 ) -> String {
     match instruction {
-        Instruction::Neg { .. } => "Neg".to_owned(),
+        Instruction::Neg => "Neg".to_owned(),
         Instruction::LogicalNot => "LogicalNot".to_owned(),
 
-        Instruction::Add { .. } => "Add".to_owned(),
-        Instruction::Sub { .. } => "Sub".to_owned(),
-        Instruction::Div { .. } => "Div".to_owned(),
-        Instruction::Mult { .. } => "Mult".to_owned(),
-        Instruction::Exponent { .. } => "Exponent".to_owned(),
-        Instruction::Modulo { .. } => "Modulo".to_owned(),
+        Instruction::Add => "Add".to_owned(),
+        Instruction::Sub => "Sub".to_owned(),
+        Instruction::Div => "Div".to_owned(),
+        Instruction::Mult => "Mult".to_owned(),
+        Instruction::Exponent => "Exponent".to_owned(),
+        Instruction::Modulo => "Modulo".to_owned(),
 
-        Instruction::Equals { .. } => "Equals".to_owned(),
-        Instruction::NotEquals { .. } => "NotEquals".to_owned(),
-        Instruction::LessThan { .. } => "LessThan".to_owned(),
-        Instruction::GreaterThan { .. } => "GreaterThan".to_owned(),
+        Instruction::Equals => "Equals".to_owned(),
+        Instruction::NotEquals => "NotEquals".to_owned(),
+        Instruction::LessThan => "LessThan".to_owned(),
+        Instruction::GreaterThan => "GreaterThan".to_owned(),
 
-        Instruction::StoreName { atom, .. } => format!("StoreName {} ({})", atom, atom.get_name()),
+        Instruction::StoreName { atom } => format!("StoreName {} ({})", atom, atom.get_name()),
 
-        Instruction::Assign { atom, .. } => format!("Assign {} ({})", atom, atom.get_name()),
-
-        Instruction::LoadName { atom, .. } => format!("LoadName {} ({})", atom, atom.get_name()),
+        Instruction::LoadName { atom } => format!("LoadName {} ({})", atom, atom.get_name()),
 
         Instruction::LoadConstant { index } => {
             let constant = *chunk.get_constant(*index);
@@ -80,8 +78,8 @@ fn disassemble_instruction(
 
         Instruction::MakeArray { length } => format!("MakeArray ({})", length),
 
-        Instruction::LoadSubscript { .. } => "LoadSubscript".to_owned(),
+        Instruction::LoadSubscript => "LoadSubscript".to_owned(),
 
-        Instruction::StoreSubscript { .. } => "StoreSubscript".to_owned(),
+        Instruction::StoreSubscript => "StoreSubscript".to_owned(),
     }
 }

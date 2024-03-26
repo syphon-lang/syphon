@@ -17,10 +17,8 @@ pub enum Instruction {
     LessThan,
     GreaterThan,
 
-    StoreName { atom: Atom, mutable: bool },
+    StoreName { atom: Atom },
     LoadName { atom: Atom },
-
-    Assign { atom: Atom },
 
     Call { arguments_count: usize },
 
@@ -59,16 +57,10 @@ impl Instruction {
             Instruction::LessThan => bytes.push(10),
             Instruction::GreaterThan => bytes.push(11),
 
-            Instruction::StoreName { atom, mutable } => {
+            Instruction::StoreName { atom } => {
                 bytes.push(12);
 
                 bytes.extend(atom.to_be_bytes());
-
-                if mutable {
-                    bytes.push(1);
-                } else {
-                    bytes.push(0);
-                }
             }
 
             Instruction::LoadName { atom } => {
@@ -77,14 +69,8 @@ impl Instruction {
                 bytes.extend(atom.to_be_bytes());
             }
 
-            Instruction::Assign { atom } => {
-                bytes.push(14);
-
-                bytes.extend(atom.to_be_bytes());
-            }
-
             Instruction::Call { arguments_count } => {
-                bytes.push(15);
+                bytes.push(14);
 
                 bytes.extend(arguments_count.to_be_bytes());
             }
@@ -98,33 +84,33 @@ impl Instruction {
             Instruction::Return => bytes.push(17),
 
             Instruction::JumpIfFalse { offset } => {
-                bytes.push(18);
+                bytes.push(17);
 
                 bytes.extend(offset.to_be_bytes());
             }
 
             Instruction::Jump { offset } => {
-                bytes.push(19);
+                bytes.push(18);
 
                 bytes.extend(offset.to_be_bytes());
             }
 
             Instruction::Back { offset } => {
-                bytes.push(20);
+                bytes.push(19);
 
                 bytes.extend(offset.to_be_bytes());
             }
 
-            Instruction::Pop => bytes.push(21),
+            Instruction::Pop => bytes.push(20),
 
             Instruction::MakeArray { length } => {
-                bytes.push(22);
+                bytes.push(21);
 
                 bytes.extend(length.to_be_bytes());
             }
 
-            Instruction::LoadSubscript => bytes.push(23),
-            Instruction::StoreSubscript => bytes.push(24),
+            Instruction::LoadSubscript => bytes.push(22),
+            Instruction::StoreSubscript => bytes.push(23),
         }
 
         bytes
@@ -163,9 +149,7 @@ impl Instruction {
             12 => {
                 let atom = Atom::from_be_bytes(get_8_bytes(bytes));
 
-                let mutable = bytes.next().unwrap() == 1;
-
-                Instruction::StoreName { atom, mutable }
+                Instruction::StoreName { atom }
             }
 
             13 => {
@@ -175,53 +159,47 @@ impl Instruction {
             }
 
             14 => {
-                let atom = Atom::from_be_bytes(get_8_bytes(bytes));
-
-                Instruction::Assign { atom }
-            }
-
-            15 => {
                 let arguments_count = usize::from_be_bytes(get_8_bytes(bytes));
 
                 Instruction::Call { arguments_count }
             }
 
-            16 => {
+            15 => {
                 let index = usize::from_be_bytes(get_8_bytes(bytes));
 
                 Instruction::LoadConstant { index }
             }
 
-            17 => Instruction::Return,
+            16 => Instruction::Return,
 
-            18 => {
+            17 => {
                 let offset = usize::from_be_bytes(get_8_bytes(bytes));
 
                 Instruction::JumpIfFalse { offset }
             }
 
-            19 => {
+            18 => {
                 let offset = usize::from_be_bytes(get_8_bytes(bytes));
 
                 Instruction::Jump { offset }
             }
 
-            20 => {
+            19 => {
                 let offset = usize::from_be_bytes(get_8_bytes(bytes));
 
                 Instruction::Back { offset }
             }
 
-            21 => Instruction::Pop,
+            20 => Instruction::Pop,
 
-            22 => {
+            21 => {
                 let length = usize::from_be_bytes(get_8_bytes(bytes));
 
                 Instruction::MakeArray { length }
             }
 
-            23 => Instruction::LoadSubscript,
-            24 => Instruction::StoreSubscript,
+            22 => Instruction::LoadSubscript,
+            23 => Instruction::StoreSubscript,
 
             _ => unreachable!(),
         }

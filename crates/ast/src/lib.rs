@@ -78,7 +78,6 @@ pub enum StmtKind {
 
 #[derive(Debug, Clone)]
 pub struct Variable {
-    pub mutable: bool,
     pub name: String,
     pub value: Option<ExprKind>,
     pub location: Location,

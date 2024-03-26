@@ -46,7 +46,6 @@ impl<'a> Compiler<'a> {
 
         self.chunk.instructions.push(Instruction::StoreName {
             atom: Atom::new(var.name),
-            mutable: var.mutable,
         });
 
         if self.mode == CompilerMode::REPL {
@@ -89,7 +88,6 @@ impl<'a> Compiler<'a> {
 
         self.chunk.instructions.push(Instruction::StoreName {
             atom: Atom::new(function.name),
-            mutable: false,
         });
 
         if self.mode == CompilerMode::REPL {

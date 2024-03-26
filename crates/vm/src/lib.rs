@@ -22,17 +22,11 @@ use std::time::Instant;
 
 static mut START_TIME: MaybeUninit<Instant> = MaybeUninit::uninit();
 
-#[derive(Clone)]
-struct Local {
-    stack_index: usize,
-    mutable: bool,
-}
-
 struct Frame {
     function: Ref<Function>,
     ip: usize,
 
-    locals: FxHashMap<Atom, Local>,
+    locals: FxHashMap<Atom, usize>,
 
     stack_start: usize,
 }
@@ -173,32 +167,32 @@ impl<'a> VirtualMachine<'a> {
             assert_eq!(args.len(), 1);
 
             match args[0] {
-                    Value::Int(status_code) => exit(status_code.rem_euclid(256) as i32),
+                Value::Int(status_code) => exit(status_code.rem_euclid(256) as i32),
 
-                    _ => exit(1),
-                }
+                _ => exit(1),
+            }
         });
 
         self.add_global_native("typeof", Some(1), |gc, args| {
             assert_eq!(args.len(), 1);
 
             match args[0] {
-                    Value::None => Value::String(gc.intern("none".to_owned())),
+                Value::None => Value::String(gc.intern("none".to_owned())),
 
-                    Value::String(_) => Value::String(gc.intern("string".to_owned())),
+                Value::String(_) => Value::String(gc.intern("string".to_owned())),
 
-                    Value::Int(_) => Value::String(gc.intern("int".to_owned())),
+                Value::Int(_) => Value::String(gc.intern("int".to_owned())),
 
-                    Value::Float(_) => Value::String(gc.intern("float".to_owned())),
+                Value::Float(_) => Value::String(gc.intern("float".to_owned())),
 
-                    Value::Bool(_) => Value::String(gc.intern("bool".to_owned())),
+                Value::Bool(_) => Value::String(gc.intern("bool".to_owned())),
 
-                    Value::Array(_) => Value::String(gc.intern("array".to_owned())),
+                Value::Array(_) => Value::String(gc.intern("array".to_owned())),
 
-                    Value::Function(_) | Value::NativeFunction(_) => {
-                        Value::String(gc.intern("function".to_owned()))
-                    }
+                Value::Function(_) | Value::NativeFunction(_) => {
+                    Value::String(gc.intern("function".to_owned()))
                 }
+            }
         });
 
         self.add_global_native("array_push", Some(2), |gc, args| {
@@ -212,7 +206,7 @@ impl<'a> VirtualMachine<'a> {
 
             array.values.push(args[1]);
 
-            Value::None 
+            Value::None
         });
 
         self.add_global_native("array_pop", Some(1), |gc, args| {
@@ -318,11 +312,9 @@ impl<'a> VirtualMachine<'a> {
 
                 Instruction::NotEquals => self.not_equals(),
 
-                Instruction::StoreName { atom, mutable } => self.store_name(atom, mutable),
+                Instruction::StoreName { atom } => self.store_name(atom),
 
                 Instruction::LoadName { atom } => self.load_name(atom, instruction_location)?,
-
-                Instruction::Assign { atom } => self.assign(atom, instruction_location)?,
 
                 Instruction::LoadConstant { index } => {
                     let constant = *function.body.get_constant(index);
@@ -636,15 +628,14 @@ impl<'a> VirtualMachine<'a> {
         });
     }
 
-    fn store_name(&mut self, atom: Atom, mutable: bool) {
+    fn store_name(&mut self, atom: Atom) {
         let frame = self.frames.top_mut();
 
-        if let Some(past_local) = frame.locals.get_mut(&atom) {
-            if past_local.stack_index >= frame.stack_start {
+        if let Some(previous_stack_index) = frame.locals.get_mut(&atom) {
+            if *previous_stack_index >= frame.stack_start {
                 let new_value = self.stack.pop();
 
-                *self.stack.get_mut(past_local.stack_index) = new_value;
-                past_local.mutable = mutable;
+                *self.stack.get_mut(*previous_stack_index) = new_value;
 
                 return;
             }
@@ -652,18 +643,12 @@ impl<'a> VirtualMachine<'a> {
 
         let stack_index = self.stack.len() - 1;
 
-        frame.locals.insert(
-            atom,
-            Local {
-                stack_index,
-                mutable,
-            },
-        );
+        frame.locals.insert(atom, stack_index);
     }
 
     fn load_name(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
         let value = match self.frames.top().locals.get(&atom) {
-            Some(name_info) => Some(self.stack.get(name_info.stack_index)),
+            Some(stack_index) => Some(self.stack.get(*stack_index)),
 
             None => self.globals.get(&atom),
         };
@@ -683,26 +668,6 @@ impl<'a> VirtualMachine<'a> {
                 atom.get_name().as_str(),
             )),
         }
-    }
-
-    fn assign(&mut self, atom: Atom, location: Location) -> Result<(), SyphonError> {
-        let Some(past_local) = self.frames.top().locals.get(&atom) else {
-            return Err(SyphonError::undefined(
-                location,
-                "name",
-                atom.get_name().as_str(),
-            ));
-        };
-
-        if !past_local.mutable {
-            return Err(SyphonError::unable_to(location, "assign to a constant"));
-        }
-
-        let new_value = self.stack.pop();
-
-        *self.stack.get_mut(past_local.stack_index) = new_value;
-
-        Ok(())
     }
 
     fn check_arguments_count(
@@ -761,13 +726,10 @@ impl<'a> VirtualMachine<'a> {
 
                         let stack_index = self.stack.len() - 1;
 
-                        self.frames.top_mut().locals.insert(
-                            Atom::new(parameter.to_owned()),
-                            Local {
-                                stack_index,
-                                mutable: true,
-                            },
-                        );
+                        self.frames
+                            .top_mut()
+                            .locals
+                            .insert(Atom::new(parameter.to_owned()), stack_index);
                     });
 
                 let return_value = self.run();

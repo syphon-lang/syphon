@@ -34,7 +34,6 @@ pub enum TokenKind {
 pub enum Keyword {
     Fn,
     Let,
-    Const,
     If,
     Else,
     While,

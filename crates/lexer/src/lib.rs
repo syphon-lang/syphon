@@ -135,7 +135,6 @@ impl<'a> Lexer<'a> {
 
             "fn" => TokenKind::Keyword(Keyword::Fn),
             "let" => TokenKind::Keyword(Keyword::Let),
-            "const" => TokenKind::Keyword(Keyword::Const),
             "if" => TokenKind::Keyword(Keyword::If),
             "else" => TokenKind::Keyword(Keyword::Else),
             "while" => TokenKind::Keyword(Keyword::While),

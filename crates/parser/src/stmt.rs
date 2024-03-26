@@ -6,8 +6,7 @@ impl<'a> Parser<'a> {
         match self.peek_token().kind {
             TokenKind::Keyword(keyword) => match keyword {
                 Keyword::Fn => self.parse_function_declaration(),
-                Keyword::Let => self.parse_variable_declaration(true),
-                Keyword::Const => self.parse_variable_declaration(false),
+                Keyword::Let => self.parse_variable_declaration(),
                 Keyword::If => self.parse_conditional(),
                 Keyword::While => self.parse_while_loop(),
                 Keyword::Break => self.parse_break(),
@@ -123,7 +122,7 @@ impl<'a> Parser<'a> {
         Ok(FunctionParameter { name, location })
     }
 
-    fn parse_variable_declaration(&mut self, mutable: bool) -> Result<Node, SyphonError> {
+    fn parse_variable_declaration(&mut self) -> Result<Node, SyphonError> {
         let let_token = self.next_token();
 
         let name_token = self.next_token();
@@ -145,14 +144,7 @@ impl<'a> Parser<'a> {
             }
 
             TokenKind::Delimiter(Delimiter::Semicolon) => {
-                let token = self.next_token();
-
-                if !mutable {
-                    return Err(SyphonError::unable_to(
-                        self.token_location(&token),
-                        "none-initialize a constant",
-                    ));
-                }
+                self.next_token();
 
                 None
             }
@@ -171,7 +163,6 @@ impl<'a> Parser<'a> {
 
         Ok(Node::Stmt(
             StmtKind::VariableDeclaration(Variable {
-                mutable,
                 name,
                 value,
                 location: self.token_location(&let_token),

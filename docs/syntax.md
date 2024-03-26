@@ -2,14 +2,9 @@
 
 ## Variable Declaration
 
-- Mutable Variable
+- Initialzed Variable
 ```
 let variable_name = variable_value
-```
-
-- Unmutable Variable (Constants)
-```
-const variable_name = variable_value
 ```
 
 - None-Initialized Variable

@@ -268,7 +268,7 @@ impl<'a> Compiler<'a> {
 
         self.chunk.locations.push(location);
 
-        self.chunk.instructions.push(Instruction::Assign {
+        self.chunk.instructions.push(Instruction::StoreName {
             atom: Atom::new(name),
         });
 

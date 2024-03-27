@@ -10,17 +10,19 @@ use syphon_ast::Location;
 use syphon_errors::SyphonError;
 use syphon_gc::{GarbageCollector, Ref, Trace, TraceFormatter};
 
+use once_cell::sync::Lazy;
+
 use rustc_hash::FxHashMap;
 
 use rand::{thread_rng, Rng};
+
 use thin_vec::ThinVec;
 
 use std::io::{stdout, BufWriter, Write};
-use std::mem::MaybeUninit;
 use std::process::exit;
 use std::time::Instant;
 
-static mut START_TIME: MaybeUninit<Instant> = MaybeUninit::uninit();
+static START_TIME: Lazy<Instant> = Lazy::new(|| { Instant::now() });
 
 struct Frame {
     function: Ref<Function>,
@@ -46,8 +48,6 @@ impl<'a> VirtualMachine<'a> {
     const STACK_SIZE: usize = VirtualMachine::MAX_FRAMES * (u8::MAX as usize + 1);
 
     pub fn new(gc: &mut GarbageCollector) -> VirtualMachine {
-        unsafe { START_TIME.write(Instant::now()) };
-
         VirtualMachine {
             frames: Stack::new(),
 
@@ -109,9 +109,7 @@ impl<'a> VirtualMachine<'a> {
         });
 
         self.add_global_native("time", Some(0), |_, _| {
-            let start_time = unsafe { START_TIME.assume_init() };
-
-            Value::Int(start_time.elapsed().as_nanos() as i64)
+            Value::Int(START_TIME.elapsed().as_nanos() as i64)
         });
 
         self.add_global_native("random", Some(2), |_, args| {
@@ -700,6 +698,7 @@ impl<'a> VirtualMachine<'a> {
         arguments_count: usize,
         location: Location,
     ) -> Result<(), SyphonError> {
+        println!("{arguments_count}");
         let callee = self.stack.pop();
 
         let arguments = self.stack.pop_multiple(arguments_count).to_vec();

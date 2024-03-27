@@ -104,9 +104,8 @@ impl<'a> Compiler<'a> {
     }
 
     fn compile_conditional(&mut self, conditional: Conditional) -> Result<(), SyphonError> {
-        #[derive(Default)]
         struct BacktrackPoint {
-            condition_point: usize,
+            before_condition_point: usize,
             jump_if_false_point: usize,
             jump_point: usize,
         }
@@ -118,30 +117,30 @@ impl<'a> Compiler<'a> {
         self.context.compiling_conditional = true;
 
         for i in 0..conditional.conditions.len() {
-            let condition_point = self.chunk.instructions.len();
+            let before_condition_point = self.chunk.instructions.len() - 1;
 
             self.compile_expr(conditional.conditions[i].clone());
 
             self.chunk.locations.push(conditional.location);
 
+            let jump_if_false_point = self.chunk.instructions.len();
+
             self.chunk
                 .instructions
                 .push(Instruction::JumpIfFalse { offset: 0 });
-
-            let jump_if_false_point = self.chunk.instructions.len() - 1;
 
             self.compile_nodes(conditional.bodies[i].clone())?;
 
             self.chunk.locations.push(conditional.location);
 
+            let jump_point = self.chunk.instructions.len();
+
             self.chunk
                 .instructions
                 .push(Instruction::Jump { offset: 0 });
 
-            let jump_point = self.chunk.instructions.len() - 1;
-
             backtrack_points.push(BacktrackPoint {
-                condition_point,
+                before_condition_point,
                 jump_if_false_point,
                 jump_point,
             });
@@ -152,6 +151,8 @@ impl<'a> Compiler<'a> {
         if let Some(fallback) = conditional.fallback {
             self.compile_nodes(fallback)?;
         }
+
+        let after_fallback_point = self.chunk.instructions.len() - 1;
 
         if self.mode == CompilerMode::REPL {
             self.chunk.locations.push(conditional.location);
@@ -165,15 +166,13 @@ impl<'a> Compiler<'a> {
 
         self.context.compiling_conditional = was_compiling_conditinal;
 
-        let after_fallback_point = self.chunk.instructions.len() - 1;
-
         let mut backtrack_points_iter = backtrack_points.iter();
 
         while backtrack_points_iter.len() > 0 {
             let point = backtrack_points_iter.next().unwrap();
 
             let default_point = BacktrackPoint {
-                condition_point: before_fallback_point,
+                before_condition_point: before_fallback_point,
                 jump_if_false_point: 0,
                 jump_point: 0,
             };
@@ -184,7 +183,7 @@ impl<'a> Compiler<'a> {
                 .unwrap_or(&default_point);
 
             self.chunk.instructions[point.jump_if_false_point] = Instruction::JumpIfFalse {
-                offset: next_point.condition_point - point.jump_if_false_point,
+                offset: next_point.before_condition_point - point.jump_if_false_point,
             };
 
             self.chunk.instructions[point.jump_point] = Instruction::Jump {

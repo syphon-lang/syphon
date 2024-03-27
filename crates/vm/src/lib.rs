@@ -698,7 +698,6 @@ impl<'a> VirtualMachine<'a> {
         arguments_count: usize,
         location: Location,
     ) -> Result<(), SyphonError> {
-        println!("{arguments_count}");
         let callee = self.stack.pop();
 
         let arguments = self.stack.pop_multiple(arguments_count).to_vec();

@@ -58,7 +58,7 @@ impl<'a> Compiler<'a> {
 
     fn end_module(&mut self) {
         if !self.context.manual_return {
-            if self.mode == CompilerMode::Function || self.chunk.instructions.is_empty() {
+            if self.mode != CompilerMode::REPL || self.chunk.instructions.is_empty() {
                 self.chunk.locations.push(Location::dummy());
 
                 let index = self.chunk.add_constant(Value::None);

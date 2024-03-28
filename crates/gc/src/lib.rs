@@ -73,15 +73,10 @@ pub struct GarbageCollector {
     next_gc: usize,
 }
 
-impl Default for GarbageCollector {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl GarbageCollector {
     const HEAP_GROW_FACTOR: usize = 2;
 
+    #[allow(clippy::new_without_default)]
     pub fn new() -> GarbageCollector {
         GarbageCollector {
             objects: Vec::new(),

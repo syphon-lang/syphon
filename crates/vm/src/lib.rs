@@ -22,7 +22,7 @@ use std::io::{stdout, BufWriter, Write};
 use std::process::exit;
 use std::time::Instant;
 
-static START_TIME: Lazy<Instant> = Lazy::new(|| Instant::now());
+static START_TIME: Lazy<Instant> = Lazy::new(Instant::now);
 
 struct Frame {
     function: Ref<Function>,

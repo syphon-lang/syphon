@@ -22,7 +22,7 @@ use std::io::{stdout, BufWriter, Write};
 use std::process::exit;
 use std::time::Instant;
 
-static START_TIME: Lazy<Instant> = Lazy::new(|| { Instant::now() });
+static START_TIME: Lazy<Instant> = Lazy::new(|| Instant::now());
 
 struct Frame {
     function: Ref<Function>,
@@ -226,7 +226,7 @@ impl<'a> VirtualMachine<'a> {
 
     pub fn load_chunk(&mut self, chunk: Chunk) {
         if self.frames.len() == 0 {
-            let function = self.gc.alloc(Function {
+            let function = self.alloc(Function {
                 name: Atom::new("script".to_owned()),
                 body: chunk,
                 parameters: Vec::new(),
@@ -253,6 +253,12 @@ impl<'a> VirtualMachine<'a> {
     }
 
     fn mark_roots(&mut self) {
+        for i in 0..self.stack.len() {
+            let value = self.stack.get(i);
+
+            value.trace(self.gc);
+        }
+
         for i in 0..self.frames.len() {
             let frame = self.frames.get(i);
 
@@ -264,6 +270,18 @@ impl<'a> VirtualMachine<'a> {
         }
     }
 
+    fn alloc<T: Trace + 'static>(&mut self, value: T) -> Ref<T> {
+        self.mark_and_sweep();
+
+        self.gc.alloc(value)
+    }
+
+    fn intern(&mut self, value: String) -> Ref<String> {
+        self.mark_and_sweep();
+
+        self.gc.intern(value)
+    }
+
     pub fn run(&mut self) -> Result<Value, SyphonError> {
         loop {
             if self.frames.len() >= VirtualMachine::MAX_FRAMES
@@ -271,8 +289,6 @@ impl<'a> VirtualMachine<'a> {
             {
                 return Err(SyphonError::StackOverflow);
             }
-
-            self.mark_and_sweep();
 
             let frame = self.frames.top_mut();
             let function = self.gc.deref(frame.function);
@@ -315,11 +331,7 @@ impl<'a> VirtualMachine<'a> {
                 Instruction::LoadName { atom } => self.load_name(atom, instruction_location)?,
 
                 Instruction::LoadConstant { index } => {
-                    let constant = *function.body.get_constant(index);
-
-                    constant.trace(self.gc);
-
-                    self.stack.push(constant);
+                    self.stack.push(*function.body.get_constant(index));
                 }
 
                 Instruction::Call { arguments_count } => {
@@ -400,11 +412,7 @@ impl<'a> VirtualMachine<'a> {
                 string.push_str(left);
                 string.push_str(right);
 
-                let value = self.gc.intern(string);
-
-                self.gc.mark(value);
-
-                Value::String(value)
+                Value::String(self.intern(string))
             }
 
             _ => {
@@ -653,8 +661,6 @@ impl<'a> VirtualMachine<'a> {
 
         match value {
             Some(value) => {
-                value.trace(self.gc);
-
                 self.stack.push(*value);
 
                 Ok(())
@@ -736,11 +742,7 @@ impl<'a> VirtualMachine<'a> {
 
                 self.frames.pop();
 
-                let return_value = return_value?;
-
-                return_value.trace(self.gc);
-
-                self.stack.push(return_value);
+                self.stack.push(return_value?);
             }
 
             Value::NativeFunction(function) => {
@@ -749,8 +751,6 @@ impl<'a> VirtualMachine<'a> {
                 }
 
                 let return_value = (function.call)(self.gc, arguments);
-
-                return_value.trace(self.gc);
 
                 self.stack.push(return_value);
             }
@@ -764,8 +764,9 @@ impl<'a> VirtualMachine<'a> {
     fn make_array(&mut self, length: usize) {
         let values = ThinVec::from(self.stack.pop_multiple(length));
 
-        self.stack
-            .push(Value::Array(self.gc.alloc(Array { values })));
+        let array = Value::Array(self.alloc(Array { values }));
+
+        self.stack.push(array);
     }
 
     fn load_subscript(&mut self, location: Location) -> Result<(), SyphonError> {
@@ -792,11 +793,7 @@ impl<'a> VirtualMachine<'a> {
             ));
         }
 
-        let result = array.values[index as usize];
-
-        result.trace(self.gc);
-
-        self.stack.push(result);
+        self.stack.push(array.values[index as usize]);
 
         Ok(())
     }

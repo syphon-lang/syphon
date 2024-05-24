@@ -1,8 +1,0 @@
-[package]
-name = "syphon_ast"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-derive_more = { workspace = true }
-thin-vec = { workspace = true }

@@ -13,6 +13,7 @@ pub const State = enum {
     identifier,
     string_literal,
     number,
+    star,
     equal_sign,
 };
 
@@ -98,11 +99,11 @@ pub fn next(self: *Lexer) Token {
                     break;
                 },
 
-                ',' => {
+                '+' => {
                     result.buffer_loc.start = self.index;
                     self.index += 1;
                     result.buffer_loc.end = self.index;
-                    result.tag = .comma;
+                    result.tag = .plus;
                     break;
                 },
 
@@ -114,18 +115,26 @@ pub fn next(self: *Lexer) Token {
                     break;
                 },
 
+                '/' => {
+                    result.buffer_loc.start = self.index;
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .forward_slash;
+                    break;
+                },
+
+                '*' => {
+                    result.buffer_loc.start = self.index;
+                    result.tag = .star;
+                    self.state = .star;
+                },
+
                 '!' => {
                     result.buffer_loc.start = self.index;
                     self.index += 1;
                     result.buffer_loc.end = self.index;
                     result.tag = .bang;
                     break;
-                },
-
-                '=' => {
-                    result.buffer_loc.start = self.index;
-                    result.tag = .equal_sign;
-                    self.state = .equal_sign;
                 },
 
                 '>' => {
@@ -141,6 +150,20 @@ pub fn next(self: *Lexer) Token {
                     self.index += 1;
                     result.buffer_loc.end = self.index;
                     result.tag = .less_than;
+                    break;
+                },
+
+                '=' => {
+                    result.buffer_loc.start = self.index;
+                    result.tag = .equal_sign;
+                    self.state = .equal_sign;
+                },
+
+                ',' => {
+                    result.buffer_loc.start = self.index;
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .comma;
                     break;
                 },
 
@@ -206,6 +229,22 @@ pub fn next(self: *Lexer) Token {
                 },
             },
 
+            .star => switch (current_char) {
+                '*' => {
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .double_star;
+                    self.state = .start;
+                    break;
+                },
+
+                else => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+            },
+
             .equal_sign => switch (current_char) {
                 '=' => {
                     self.index += 1;
@@ -236,11 +275,11 @@ test "valid identifiers" {
 }
 
 test "valid delimiters" {
-    try testTokenize("= == , () {} []", &.{ .equal_sign, .double_equal_sign, .comma, .open_paren, .close_paren, .open_brace, .close_brace, .open_bracket, .close_bracket });
+    try testTokenize("= , () {} []", &.{ .equal_sign, .comma, .open_paren, .close_paren, .open_brace, .close_brace, .open_bracket, .close_bracket });
 }
 
 test "valid operators" {
-    try testTokenize("> <", &.{ .greater_than, .less_than });
+    try testTokenize("+ - / * ** > < ==", &.{ .plus, .minus, .forward_slash, .star, .double_star, .greater_than, .less_than, .double_equal_sign });
 }
 
 test "valid ints" {

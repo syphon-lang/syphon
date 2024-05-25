@@ -10,6 +10,7 @@ state: State,
 
 pub const State = enum {
     start,
+    comment,
     identifier,
     string_literal,
     number,
@@ -32,6 +33,10 @@ pub fn next(self: *Lexer) Token {
                 0 => break,
 
                 ' ', '\r', '\n', '\t' => {},
+
+                '#' => {
+                    self.state = .comment;
+                },
 
                 'a'...'z', 'A'...'Z', '_' => {
                     result.buffer_loc.start = self.index;
@@ -176,6 +181,23 @@ pub fn next(self: *Lexer) Token {
                 },
             },
 
+            .comment => switch (current_char) {
+                0 => {
+                    result.buffer_loc.start = self.index;
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+
+                '\n' => {
+                    result.buffer_loc.start = self.index;
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                },
+
+                else => {},
+            },
+
             .identifier => switch (current_char) {
                 'a'...'z', 'A'...'Z', '0'...'9', '_' => {},
 
@@ -264,6 +286,10 @@ pub fn next(self: *Lexer) Token {
     }
 
     return result;
+}
+
+test "skip comment" {
+    try testTokenize("# This is skipped by the lexer", &.{});
 }
 
 test "valid keywords" {

@@ -35,7 +35,7 @@ pub const Tag = enum {
     keyword_else,
     keyword_true,
     keyword_false,
-    keyword_null,
+    keyword_none,
 };
 
 pub const BufferLoc = struct {
@@ -52,5 +52,5 @@ pub const Keywords = std.StaticStringMap(Tag).initComptime(.{
     .{ "else", .keyword_else },
     .{ "true", .keyword_true },
     .{ "false", .keyword_false },
-    .{ "null", .keyword_null },
+    .{ "none", .keyword_none },
 });

@@ -293,7 +293,7 @@ test "skip comment" {
 }
 
 test "valid keywords" {
-    try testTokenize("fn let return while if else true false null", &.{ .keyword_fn, .keyword_let, .keyword_return, .keyword_while, .keyword_if, .keyword_else, .keyword_true, .keyword_false, .keyword_null });
+    try testTokenize("fn let return while if else true false none", &.{ .keyword_fn, .keyword_let, .keyword_return, .keyword_while, .keyword_if, .keyword_else, .keyword_true, .keyword_false, .keyword_none });
 }
 
 test "valid identifiers" {

@@ -1,3 +1,8 @@
+const std = @import("std");
+
+const Token = @import("Token.zig");
+const Lexer = @import("Lexer.zig");
+
 pub const SourceLoc = struct {
     line: usize,
     column: usize,
@@ -9,7 +14,7 @@ pub const Name = struct {
 };
 
 pub const Root = struct {
-    nodes: []const Node,
+    body: []const Node,
 };
 
 pub const Node = union(enum) {
@@ -21,6 +26,7 @@ pub const Node = union(enum) {
         function_declaration: FunctionDeclaration,
         conditiional: Conditional,
         while_loop: WhileLoop,
+        ret: Return,
 
         pub const VariableDeclaration = struct {
             name: Name,
@@ -30,7 +36,7 @@ pub const Node = union(enum) {
         pub const FunctionDeclaration = struct {
             name: Name,
             parameters: []const Name,
-            nodes: []const Node,
+            body: []const Node,
         };
 
         pub const Conditional = struct {
@@ -41,7 +47,11 @@ pub const Node = union(enum) {
 
         pub const WhileLoop = struct {
             condition: Expr,
-            nodes: []const Node,
+            body: []const Node,
+        };
+
+        pub const Return = struct {
+            value: ?Expr,
         };
     };
 
@@ -124,4 +134,501 @@ pub const Node = union(enum) {
             arguments: []const Expr,
         };
     };
+};
+
+pub const Parser = struct {
+    buffer: [:0]const u8,
+
+    tokens: []const Token,
+    current_token_index: usize,
+
+    error_info: ?ErrorInfo = null,
+
+    gpa: std.mem.Allocator,
+
+    pub const Error = error{
+        UnexpectedToken,
+        InvalidNumber,
+    } || std.mem.Allocator.Error;
+
+    pub const ErrorInfo = struct {
+        message: []const u8,
+        source_loc: SourceLoc,
+    };
+
+    pub fn init(gpa: std.mem.Allocator, buffer: [:0]const u8) std.mem.Allocator.Error!Parser {
+        var tokens = std.ArrayList(Token).init(gpa);
+
+        var lexer = Lexer.init(buffer);
+
+        while (true) {
+            const token = lexer.next();
+
+            try tokens.append(token);
+
+            if (token.tag == .eof) break;
+        }
+
+        return Parser{ .buffer = buffer, .tokens = try tokens.toOwnedSlice(), .current_token_index = 0, .gpa = gpa };
+    }
+
+    fn nextToken(self: *Parser) Token {
+        self.current_token_index += 1;
+
+        return self.tokens[self.current_token_index - 1];
+    }
+
+    fn peekToken(self: Parser) Token {
+        return self.tokens[self.current_token_index];
+    }
+
+    fn expectToken(self: *Parser, tag: Token.Tag) bool {
+        if (self.peekToken().tag == tag) {
+            _ = self.nextToken();
+
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    fn tokenValue(self: Parser, token: Token) []const u8 {
+        return self.buffer[token.buffer_loc.start..token.buffer_loc.end];
+    }
+
+    fn tokenSourceLoc(self: Parser, token: Token) SourceLoc {
+        var source_loc = SourceLoc{ .line = 1, .column = 1 };
+
+        for (0..self.buffer.len) |i| {
+            if (i == token.buffer_loc.start) break;
+
+            switch (self.buffer[i]) {
+                0 => break,
+
+                '\n' => {
+                    source_loc.line += 1;
+                    source_loc.column = 1;
+                },
+
+                else => source_loc.column += 1,
+            }
+        }
+
+        return source_loc;
+    }
+
+    fn parseName(self: *Parser) Error!Name {
+        if (self.peekToken().tag != .identifier) {
+            self.error_info = .{ .message = "expected a name", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        const token = self.nextToken();
+
+        return Name{ .buffer = self.tokenValue(token), .source_loc = self.tokenSourceLoc(token) };
+    }
+
+    pub fn parseRoot(self: *Parser) Error!Root {
+        var body = std.ArrayList(Node).init(self.gpa);
+
+        while (self.peekToken().tag != .eof) {
+            try body.append(try self.parseStmt());
+        }
+
+        return Root{ .body = try body.toOwnedSlice() };
+    }
+
+    fn parseStmt(self: *Parser) Error!Node {
+        return switch (self.peekToken().tag) {
+            .keyword_let => self.parseVariableDeclarationStmt(),
+
+            .keyword_fn => self.parseFunctionDeclarationStmt(),
+
+            .keyword_if => self.parseConditionalStmt(),
+
+            .keyword_while => self.parseWhileLoopStmt(),
+
+            .keyword_return => self.parseReturnStmt(),
+
+            else => self.parseExpr(.lowest),
+        };
+    }
+
+    fn parseVariableDeclarationStmt(self: *Parser) Error!Node {
+        _ = self.nextToken();
+
+        const name = try self.parseName();
+
+        const value = switch (self.peekToken().tag) {
+            .semicolon => blk: {
+                _ = self.nextToken();
+
+                break :blk null;
+            },
+
+            .equal_sign => blk: {
+                _ = self.nextToken();
+
+                const value = (try self.parseExpr(.lowest)).expr;
+
+                _ = self.expectToken(.semicolon);
+
+                break :blk value;
+            },
+
+            else => {
+                self.error_info = .{ .message = "expected a ';' or '='", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            },
+        };
+
+        return Node{ .stmt = .{ .variable_declaration = .{ .name = name, .value = value } } };
+    }
+
+    fn parseFunctionDeclarationStmt(self: *Parser) Error!Node {
+        _ = self.nextToken();
+
+        const name = try self.parseName();
+
+        const parameters = try self.parseFunctionParameters();
+
+        const body = try self.parseBody();
+
+        return Node{ .stmt = .{ .function_declaration = .{ .name = name, .parameters = parameters, .body = body } } };
+    }
+
+    fn parseFunctionParameters(self: *Parser) Error![]const Name {
+        var parameters = std.ArrayList(Name).init(self.gpa);
+
+        if (!self.expectToken(.open_paren)) {
+            self.error_info = .{ .message = "expected a '('", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {
+            try parameters.append(try self.parseName());
+
+            if (!self.expectToken(.comma) and self.peekToken().tag != .close_paren) {
+                self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            }
+        }
+
+        if (!self.expectToken(.close_paren)) {
+            self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        return try parameters.toOwnedSlice();
+    }
+
+    fn parseBody(self: *Parser) Error![]const Node {
+        var body = std.ArrayList(Node).init(self.gpa);
+
+        if (!self.expectToken(.open_brace)) {
+            self.error_info = .{ .message = "expected a '{'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        while (self.peekToken().tag != .eof and self.peekToken().tag != .close_brace) {
+            try body.append(try self.parseStmt());
+        }
+
+        if (!self.expectToken(.close_brace)) {
+            self.error_info = .{ .message = "expected a '}'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        return try body.toOwnedSlice();
+    }
+
+    fn parseConditionalStmt(self: *Parser) Error!Node {
+        var conditions = std.ArrayList(Node.Expr).init(self.gpa);
+        var possiblities = std.ArrayList([]const Node).init(self.gpa);
+
+        while (self.peekToken().tag == .keyword_if) {
+            _ = self.nextToken();
+
+            const condition = (try self.parseExpr(.lowest)).expr;
+            const possibility = try self.parseBody();
+            try conditions.append(condition);
+            try possiblities.append(possibility);
+
+            if (self.expectToken(.keyword_else)) {
+                if (self.peekToken().tag == .keyword_if) continue;
+
+                const fallback = try self.parseBody();
+
+                return Node{ .stmt = .{ .conditiional = .{ .conditions = try conditions.toOwnedSlice(), .possiblities = try possiblities.toOwnedSlice(), .fallback = fallback } } };
+            }
+
+            break;
+        }
+        return Node{ .stmt = .{ .conditiional = .{ .conditions = try conditions.toOwnedSlice(), .possiblities = try possiblities.toOwnedSlice(), .fallback = &.{} } } };
+    }
+
+    fn parseWhileLoopStmt(self: *Parser) Error!Node {
+        _ = self.nextToken();
+
+        const condition = (try self.parseExpr(.lowest)).expr;
+        const body = try self.parseBody();
+
+        return Node{ .stmt = .{ .while_loop = .{ .condition = condition, .body = body } } };
+    }
+
+    fn parseReturnStmt(self: *Parser) Error!Node {
+        _ = self.nextToken();
+
+        const value = switch (self.peekToken().tag) {
+            .semicolon => blk: {
+                _ = self.nextToken();
+
+                break :blk null;
+            },
+
+            else => blk: {
+                const value = (try self.parseExpr(.lowest)).expr;
+
+                _ = self.expectToken(.semicolon);
+
+                break :blk value;
+            },
+        };
+
+        return Node{ .stmt = .{ .ret = .{ .value = value } } };
+    }
+
+    const Precedence = enum {
+        lowest,
+        assign,
+        comparison,
+        sum,
+        product,
+        exponent,
+        prefix,
+        call,
+        subscript,
+
+        fn from(token: Token) Precedence {
+            return switch (token.tag) {
+                .equal_sign => .assign,
+
+                .double_equal_sign, .greater_than, .less_than => .comparison,
+
+                .plus, .minus => .sum,
+
+                .forward_slash, .star => .product,
+
+                .double_star => .exponent,
+
+                .open_paren => .call,
+
+                .open_bracket => .subscript,
+
+                else => .lowest,
+            };
+        }
+    };
+
+    fn parseExpr(self: *Parser, precedence: Precedence) Error!Node {
+        var lhs = try self.parseUnaryExpr();
+
+        while (self.peekToken().tag != .semicolon and @intFromEnum(Precedence.from(self.peekToken())) > @intFromEnum(precedence)) {
+            lhs = try self.parseBinaryExpr(lhs);
+        }
+
+        return Node{ .expr = lhs };
+    }
+
+    fn parseUnaryExpr(self: *Parser) Error!Node.Expr {
+        switch (self.peekToken().tag) {
+            .keyword_none => return self.parseNoneExpr(),
+
+            .identifier => return self.parseIdentifierExpr(),
+
+            .string_literal => return self.parseStringExpr(),
+
+            .int => return self.parseIntExpr(),
+
+            .float => return self.parseFloatExpr(),
+
+            .minus => return self.parseUnaryOperationExpr(.minus),
+            .bang => return self.parseUnaryOperationExpr(.bang),
+
+            .open_bracket => return self.parseArrayExpr(),
+
+            else => {
+                self.error_info = .{ .message = "unexpected token", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            },
+        }
+    }
+
+    fn parseNoneExpr(self: *Parser) Node.Expr {
+        return Node.Expr{ .none = .{ .source_loc = self.tokenSourceLoc(self.nextToken()) } };
+    }
+
+    fn parseIdentifierExpr(self: *Parser) Error!Node.Expr {
+        return Node.Expr{ .identifier = .{ .name = try self.parseName() } };
+    }
+
+    fn parseStringExpr(self: *Parser) Node.Expr {
+        return Node.Expr{ .string = .{ .content = self.tokenValue(self.peekToken()), .source_loc = self.tokenSourceLoc(self.nextToken()) } };
+    }
+
+    fn parseIntExpr(self: *Parser) Error!Node.Expr {
+        const value = std.fmt.parseInt(i64, self.tokenValue(self.peekToken()), 10) catch {
+            self.error_info = .{ .message = "invalid number", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.InvalidNumber;
+        };
+
+        return Node.Expr{ .int = .{ .value = value, .source_loc = self.tokenSourceLoc(self.nextToken()) } };
+    }
+
+    fn parseFloatExpr(self: *Parser) Error!Node.Expr {
+        const value = std.fmt.parseFloat(f64, self.tokenValue(self.peekToken())) catch {
+            self.error_info = .{ .message = "invalid number", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.InvalidNumber;
+        };
+
+        return Node.Expr{ .float = .{ .value = value, .source_loc = self.tokenSourceLoc(self.nextToken()) } };
+    }
+
+    fn parseArrayExpr(self: *Parser) Error!Node.Expr {
+        _ = self.nextToken();
+
+        var values = std.ArrayList(Node.Expr).init(self.gpa);
+
+        while (self.peekToken().tag != .eof and self.peekToken().tag != .close_bracket) {
+            try values.append((try self.parseExpr(.lowest)).expr);
+
+            if (!self.expectToken(.comma) and self.peekToken().tag != .close_bracket) {
+                self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            }
+        }
+
+        if (!self.expectToken(.close_bracket)) {
+            self.error_info = .{ .message = "expected a ']'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        return Node.Expr{ .array = .{ .values = try values.toOwnedSlice() } };
+    }
+
+    fn parseUnaryOperationExpr(self: *Parser, operator: Node.Expr.UnaryOperation.UnaryOperator) Error!Node.Expr {
+        _ = self.nextToken();
+
+        const rhs = (try self.parseExpr(.prefix)).expr;
+        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        rhs_on_heap[0] = rhs;
+
+        return Node.Expr{ .unary_operation = .{ .operator = operator, .rhs = &rhs_on_heap[0] } };
+    }
+
+    fn parseBinaryExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+        switch (self.peekToken().tag) {
+            .plus => return self.parseBinaryOperationExpr(lhs, .plus),
+            .minus => return self.parseBinaryOperationExpr(lhs, .minus),
+            .forward_slash => return self.parseBinaryOperationExpr(lhs, .forward_slash),
+            .star => return self.parseBinaryOperationExpr(lhs, .star),
+            .double_star => return self.parseBinaryOperationExpr(lhs, .double_star),
+
+            .equal_sign => return self.parseAssignmentExpr(lhs),
+
+            .open_bracket => return self.parseArraySubscriptExpr(lhs),
+
+            .open_paren => return self.parseCallExpr(lhs),
+
+            else => {
+                self.error_info = .{ .message = "unexpected token", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            },
+        }
+    }
+
+    fn parseBinaryOperationExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.BinaryOperation.BinaryOperator) Error!Node.Expr {
+        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        lhs_on_heap[0] = lhs;
+
+        const operator_token = self.nextToken();
+
+        const rhs = (try self.parseExpr(Precedence.from(operator_token))).expr;
+        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        rhs_on_heap[0] = rhs;
+
+        return Node.Expr{ .binary_operation = .{ .lhs = &lhs_on_heap[0], .operator = operator, .rhs = &rhs_on_heap[0] } };
+    }
+
+    fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        lhs_on_heap[0] = lhs;
+
+        _ = self.nextToken();
+
+        const rhs = (try self.parseExpr(.lowest)).expr;
+        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        rhs_on_heap[0] = rhs;
+
+        return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .value = &rhs_on_heap[0] } };
+    }
+
+    fn parseArraySubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        lhs_on_heap[0] = lhs;
+
+        _ = self.nextToken();
+
+        const rhs = (try self.parseExpr(.lowest)).expr;
+        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        rhs_on_heap[0] = rhs;
+
+        return Node.Expr{ .array_subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0] } };
+    }
+
+    fn parseCallExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        lhs_on_heap[0] = lhs;
+
+        const arguments = try self.parseCallArguments();
+
+        return Node.Expr{ .call = .{ .callable = &lhs_on_heap[0], .arguments = arguments } };
+    }
+
+    fn parseCallArguments(self: *Parser) Error![]const Node.Expr {
+        _ = self.nextToken();
+
+        var arguments = std.ArrayList(Node.Expr).init(self.gpa);
+
+        while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {
+            try arguments.append((try self.parseExpr(.lowest)).expr);
+
+            if (!self.expectToken(.comma) and self.peekToken().tag != .close_paren) {
+                self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            }
+        }
+
+        if (!self.expectToken(.close_paren)) {
+            self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        return arguments.toOwnedSlice();
+    }
 };

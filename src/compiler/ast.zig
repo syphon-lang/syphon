@@ -24,7 +24,7 @@ pub const Node = union(enum) {
     pub const Stmt = union(enum) {
         variable_declaration: VariableDeclaration,
         function_declaration: FunctionDeclaration,
-        conditiional: Conditional,
+        conditional: Conditional,
         while_loop: WhileLoop,
         ret: Return,
 
@@ -366,12 +366,13 @@ pub const Parser = struct {
 
                 const fallback = try self.parseBody();
 
-                return Node{ .stmt = .{ .conditiional = .{ .conditions = try conditions.toOwnedSlice(), .possiblities = try possiblities.toOwnedSlice(), .fallback = fallback } } };
+                return Node{ .stmt = .{ .conditional = .{ .conditions = try conditions.toOwnedSlice(), .possiblities = try possiblities.toOwnedSlice(), .fallback = fallback } } };
             }
 
             break;
         }
-        return Node{ .stmt = .{ .conditiional = .{ .conditions = try conditions.toOwnedSlice(), .possiblities = try possiblities.toOwnedSlice(), .fallback = &.{} } } };
+
+        return Node{ .stmt = .{ .conditional = .{ .conditions = try conditions.toOwnedSlice(), .possiblities = try possiblities.toOwnedSlice(), .fallback = &.{} } } };
     }
 
     fn parseWhileLoopStmt(self: *Parser) Error!Node {

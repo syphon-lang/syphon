@@ -380,6 +380,39 @@ fn typeof(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .object = .{ .string = typeof_value } };
 }
 
+fn array_push(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = self;
+
+    if (arguments[0] != .object and arguments[0].object != .array) {
+        return Code.Value{ .none = {} };
+    }
+
+    const array = arguments[0].object.array;
+
+    const value = arguments[1];
+
+    array.append(value) catch |err| switch (err) {
+        error.OutOfMemory => {
+            std.debug.print("ran out of memory", .{});
+            std.process.exit(1);
+        },
+    };
+
+    return Code.Value{ .none = {} };
+}
+
+fn array_pop(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = self;
+
+    if (arguments[0] != .object and arguments[0].object != .array) {
+        return Code.Value{ .none = {} };
+    }
+
+    const array = arguments[0].object.array;
+
+    return array.popOrNull() orelse Code.Value{ .none = {} };
+}
+
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("print", .{ .object = .{ .native_function = .{ .name = "print", .required_arguments_count = null, .call = &print } } });
     try self.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });
@@ -387,6 +420,8 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("exit", .{ .object = .{ .native_function = .{ .name = "exit", .required_arguments_count = 1, .call = &exit } } });
     try self.globals.put("time", .{ .object = .{ .native_function = .{ .name = "time", .required_arguments_count = 0, .call = &time } } });
     try self.globals.put("typeof", .{ .object = .{ .native_function = .{ .name = "typeof", .required_arguments_count = 1, .call = &typeof } } });
+    try self.globals.put("array_push", .{ .object = .{ .native_function = .{ .name = "array_push", .required_arguments_count = 2, .call = &array_push } } });
+    try self.globals.put("array_pop", .{ .object = .{ .native_function = .{ .name = "array_pop", .required_arguments_count = 1, .call = &array_pop } } });
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {

@@ -764,9 +764,9 @@ fn exponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
 
     switch (lhs) {
         .int => switch (rhs) {
-            .int => return self.stack.append(.{ .int = std.math.pow(i64, lhs.int, rhs.int) }),
+            .int => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(lhs.int)), @as(f64, @floatFromInt(rhs.int))) }),
             .float => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(lhs.int)), rhs.float) }),
-            .boolean => return self.stack.append(.{ .int = std.math.pow(i64, lhs.int, @as(i64, @intCast(@intFromBool(rhs.boolean)))) }),
+            .boolean => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(lhs.int)), @as(f64, @floatFromInt(@intFromBool(rhs.boolean)))) }),
 
             else => {},
         },
@@ -780,9 +780,9 @@ fn exponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
         },
 
         .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .int = std.math.pow(i64, @as(i64, @intCast(@intFromBool(lhs.boolean))), rhs.int) }),
-            .float => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt((@intFromBool(lhs.boolean)))), rhs.float) }),
-            .boolean => return self.stack.append(.{ .int = std.math.pow(i64, @as(i64, @intCast(@intFromBool(lhs.boolean))), @as(i64, @intCast(@intFromBool(rhs.boolean)))) }),
+            .int => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(@intFromBool(lhs.boolean))), @as(f64, @floatFromInt(rhs.int))) }),
+            .float => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(@intFromBool(lhs.boolean))), rhs.float) }),
+            .boolean => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(@intFromBool(lhs.boolean))), @as(f64, @floatFromInt(@intFromBool(rhs.boolean)))) }),
 
             else => {},
         },

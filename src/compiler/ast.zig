@@ -4,8 +4,8 @@ const Token = @import("Token.zig");
 const Lexer = @import("Lexer.zig");
 
 pub const SourceLoc = struct {
-    line: usize,
-    column: usize,
+    line: usize = 1,
+    column: usize = 1,
 };
 
 pub const Name = struct {
@@ -52,6 +52,7 @@ pub const Node = union(enum) {
 
         pub const Return = struct {
             value: ?Expr,
+            source_loc: SourceLoc,
         };
     };
 
@@ -61,6 +62,7 @@ pub const Node = union(enum) {
         string: String,
         int: Int,
         float: Float,
+        boolean: Boolean,
         array: Array,
         unary_operation: UnaryOperation,
         binary_operation: BinaryOperation,
@@ -91,6 +93,11 @@ pub const Node = union(enum) {
             source_loc: SourceLoc,
         };
 
+        pub const Boolean = struct {
+            value: bool,
+            source_loc: SourceLoc,
+        };
+
         pub const Array = struct {
             values: []const Expr,
         };
@@ -98,6 +105,7 @@ pub const Node = union(enum) {
         pub const UnaryOperation = struct {
             operator: UnaryOperator,
             rhs: *Expr,
+            source_loc: SourceLoc,
 
             pub const UnaryOperator = enum {
                 minus,
@@ -109,6 +117,7 @@ pub const Node = union(enum) {
             lhs: *Expr,
             operator: BinaryOperator,
             rhs: *Expr,
+            source_loc: SourceLoc,
 
             pub const BinaryOperator = enum {
                 plus,
@@ -116,22 +125,30 @@ pub const Node = union(enum) {
                 forward_slash,
                 star,
                 double_star,
+                percent,
+                bang_equal_sign,
+                double_equal_sign,
+                less_than,
+                greater_than,
             };
         };
 
         pub const Assignment = struct {
             target: *Expr,
             value: *Expr,
+            source_loc: SourceLoc,
         };
 
         pub const ArraySubscript = struct {
             target: *Expr,
             index: *Expr,
+            source_loc: SourceLoc,
         };
 
         pub const Call = struct {
             callable: *Expr,
             arguments: []const Expr,
+            source_loc: SourceLoc,
         };
     };
 };
@@ -197,7 +214,7 @@ pub const Parser = struct {
     }
 
     fn tokenSourceLoc(self: Parser, token: Token) SourceLoc {
-        var source_loc = SourceLoc{ .line = 1, .column = 1 };
+        var source_loc: SourceLoc = .{};
 
         for (0..self.buffer.len) |i| {
             if (i == token.buffer_loc.start) break;
@@ -251,7 +268,13 @@ pub const Parser = struct {
 
             .keyword_return => self.parseReturnStmt(),
 
-            else => self.parseExpr(.lowest),
+            else => {
+                const expr = self.parseExpr(.lowest);
+
+                _ = self.expectToken(.semicolon);
+
+                return expr;
+            },
         };
     }
 
@@ -385,7 +408,7 @@ pub const Parser = struct {
     }
 
     fn parseReturnStmt(self: *Parser) Error!Node {
-        _ = self.nextToken();
+        const return_token = self.nextToken();
 
         const value = switch (self.peekToken().tag) {
             .semicolon => blk: {
@@ -403,7 +426,7 @@ pub const Parser = struct {
             },
         };
 
-        return Node{ .stmt = .{ .ret = .{ .value = value } } };
+        return Node{ .stmt = .{ .ret = .{ .value = value, .source_loc = self.tokenSourceLoc(return_token) } } };
     }
 
     const Precedence = enum {
@@ -421,11 +444,11 @@ pub const Parser = struct {
             return switch (token.tag) {
                 .equal_sign => .assign,
 
-                .double_equal_sign, .greater_than, .less_than => .comparison,
+                .bang_equal_sign, .double_equal_sign, .greater_than, .less_than => .comparison,
 
                 .plus, .minus => .sum,
 
-                .forward_slash, .star => .product,
+                .forward_slash, .star, .percent => .product,
 
                 .double_star => .exponent,
 
@@ -460,8 +483,13 @@ pub const Parser = struct {
 
             .float => return self.parseFloatExpr(),
 
+            .keyword_true => return self.parseBooleanExpr(),
+            .keyword_false => return self.parseBooleanExpr(),
+
             .minus => return self.parseUnaryOperationExpr(.minus),
             .bang => return self.parseUnaryOperationExpr(.bang),
+
+            .open_paren => return self.parseParenthesesExpr(),
 
             .open_bracket => return self.parseArrayExpr(),
 
@@ -505,6 +533,28 @@ pub const Parser = struct {
         return Node.Expr{ .float = .{ .value = value, .source_loc = self.tokenSourceLoc(self.nextToken()) } };
     }
 
+    fn parseBooleanExpr(self: *Parser) Node.Expr {
+        return switch (self.peekToken().tag) {
+            .keyword_true => Node.Expr{ .boolean = .{ .value = true, .source_loc = self.tokenSourceLoc(self.nextToken()) } },
+            .keyword_false => Node.Expr{ .boolean = .{ .value = false, .source_loc = self.tokenSourceLoc(self.nextToken()) } },
+            else => unreachable,
+        };
+    }
+
+    fn parseParenthesesExpr(self: *Parser) Error!Node.Expr {
+        _ = self.nextToken();
+
+        const value = (try self.parseExpr(.lowest)).expr;
+
+        if (!self.expectToken(.close_paren)) {
+            self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        return value;
+    }
+
     fn parseArrayExpr(self: *Parser) Error!Node.Expr {
         _ = self.nextToken();
 
@@ -530,13 +580,13 @@ pub const Parser = struct {
     }
 
     fn parseUnaryOperationExpr(self: *Parser, operator: Node.Expr.UnaryOperation.UnaryOperator) Error!Node.Expr {
-        _ = self.nextToken();
+        const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.prefix)).expr;
         var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
-        return Node.Expr{ .unary_operation = .{ .operator = operator, .rhs = &rhs_on_heap[0] } };
+        return Node.Expr{ .unary_operation = .{ .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
     }
 
     fn parseBinaryExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
@@ -546,6 +596,11 @@ pub const Parser = struct {
             .forward_slash => return self.parseBinaryOperationExpr(lhs, .forward_slash),
             .star => return self.parseBinaryOperationExpr(lhs, .star),
             .double_star => return self.parseBinaryOperationExpr(lhs, .double_star),
+            .percent => return self.parseBinaryOperationExpr(lhs, .percent),
+            .bang_equal_sign => return self.parseBinaryOperationExpr(lhs, .bang_equal_sign),
+            .double_equal_sign => return self.parseBinaryOperationExpr(lhs, .double_equal_sign),
+            .less_than => return self.parseBinaryOperationExpr(lhs, .less_than),
+            .greater_than => return self.parseBinaryOperationExpr(lhs, .greater_than),
 
             .equal_sign => return self.parseAssignmentExpr(lhs),
 
@@ -571,47 +626,52 @@ pub const Parser = struct {
         var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
-        return Node.Expr{ .binary_operation = .{ .lhs = &lhs_on_heap[0], .operator = operator, .rhs = &rhs_on_heap[0] } };
+        return Node.Expr{ .binary_operation = .{ .lhs = &lhs_on_heap[0], .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
     }
 
     fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
         var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
-        _ = self.nextToken();
+        const equal_sign_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
         var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
-        return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .value = &rhs_on_heap[0] } };
+        return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
     fn parseArraySubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
         var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
-        _ = self.nextToken();
+        const open_bracket_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
         var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
-        return Node.Expr{ .array_subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0] } };
+        if (!self.expectToken(.close_bracket)) {
+            self.error_info = .{ .message = "expected a ']'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+            return error.UnexpectedToken;
+        }
+
+        return Node.Expr{ .array_subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(open_bracket_token) } };
     }
 
     fn parseCallExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
         var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
+        const open_paren_token = self.nextToken();
+
         const arguments = try self.parseCallArguments();
 
-        return Node.Expr{ .call = .{ .callable = &lhs_on_heap[0], .arguments = arguments } };
+        return Node.Expr{ .call = .{ .callable = &lhs_on_heap[0], .arguments = arguments, .source_loc = self.tokenSourceLoc(open_paren_token) } };
     }
 
     fn parseCallArguments(self: *Parser) Error![]const Node.Expr {
-        _ = self.nextToken();
-
         var arguments = std.ArrayList(Node.Expr).init(self.gpa);
 
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {

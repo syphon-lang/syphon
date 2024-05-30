@@ -16,6 +16,7 @@ pub const State = enum {
     number,
     star,
     equal_sign,
+    bang,
 };
 
 pub fn init(buffer: [:0]const u8) Lexer {
@@ -128,6 +129,14 @@ pub fn next(self: *Lexer) Token {
                     break;
                 },
 
+                '%' => {
+                    result.buffer_loc.start = self.index;
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .percent;
+                    break;
+                },
+
                 '*' => {
                     result.buffer_loc.start = self.index;
                     result.tag = .star;
@@ -136,10 +145,8 @@ pub fn next(self: *Lexer) Token {
 
                 '!' => {
                     result.buffer_loc.start = self.index;
-                    self.index += 1;
-                    result.buffer_loc.end = self.index;
                     result.tag = .bang;
-                    break;
+                    self.state = .bang;
                 },
 
                 '>' => {
@@ -264,6 +271,22 @@ pub fn next(self: *Lexer) Token {
                     self.index += 1;
                     result.buffer_loc.end = self.index;
                     result.tag = .double_star;
+                    self.state = .start;
+                    break;
+                },
+
+                else => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+            },
+
+            .bang => switch (current_char) {
+                '=' => {
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .bang_equal_sign;
                     self.state = .start;
                     break;
                 },

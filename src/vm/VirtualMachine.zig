@@ -280,9 +280,48 @@ fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .none = {} };
 }
 
+fn random(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = self;
+
+    const min = arguments[0];
+    const max = arguments[1];
+
+    if ((min != .int and min != .float) or (max != .int and max != .float)) {
+        return Code.Value{ .none = {} };
+    }
+
+    if (min.eql(max)) {
+        return min;
+    }
+
+    const RandGen = std.Random.DefaultPrng;
+    var rnd = RandGen.init(0);
+
+    switch (min) {
+        .int => switch (max) {
+            .int => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), @as(f64, @floatFromInt(max.int)), rnd.random().float(f64)) },
+
+            .float => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), max.float, rnd.random().float(f64)) },
+
+            else => unreachable,
+        },
+
+        .float => switch (max) {
+            .int => return Code.Value{ .float = std.math.lerp(min.float, @as(f64, @floatFromInt(max.int)), rnd.random().float(f64)) },
+
+            .float => return Code.Value{ .float = std.math.lerp(min.float, max.float, rnd.random().float(f64)) },
+
+            else => unreachable,
+        },
+
+        else => unreachable,
+    }
+}
+
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("print", .{ .object = .{ .native_function = .{ .name = "print", .required_arguments_count = null, .call = &print } } });
     try self.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });
+    try self.globals.put("random", .{ .object = .{ .native_function = .{ .name = "random", .required_arguments_count = 2, .call = &random } } });
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {

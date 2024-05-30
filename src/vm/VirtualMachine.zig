@@ -331,10 +331,24 @@ fn random(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     }
 }
 
+fn exit(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = self;
+
+    const status_code = arguments[0];
+
+    switch (status_code) {
+        .int => std.process.exit(@intCast(std.math.mod(i64, status_code.int, 256) catch |err| switch (err) {
+            else => std.process.exit(1),
+        })),
+        else => std.process.exit(1),
+    }
+}
+
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("print", .{ .object = .{ .native_function = .{ .name = "print", .required_arguments_count = null, .call = &print } } });
     try self.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });
     try self.globals.put("random", .{ .object = .{ .native_function = .{ .name = "random", .required_arguments_count = 2, .call = &random } } });
+    try self.globals.put("exit", .{ .object = .{ .native_function = .{ .name = "exit", .required_arguments_count = 1, .call = &exit } } });
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {

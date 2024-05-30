@@ -207,9 +207,10 @@ fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arg
                 _ = try buffered_writer.write("none");
             },
 
-            .int => try buffered_writer.writer().print("{}", .{argument.int}),
-            .float => try buffered_writer.writer().print("{}", .{argument.float}),
+            .int => try buffered_writer.writer().print("{d}", .{argument.int}),
+            .float => try buffered_writer.writer().print("{d}", .{argument.float}),
             .boolean => try buffered_writer.writer().print("{}", .{argument.boolean}),
+
             .object => switch (argument.object) {
                 .string => {
                     if (debug) {

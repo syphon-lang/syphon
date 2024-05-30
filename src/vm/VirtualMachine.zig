@@ -83,6 +83,42 @@ pub const Code = struct {
                 },
             };
         }
+
+        pub fn eql(lhs: Value, rhs: Value) bool {
+            if (lhs.is_truthy() != rhs.is_truthy()) {
+                return false;
+            }
+
+            switch (lhs) {
+                .none => return rhs == .none,
+
+                .int => return rhs == .int and lhs.int == rhs.int,
+                .float => return rhs == .float and lhs.float == rhs.float,
+                .boolean => return rhs == .boolean and lhs.boolean == rhs.boolean,
+
+                .object => switch (lhs.object) {
+                    .string => return rhs == .object and rhs.object == .string and std.mem.eql(u8, lhs.object.string, rhs.object.string),
+
+                    .array => {
+                        if (!(rhs == .object and rhs.object == .array and lhs.object.array.items.len == rhs.object.array.items.len)) {
+                            return false;
+                        }
+
+                        for (0..lhs.object.array.items.len) |i| {
+                            if (!lhs.object.array.items[i].eql(rhs.object.array.items[i])) {
+                                return false;
+                            }
+                        }
+                    },
+
+                    // Comparing with pointers instead of checking everything is used here because when you do "function == other_function" you are just comparing function pointers
+                    .function => return rhs == .object and rhs.object == .function and lhs.object.function == rhs.object.function,
+                    .native_function => return rhs == .object and rhs.object == .native_function and lhs.object.native_function.call == rhs.object.native_function.call,
+                },
+            }
+
+            return true;
+        }
     };
 
     pub const Instruction = union(enum) {
@@ -146,7 +182,7 @@ pub const Code = struct {
 
     pub fn addConstant(self: *Code, value: Value) std.mem.Allocator.Error!usize {
         for (self.constants.items, 0..) |constant, i| {
-            if (std.meta.eql(constant, value)) {
+            if (constant.eql(value)) {
                 return i;
             }
         }
@@ -187,7 +223,7 @@ fn _print(arguments: []const Code.Value, debug: bool) !void {
                     _ = try buffered_writer.write("[");
 
                     for (argument.object.array.items, 0..) |value, j| {
-                        if (std.meta.eql(value, argument)) {
+                        if (value == .object and value.object == .array and value.object.array == argument.object.array) {
                             _ = try buffered_writer.write("..");
                         } else {
                             try _print(&.{value}, true);
@@ -718,14 +754,14 @@ fn not_equals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
-    return self.stack.append(.{ .boolean = !std.meta.eql(lhs, rhs) });
+    return self.stack.append(.{ .boolean = !lhs.eql(rhs) });
 }
 
 fn equals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
-    return self.stack.append(.{ .boolean = std.meta.eql(lhs, rhs) });
+    return self.stack.append(.{ .boolean = lhs.eql(rhs) });
 }
 
 fn less_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {

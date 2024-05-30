@@ -197,10 +197,7 @@ pub fn init(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine {
     return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa) };
 }
 
-fn _print(arguments: []const Code.Value, debug: bool) !void {
-    const stdout = std.io.getStdOut();
-    var buffered_writer = std.io.bufferedWriter(stdout.writer());
-
+fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arguments: []const Code.Value, debug: bool) !void {
     for (arguments, 0..) |argument, i| {
         switch (argument) {
             .none => {
@@ -226,7 +223,7 @@ fn _print(arguments: []const Code.Value, debug: bool) !void {
                         if (value == .object and value.object == .array and value.object.array == argument.object.array) {
                             _ = try buffered_writer.write("..");
                         } else {
-                            try _print(&.{value}, true);
+                            try _print(buffered_writer, &.{value}, true);
                         }
 
                         if (j < argument.object.array.items.len - 1) {
@@ -247,14 +244,21 @@ fn _print(arguments: []const Code.Value, debug: bool) !void {
             _ = try buffered_writer.write(" ");
         }
     }
-
-    try buffered_writer.flush();
 }
 
 fn print(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = self;
 
-    _print(arguments, false) catch |err| switch (err) {
+    const stdout = std.io.getStdOut();
+    var buffered_writer = std.io.bufferedWriter(stdout.writer());
+
+    _print(&buffered_writer, arguments, false) catch |err| switch (err) {
+        else => {
+            std.debug.print("print native function: error occured while trying to print", .{});
+        },
+    };
+
+    buffered_writer.flush() catch |err| switch (err) {
         else => {
             std.debug.print("print native function: error occured while trying to print", .{});
         },
@@ -264,6 +268,9 @@ fn print(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    const stdout = std.io.getStdOut();
+    var buffered_writer = std.io.bufferedWriter(stdout.writer());
+
     const new_arguments = std.mem.concat(self.gpa, Code.Value, &.{ arguments, &.{.{ .object = .{ .string = "\n" } }} }) catch |err| switch (err) {
         error.OutOfMemory => {
             std.debug.print("ran out of memory", .{});
@@ -271,7 +278,13 @@ fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         },
     };
 
-    _print(new_arguments, false) catch |err| switch (err) {
+    _print(&buffered_writer, new_arguments, false) catch |err| switch (err) {
+        else => {
+            std.debug.print("println native function: error occured while trying to print", .{});
+        },
+    };
+
+    buffered_writer.flush() catch |err| switch (err) {
         else => {
             std.debug.print("println native function: error occured while trying to print", .{});
         },

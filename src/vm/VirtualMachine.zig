@@ -12,6 +12,8 @@ stack: std.ArrayList(Code.Value),
 
 globals: std.StringHashMap(Code.Value),
 
+start_time: std.time.Instant,
+
 error_info: ?ErrorInfo = null,
 
 pub const Error = error{
@@ -22,6 +24,7 @@ pub const Error = error{
     NegativeDenominator,
     IndexOverflow,
     StackOverflow,
+    Unsupported,
 } || std.mem.Allocator.Error;
 
 pub const ErrorInfo = struct {
@@ -193,8 +196,8 @@ pub const Code = struct {
     }
 };
 
-pub fn init(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine {
-    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa) };
+pub fn init(gpa: std.mem.Allocator) Error!VirtualMachine {
+    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
 }
 
 fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arguments: []const Code.Value, debug: bool) !void {
@@ -344,11 +347,24 @@ fn exit(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     }
 }
 
+fn time(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = arguments;
+
+    const now_time = std.time.Instant.now() catch |err| switch (err) {
+        error.Unsupported => unreachable,
+    };
+
+    const elapsed_time = now_time.since(self.start_time);
+
+    return Code.Value{ .int = @intCast(elapsed_time) };
+}
+
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("print", .{ .object = .{ .native_function = .{ .name = "print", .required_arguments_count = null, .call = &print } } });
     try self.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });
     try self.globals.put("random", .{ .object = .{ .native_function = .{ .name = "random", .required_arguments_count = 2, .call = &random } } });
     try self.globals.put("exit", .{ .object = .{ .native_function = .{ .name = "exit", .required_arguments_count = 1, .call = &exit } } });
+    try self.globals.put("time", .{ .object = .{ .native_function = .{ .name = "time", .required_arguments_count = 0, .call = &time } } });
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {

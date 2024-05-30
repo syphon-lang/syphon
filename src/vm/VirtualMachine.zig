@@ -298,10 +298,8 @@ fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn random(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    _ = self;
-
-    const min = arguments[0];
-    const max = arguments[1];
+    var min = arguments[0];
+    var max = arguments[1];
 
     if ((min != .int and min != .float) or (max != .int and max != .float)) {
         return Code.Value{ .none = {} };
@@ -311,22 +309,58 @@ fn random(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return min;
     }
 
-    const RandGen = std.Random.DefaultPrng;
-    var rnd = RandGen.init(0);
-
     switch (min) {
         .int => switch (max) {
-            .int => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), @as(f64, @floatFromInt(max.int)), rnd.random().float(f64)) },
+            .int => {
+                if (min.int > max.int) {
+                    std.mem.swap(Code.Value, &min, &max);
+                }
+            },
 
-            .float => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), max.float, rnd.random().float(f64)) },
+            .float => {
+                if (@as(f64, @floatFromInt(min.int)) > max.float) {
+                    std.mem.swap(Code.Value, &min, &max);
+                }
+            },
 
             else => unreachable,
         },
 
         .float => switch (max) {
-            .int => return Code.Value{ .float = std.math.lerp(min.float, @as(f64, @floatFromInt(max.int)), rnd.random().float(f64)) },
+            .int => {
+                if (min.float > @as(f64, @floatFromInt(max.int))) {
+                    std.mem.swap(Code.Value, &min, &max);
+                }
+            },
 
-            .float => return Code.Value{ .float = std.math.lerp(min.float, max.float, rnd.random().float(f64)) },
+            .float => {
+                if (min.float > max.float) {
+                    std.mem.swap(Code.Value, &min, &max);
+                }
+            },
+
+            else => unreachable,
+        },
+
+        else => unreachable,
+    }
+
+    const RandGen = std.Random.DefaultPrng;
+    var rnd = RandGen.init(@intCast(self.time(&.{}).int));
+
+    switch (min) {
+        .int => switch (max) {
+            .int => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), @as(f64, @floatFromInt(max.int - 1)), rnd.random().float(f64)) },
+
+            .float => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), max.float - 1, rnd.random().float(f64)) },
+
+            else => unreachable,
+        },
+
+        .float => switch (max) {
+            .int => return Code.Value{ .float = std.math.lerp(min.float, @as(f64, @floatFromInt(max.int - 1)), rnd.random().float(f64)) },
+
+            .float => return Code.Value{ .float = std.math.lerp(min.float, max.float - 1, rnd.random().float(f64)) },
 
             else => unreachable,
         },

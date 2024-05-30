@@ -106,7 +106,7 @@ pub const Code = struct {
         greater_than: void,
         call: Call,
         pop: void,
-        ret: void,
+        @"return": void,
 
         pub const Load = union(enum) {
             constant: usize,
@@ -323,7 +323,7 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
                 _ = self.stack.pop();
             },
 
-            .ret => {
+            .@"return" => {
                 return self.stack.pop();
             },
         }

@@ -16,6 +16,8 @@ error_info: ?ErrorInfo = null,
 
 pub const Error = error{
     BadOperand,
+    UnexpectedBreak,
+    UnexpectedContinue,
     UnexpectedReturn,
 } || std.mem.Allocator.Error;
 
@@ -27,6 +29,9 @@ pub const ErrorInfo = struct {
 pub const Context = struct {
     mode: Mode,
     compiling_conditional: bool = false,
+    compiling_loop: bool = false,
+    break_points: std.ArrayList(usize),
+    continue_points: std.ArrayList(usize),
 
     pub const Mode = enum {
         script,
@@ -36,7 +41,7 @@ pub const Context = struct {
 };
 
 pub fn init(gpa: std.mem.Allocator, mode: Context.Mode) CodeGen {
-    return CodeGen{ .gpa = gpa, .code = .{ .constants = std.ArrayList(VirtualMachine.Code.Value).init(gpa), .instructions = std.ArrayList(VirtualMachine.Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode } };
+    return CodeGen{ .gpa = gpa, .code = .{ .constants = std.ArrayList(VirtualMachine.Code.Value).init(gpa), .instructions = std.ArrayList(VirtualMachine.Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode, .break_points = std.ArrayList(usize).init(gpa), .continue_points = std.ArrayList(usize).init(gpa) } };
 }
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
@@ -52,7 +57,7 @@ fn endCode(self: *CodeGen) Error!void {
     }
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .ret = {} });
+    try self.code.instructions.append(.{ .@"return" = {} });
 }
 
 fn compileNodes(self: *CodeGen, nodes: []const ast.Node) Error!void {
@@ -85,7 +90,11 @@ fn compileStmt(self: *CodeGen, stmt: ast.Node.Stmt) Error!void {
 
         .while_loop => try self.compileWhileLoopStmt(stmt.while_loop),
 
-        .ret => try self.compileReturnStmt(stmt.ret),
+        .@"break" => try self.compileBreakStmt(stmt.@"break"),
+
+        .@"continue" => try self.compileContinueStmt(stmt.@"continue"),
+
+        .@"return" => try self.compileReturnStmt(stmt.@"return"),
     }
 }
 
@@ -152,7 +161,6 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     var backtrack_points = std.ArrayList(BacktrackPoint).init(self.gpa);
 
     const was_compiling_conditional = self.context.compiling_conditional;
-
     self.context.compiling_conditional = true;
 
     for (0..conditional.conditions.len) |i| {
@@ -214,12 +222,33 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .jump_if_false = .{ .offset = 0 } });
 
+    const was_compiling_loop = self.context.compiling_loop;
+    self.context.compiling_loop = true;
+
+    const previous_break_points_len = self.context.break_points.items.len;
+
+    const previous_continue_points_len = self.context.continue_points.items.len;
+
     try self.compileNodes(while_loop.body);
+
+    self.context.compiling_loop = was_compiling_loop;
 
     self.code.instructions.items[jump_if_false_point] = .{ .jump_if_false = .{ .offset = self.code.instructions.items.len - jump_if_false_point } };
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .back = .{ .offset = self.code.instructions.items.len - before_condition_point } });
+
+    for (self.context.break_points.items[previous_break_points_len..]) |break_point| {
+        self.code.instructions.items[break_point] = .{ .jump = .{ .offset = self.code.instructions.items.len - break_point } };
+    }
+
+    for (self.context.continue_points.items[previous_continue_points_len..]) |continue_point| {
+        self.code.instructions.items[continue_point] = .{ .back = .{ .offset = continue_point - before_condition_point } };
+    }
+
+    self.context.break_points.shrinkAndFree(previous_break_points_len);
+
+    self.context.continue_points.shrinkAndFree(previous_continue_points_len);
 
     if (self.context.mode == .repl) {
         try self.code.source_locations.append(.{});
@@ -227,22 +256,46 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
     }
 }
 
-fn compileReturnStmt(self: *CodeGen, ret: ast.Node.Stmt.Return) Error!void {
+fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {
+    if (!self.context.compiling_loop) {
+        self.error_info = .{ .message = "break outside a loop", .source_loc = @"break".source_loc };
+
+        return error.UnexpectedBreak;
+    }
+
+    try self.context.break_points.append(self.code.instructions.items.len);
+    try self.code.source_locations.append(@"break".source_loc);
+    try self.code.instructions.append(.{ .jump = .{ .offset = 0 } });
+}
+
+fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Error!void {
+    if (!self.context.compiling_loop) {
+        self.error_info = .{ .message = "continue outside a loop", .source_loc = @"continue".source_loc };
+
+        return error.UnexpectedContinue;
+    }
+
+    try self.context.break_points.append(self.code.instructions.items.len);
+    try self.code.source_locations.append(@"continue".source_loc);
+    try self.code.instructions.append(.{ .back = .{ .offset = 0 } });
+}
+
+fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void {
     if (self.context.mode != .function) {
-        self.error_info = .{ .message = "return outside a function", .source_loc = ret.source_loc };
+        self.error_info = .{ .message = "return outside a function", .source_loc = @"return".source_loc };
 
         return error.UnexpectedReturn;
     }
 
-    if (ret.value == null) {
-        try self.code.source_locations.append(ret.source_loc);
+    if (@"return".value == null) {
+        try self.code.source_locations.append(@"return".source_loc);
         try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
     } else {
-        try self.compileExpr(ret.value.?);
+        try self.compileExpr(@"return".value.?);
     }
 
-    try self.code.source_locations.append(ret.source_loc);
-    try self.code.instructions.append(.{ .ret = {} });
+    try self.code.source_locations.append(@"return".source_loc);
+    try self.code.instructions.append(.{ .@"return" = {} });
 }
 
 fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {

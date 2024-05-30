@@ -26,7 +26,9 @@ pub const Node = union(enum) {
         function_declaration: FunctionDeclaration,
         conditional: Conditional,
         while_loop: WhileLoop,
-        ret: Return,
+        @"break": Break,
+        @"continue": Continue,
+        @"return": Return,
 
         pub const VariableDeclaration = struct {
             name: Name,
@@ -48,6 +50,14 @@ pub const Node = union(enum) {
         pub const WhileLoop = struct {
             condition: Expr,
             body: []const Node,
+        };
+
+        pub const Break = struct {
+            source_loc: SourceLoc,
+        };
+
+        pub const Continue = struct {
+            source_loc: SourceLoc,
         };
 
         pub const Return = struct {
@@ -266,6 +276,10 @@ pub const Parser = struct {
 
             .keyword_while => self.parseWhileLoopStmt(),
 
+            .keyword_break => self.parseBreakStmt(),
+
+            .keyword_continue => self.parseContinueStmt(),
+
             .keyword_return => self.parseReturnStmt(),
 
             else => {
@@ -407,6 +421,22 @@ pub const Parser = struct {
         return Node{ .stmt = .{ .while_loop = .{ .condition = condition, .body = body } } };
     }
 
+    fn parseBreakStmt(self: *Parser) Error!Node {
+        const break_token = self.nextToken();
+
+        _ = self.expectToken(.semicolon);
+
+        return Node{ .stmt = .{ .@"break" = .{ .source_loc = self.tokenSourceLoc(break_token) } } };
+    }
+
+    fn parseContinueStmt(self: *Parser) Error!Node {
+        const continue_token = self.nextToken();
+
+        _ = self.expectToken(.semicolon);
+
+        return Node{ .stmt = .{ .@"continue" = .{ .source_loc = self.tokenSourceLoc(continue_token) } } };
+    }
+
     fn parseReturnStmt(self: *Parser) Error!Node {
         const return_token = self.nextToken();
 
@@ -426,7 +456,7 @@ pub const Parser = struct {
             },
         };
 
-        return Node{ .stmt = .{ .ret = .{ .value = value, .source_loc = self.tokenSourceLoc(return_token) } } };
+        return Node{ .stmt = .{ .@"return" = .{ .value = value, .source_loc = self.tokenSourceLoc(return_token) } } };
     }
 
     const Precedence = enum {

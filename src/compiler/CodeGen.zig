@@ -215,7 +215,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
 }
 
 fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Error!void {
-    const before_condition_point = self.code.instructions.items.len - 1;
+    const condition_point = self.code.instructions.items.len;
     try self.compileExpr(while_loop.condition);
 
     const jump_if_false_point = self.code.instructions.items.len;
@@ -236,14 +236,14 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
     self.code.instructions.items[jump_if_false_point] = .{ .jump_if_false = .{ .offset = self.code.instructions.items.len - jump_if_false_point } };
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .back = .{ .offset = self.code.instructions.items.len - before_condition_point } });
+    try self.code.instructions.append(.{ .back = .{ .offset = self.code.instructions.items.len - condition_point + 1 } });
 
     for (self.context.break_points.items[previous_break_points_len..]) |break_point| {
         self.code.instructions.items[break_point] = .{ .jump = .{ .offset = self.code.instructions.items.len - break_point } };
     }
 
     for (self.context.continue_points.items[previous_continue_points_len..]) |continue_point| {
-        self.code.instructions.items[continue_point] = .{ .back = .{ .offset = continue_point - before_condition_point } };
+        self.code.instructions.items[continue_point] = .{ .back = .{ .offset = continue_point - condition_point + 1 } };
     }
 
     self.context.break_points.shrinkAndFree(previous_break_points_len);
@@ -275,7 +275,7 @@ fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Erro
         return error.UnexpectedContinue;
     }
 
-    try self.context.break_points.append(self.code.instructions.items.len);
+    try self.context.continue_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"continue".source_loc);
     try self.code.instructions.append(.{ .back = .{ .offset = 0 } });
 }

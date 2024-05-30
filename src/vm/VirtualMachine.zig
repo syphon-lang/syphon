@@ -230,7 +230,7 @@ fn print(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const new_arguments = std.mem.concat(self.gpa, Code.Value, &.{ arguments, &.{.{ .object = .{ .string = "\n" } }} }) catch |err| switch (err) {
         error.OutOfMemory => {
-            std.debug.print("out of memory", .{});
+            std.debug.print("ran out of memory", .{});
             std.process.exit(1);
         },
     };

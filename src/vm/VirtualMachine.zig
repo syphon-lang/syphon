@@ -360,6 +360,26 @@ fn time(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .int = @intCast(elapsed_time) };
 }
 
+fn typeof(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = self;
+
+    const value = arguments[0];
+
+    const typeof_value = switch (value) {
+        .none => "none",
+        .int => "int",
+        .float => "float",
+        .boolean => "boolean",
+        .object => switch (value.object) {
+            .string => "string",
+            .array => "array",
+            .function, .native_function => "function",
+        },
+    };
+
+    return Code.Value{ .object = .{ .string = typeof_value } };
+}
+
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("print", .{ .object = .{ .native_function = .{ .name = "print", .required_arguments_count = null, .call = &print } } });
     try self.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });

@@ -95,8 +95,8 @@ pub const Code = struct {
             switch (lhs) {
                 .none => return rhs == .none,
 
-                .int => return rhs == .int and lhs.int == rhs.int,
-                .float => return rhs == .float and lhs.float == rhs.float,
+                .int => return (rhs == .int and lhs.int == rhs.int) or (rhs == .float and @as(f64, @floatFromInt(lhs.int)) == rhs.float),
+                .float => return (rhs == .float and lhs.float == rhs.float) or (rhs == .int and lhs.float == @as(f64, @floatFromInt(rhs.int))),
                 .boolean => return rhs == .boolean and lhs.boolean == rhs.boolean,
 
                 .object => switch (lhs.object) {
@@ -350,17 +350,17 @@ fn random(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     switch (min) {
         .int => switch (max) {
-            .int => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), @as(f64, @floatFromInt(max.int - 1)), rnd.random().float(f64)) },
+            .int => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), @as(f64, @floatFromInt(max.int)), rnd.random().float(f64)) },
 
-            .float => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), max.float - 1, rnd.random().float(f64)) },
+            .float => return Code.Value{ .float = std.math.lerp(@as(f64, @floatFromInt(min.int)), max.float, rnd.random().float(f64)) },
 
             else => unreachable,
         },
 
         .float => switch (max) {
-            .int => return Code.Value{ .float = std.math.lerp(min.float, @as(f64, @floatFromInt(max.int - 1)), rnd.random().float(f64)) },
+            .int => return Code.Value{ .float = std.math.lerp(min.float, @as(f64, @floatFromInt(max.int)), rnd.random().float(f64)) },
 
-            .float => return Code.Value{ .float = std.math.lerp(min.float, max.float - 1, rnd.random().float(f64)) },
+            .float => return Code.Value{ .float = std.math.lerp(min.float, max.float, rnd.random().float(f64)) },
 
             else => unreachable,
         },

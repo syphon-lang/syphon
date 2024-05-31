@@ -439,7 +439,7 @@ fn array_push(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     array.values.append(value) catch |err| switch (err) {
         error.OutOfMemory => {
-            std.debug.print("ran out of memory", .{});
+            std.debug.print("ran out of memory\n", .{});
             std.process.exit(1);
         },
     };

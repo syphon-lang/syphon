@@ -11,7 +11,7 @@ pub fn main() u8 {
     const allocator = arena_instance.allocator();
 
     var argiterator = std.process.argsWithAllocator(allocator) catch |err| {
-        std.debug.print("{s}", .{Driver.errorDescription(err)});
+        std.debug.print("{s}\n", .{Driver.errorDescription(err)});
 
         return 1;
     };

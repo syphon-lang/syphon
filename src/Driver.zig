@@ -142,14 +142,14 @@ fn runRunCommand(self: *Driver) u8 {
     defer self.gpa.free(file_content);
 
     var parser = Parser.init(self.gpa, file_content) catch |err| {
-        std.debug.print("{s}", .{errorDescription(err)});
+        std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
         else => {
-            std.debug.print("{s}:{}:{}: {s}", .{ options.file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ options.file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
 
             return 1;
         },
@@ -159,26 +159,26 @@ fn runRunCommand(self: *Driver) u8 {
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => {
-            std.debug.print("{s}:{}:{}: {s}", .{ options.file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ options.file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
 
             return 1;
         },
     };
 
     var vm = VirtualMachine.init(self.gpa) catch |err| {
-        std.debug.print("{s}", .{errorDescription(err)});
+        std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;
     };
 
     vm.addGlobals() catch |err| {
-        std.debug.print("{s}", .{errorDescription(err)});
+        std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;
     };
 
     vm.setCode(gen.code) catch |err| {
-        std.debug.print("{s}", .{errorDescription(err)});
+        std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;
     };
@@ -190,7 +190,7 @@ fn runRunCommand(self: *Driver) u8 {
         },
 
         else => {
-            std.debug.print("{s}:{}:{}: {s}", .{ options.file_path, vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ options.file_path, vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
 
             return 1;
         },

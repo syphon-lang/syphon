@@ -332,7 +332,7 @@ fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) E
 
 fn compileStringExpr(self: *CodeGen, string: ast.Node.Expr.String) Error!void {
     try self.code.source_locations.append(string.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .string = string.content } }) } });
+    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .string = .{ .content = string.content } } }) } });
 }
 
 fn compileIntExpr(self: *CodeGen, int: ast.Node.Expr.Int) Error!void {

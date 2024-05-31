@@ -55,10 +55,18 @@ pub const Code = struct {
         object: Object,
 
         pub const Object = union(enum) {
-            string: []const u8,
-            array: *std.ArrayList(Value),
+            string: String,
+            array: *Array,
             function: *Function,
             native_function: NativeFunction,
+
+            pub const String = struct {
+                content: []const u8,
+            };
+
+            pub const Array = struct {
+                values: std.ArrayList(Value),
+            };
 
             pub const Function = struct {
                 name: []const u8,
@@ -80,8 +88,8 @@ pub const Code = struct {
                 .float => self.float != 0.0,
                 .boolean => self.boolean,
                 .object => switch (self.object) {
-                    .string => self.object.string.len != 0,
-                    .array => self.object.array.items.len != 0,
+                    .string => self.object.string.content.len != 0,
+                    .array => self.object.array.values.items.len != 0,
                     else => true,
                 },
             };
@@ -100,15 +108,15 @@ pub const Code = struct {
                 .boolean => return rhs == .boolean and lhs.boolean == rhs.boolean,
 
                 .object => switch (lhs.object) {
-                    .string => return rhs == .object and rhs.object == .string and std.mem.eql(u8, lhs.object.string, rhs.object.string),
+                    .string => return rhs == .object and rhs.object == .string and std.mem.eql(u8, lhs.object.string.content, rhs.object.string.content),
 
                     .array => {
-                        if (!(rhs == .object and rhs.object == .array and lhs.object.array.items.len == rhs.object.array.items.len)) {
+                        if (!(rhs == .object and rhs.object == .array and lhs.object.array.values.items.len == rhs.object.array.values.items.len)) {
                             return false;
                         }
 
-                        for (0..lhs.object.array.items.len) |i| {
-                            if (!lhs.object.array.items[i].eql(rhs.object.array.items[i], false)) {
+                        for (0..lhs.object.array.values.items.len) |i| {
+                            if (!lhs.object.array.values.items[i].eql(rhs.object.array.values.items[i], false)) {
                                 return false;
                             }
                         }
@@ -214,23 +222,23 @@ fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arg
             .object => switch (argument.object) {
                 .string => {
                     if (debug) {
-                        try buffered_writer.writer().print("'{s}'", .{argument.object.string});
+                        try buffered_writer.writer().print("'{s}'", .{argument.object.string.content});
                     } else {
-                        try buffered_writer.writer().print("{s}", .{argument.object.string});
+                        try buffered_writer.writer().print("{s}", .{argument.object.string.content});
                     }
                 },
 
                 .array => {
                     _ = try buffered_writer.write("[");
 
-                    for (argument.object.array.items, 0..) |value, j| {
+                    for (argument.object.array.values.items, 0..) |value, j| {
                         if (value == .object and value.object == .array and value.object.array == argument.object.array) {
                             _ = try buffered_writer.write("..");
                         } else {
                             try _print(buffered_writer, &.{value}, true);
                         }
 
-                        if (j < argument.object.array.items.len - 1) {
+                        if (j < argument.object.array.values.items.len - 1) {
                             _ = try buffered_writer.write(", ");
                         }
                     }
@@ -275,7 +283,7 @@ fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const stdout = std.io.getStdOut();
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
-    const new_arguments = std.mem.concat(self.gpa, Code.Value, &.{ arguments, &.{.{ .object = .{ .string = "\n" } }} }) catch |err| switch (err) {
+    const new_arguments = std.mem.concat(self.gpa, Code.Value, &.{ arguments, &.{.{ .object = .{ .string = .{ .content = "\n" } } }} }) catch |err| switch (err) {
         error.OutOfMemory => {
             std.debug.print("ran out of memory\n", .{});
             std.process.exit(1);
@@ -415,7 +423,7 @@ fn typeof(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         },
     };
 
-    return Code.Value{ .object = .{ .string = typeof_value } };
+    return Code.Value{ .object = .{ .string = .{ .content = typeof_value } } };
 }
 
 fn array_push(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -429,7 +437,7 @@ fn array_push(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const value = arguments[1];
 
-    array.append(value) catch |err| switch (err) {
+    array.values.append(value) catch |err| switch (err) {
         error.OutOfMemory => {
             std.debug.print("ran out of memory", .{});
             std.process.exit(1);
@@ -448,7 +456,7 @@ fn array_pop(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const array = arguments[0].object.array;
 
-    return array.popOrNull() orelse Code.Value{ .none = {} };
+    return array.values.popOrNull() orelse Code.Value{ .none = {} };
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
@@ -588,16 +596,16 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
             }
 
             if (index.int < 0) {
-                index.int += @as(i64, @intCast(target.object.array.items.len));
+                index.int += @as(i64, @intCast(target.object.array.values.items.len));
             }
 
-            if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.items.len))) {
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
                 self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                 return error.IndexOverflow;
             }
 
-            try self.stack.append(target.object.array.items[@as(usize, @intCast(index.int))]);
+            try self.stack.append(target.object.array.values.items[@as(usize, @intCast(index.int))]);
         },
     }
 }
@@ -636,16 +644,16 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
             }
 
             if (index.int < 0) {
-                index.int += @as(i64, @intCast(target.object.array.items.len));
+                index.int += @as(i64, @intCast(target.object.array.values.items.len));
             }
 
-            if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.items.len))) {
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
                 self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                 return error.IndexOverflow;
             }
 
-            target.object.array.items[@as(usize, @intCast(index.int))] = value;
+            target.object.array.values.items[@as(usize, @intCast(index.int))] = value;
         },
     }
 }
@@ -659,10 +667,12 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
                 try values.insert(0, self.stack.pop());
             }
 
-            var values_on_heap = try self.gpa.alloc(std.ArrayList(Code.Value), 1);
-            values_on_heap[0] = values;
+            const array: Code.Value.Object.Array = .{ .values = values };
 
-            try self.stack.append(.{ .object = .{ .array = &values_on_heap[0] } });
+            var array_on_heap = try self.gpa.alloc(Code.Value.Object.Array, 1);
+            array_on_heap[0] = array;
+
+            try self.stack.append(.{ .object = .{ .array = &array_on_heap[0] } });
         },
     }
 }
@@ -722,7 +732,7 @@ fn add(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
             .string => switch (rhs) {
                 .object => switch (rhs.object) {
                     .string => {
-                        return self.stack.append(.{ .object = .{ .string = try std.mem.concat(self.gpa, u8, &.{ lhs.object.string, rhs.object.string }) } });
+                        return self.stack.append(.{ .object = .{ .string = .{ .content = try std.mem.concat(self.gpa, u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } });
                     },
 
                     else => {},

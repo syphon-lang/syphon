@@ -87,7 +87,7 @@ pub const Code = struct {
             };
         }
 
-        pub fn eql(lhs: Value, rhs: Value) bool {
+        pub fn eql(lhs: Value, rhs: Value, strict: bool) bool {
             if (lhs.is_truthy() != rhs.is_truthy()) {
                 return false;
             }
@@ -95,8 +95,8 @@ pub const Code = struct {
             switch (lhs) {
                 .none => return rhs == .none,
 
-                .int => return (rhs == .int and lhs.int == rhs.int) or (rhs == .float and @as(f64, @floatFromInt(lhs.int)) == rhs.float),
-                .float => return (rhs == .float and lhs.float == rhs.float) or (rhs == .int and lhs.float == @as(f64, @floatFromInt(rhs.int))),
+                .int => return (rhs == .int and lhs.int == rhs.int) or (!strict and rhs == .float and @as(f64, @floatFromInt(lhs.int)) == rhs.float),
+                .float => return (rhs == .float and lhs.float == rhs.float) or (!strict and rhs == .int and lhs.float == @as(f64, @floatFromInt(rhs.int))),
                 .boolean => return rhs == .boolean and lhs.boolean == rhs.boolean,
 
                 .object => switch (lhs.object) {
@@ -305,21 +305,21 @@ fn random(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    if (min.eql(max)) {
-        return min;
-    }
-
     switch (min) {
         .int => switch (max) {
             .int => {
                 if (min.int > max.int) {
                     std.mem.swap(Code.Value, &min, &max);
+                } else if (min.int == max.int) {
+                    return Code.Value{ .float = @floatFromInt(min.int) };
                 }
             },
 
             .float => {
                 if (@as(f64, @floatFromInt(min.int)) > max.float) {
                     std.mem.swap(Code.Value, &min, &max);
+                } else if (@as(f64, @floatFromInt(min.int)) == max.float) {
+                    return max;
                 }
             },
 
@@ -330,12 +330,16 @@ fn random(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             .int => {
                 if (min.float > @as(f64, @floatFromInt(max.int))) {
                     std.mem.swap(Code.Value, &min, &max);
+                } else if (min.float == @as(f64, @floatFromInt(max.int))) {
+                    return min;
                 }
             },
 
             .float => {
                 if (min.float > max.float) {
                     std.mem.swap(Code.Value, &min, &max);
+                } else if (min.float > max.float) {
+                    return min;
                 }
             },
 

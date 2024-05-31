@@ -108,7 +108,7 @@ pub const Code = struct {
                         }
 
                         for (0..lhs.object.array.items.len) |i| {
-                            if (!lhs.object.array.items[i].eql(rhs.object.array.items[i])) {
+                            if (!lhs.object.array.items[i].eql(rhs.object.array.items[i], false)) {
                                 return false;
                             }
                         }
@@ -185,7 +185,7 @@ pub const Code = struct {
 
     pub fn addConstant(self: *Code, value: Value) std.mem.Allocator.Error!usize {
         for (self.constants.items, 0..) |constant, i| {
-            if (constant.eql(value)) {
+            if (constant.eql(value, true)) {
                 return i;
             }
         }
@@ -931,14 +931,14 @@ fn not_equals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
-    return self.stack.append(.{ .boolean = !lhs.eql(rhs) });
+    return self.stack.append(.{ .boolean = !lhs.eql(rhs, false) });
 }
 
 fn equals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
-    return self.stack.append(.{ .boolean = lhs.eql(rhs) });
+    return self.stack.append(.{ .boolean = lhs.eql(rhs, false) });
 }
 
 fn less_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {

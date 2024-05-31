@@ -153,7 +153,7 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
 
 fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional) Error!void {
     const BacktrackPoint = struct {
-        before_condition_point: usize,
+        condition_point: usize,
         jump_if_false_point: usize,
         jump_point: usize,
     };
@@ -164,7 +164,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     self.context.compiling_conditional = true;
 
     for (0..conditional.conditions.len) |i| {
-        const before_condition_point = self.code.instructions.items.len - 1;
+        const condition_point = self.code.instructions.items.len;
         try self.compileExpr(conditional.conditions[i]);
 
         const jump_if_false_point = self.code.instructions.items.len;
@@ -177,19 +177,19 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         try self.code.source_locations.append(.{});
         try self.code.instructions.append(.{ .jump = .{ .offset = 0 } });
 
-        try backtrack_points.append(.{ .before_condition_point = before_condition_point, .jump_if_false_point = jump_if_false_point, .jump_point = jump_point });
+        try backtrack_points.append(.{ .condition_point = condition_point, .jump_if_false_point = jump_if_false_point, .jump_point = jump_point });
     }
 
-    const before_fallback_point = self.code.instructions.items.len - 1;
+    const fallback_point = self.code.instructions.items.len;
     try self.compileNodes(conditional.fallback);
-    const after_fallback_point = self.code.instructions.items.len - 1;
+    const after_fallback_point = self.code.instructions.items.len;
 
     self.context.compiling_conditional = was_compiling_conditional;
 
     var backtrack_points_iter: usize = 0;
 
     while ((backtrack_points.items.len - backtrack_points_iter) > 0) {
-        const default_backtrack_point: BacktrackPoint = .{ .before_condition_point = before_fallback_point, .jump_if_false_point = 0, .jump_point = 0 };
+        const default_backtrack_point: BacktrackPoint = .{ .condition_point = fallback_point, .jump_if_false_point = 0, .jump_point = 0 };
 
         const current_backtrack_point = backtrack_points.items[backtrack_points_iter];
         backtrack_points_iter += 1;
@@ -198,19 +198,13 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
             if ((backtrack_points.items.len - backtrack_points_iter) == 0) {
                 break :blk default_backtrack_point;
             } else {
-                backtrack_points_iter += 1;
-                break :blk backtrack_points.items[backtrack_points_iter - 1];
+                break :blk backtrack_points.items[backtrack_points_iter];
             }
         };
 
-        self.code.instructions.items[current_backtrack_point.jump_if_false_point] = .{ .jump_if_false = .{ .offset = next_backtrack_point.before_condition_point - current_backtrack_point.jump_if_false_point } };
+        self.code.instructions.items[current_backtrack_point.jump_if_false_point] = .{ .jump_if_false = .{ .offset = next_backtrack_point.condition_point - current_backtrack_point.jump_if_false_point - 1 } };
 
-        self.code.instructions.items[current_backtrack_point.jump_point] = .{ .jump = .{ .offset = after_fallback_point - current_backtrack_point.jump_point } };
-    }
-
-    if (self.context.mode == .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
+        self.code.instructions.items[current_backtrack_point.jump_point] = .{ .jump = .{ .offset = after_fallback_point - current_backtrack_point.jump_point - 1 } };
     }
 }
 

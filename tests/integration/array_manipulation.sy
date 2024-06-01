@@ -1,5 +1,4 @@
 let arr = [0, 1, 2, 3, 4, 5];
-let arr_len = 6;
 
 println("First state of the Array:", arr);
 
@@ -19,7 +18,7 @@ println("Swapped two Subscripts:", arr[0] == 6, arr[-1] == 0);
 
 let i = 0;
 
-while i < arr_len {
+while i < len(arr) {
     arr[i] = 0;
 
     i = i + 1;
@@ -31,7 +30,7 @@ println("Zeroed all values in the Array:", arr == zero_arr);
 
 let i = 0;
 
-while i < arr_len {
+while i < len(arr) {
     arr[i] = random(0, 10);
 
     i = i + 1;

@@ -1,10 +1,13 @@
 const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
+const GarbageCollector = @import("GarbageCollector.zig");
 
 const VirtualMachine = @This();
 
 gpa: std.mem.Allocator,
+
+gc: *GarbageCollector,
 
 frames: std.ArrayList(Frame),
 
@@ -61,7 +64,7 @@ pub const Code = struct {
             native_function: NativeFunction,
 
             pub const String = struct {
-                content: []const u8,
+                content: []u8,
             };
 
             pub const Array = struct {
@@ -204,11 +207,11 @@ pub const Code = struct {
     }
 };
 
-pub fn init(gpa: std.mem.Allocator) Error!VirtualMachine {
-    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
+pub fn init(gpa: std.mem.Allocator, gc: *GarbageCollector) Error!VirtualMachine {
+    return VirtualMachine{ .gpa = gpa, .gc = gc, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
 }
 
-fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arguments: []const Code.Value, debug: bool) !void {
+pub fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arguments: []const Code.Value, debug: bool) !void {
     for (arguments, 0..) |argument, i| {
         switch (argument) {
             .none => {
@@ -283,7 +286,23 @@ fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const stdout = std.io.getStdOut();
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
-    const new_arguments = std.mem.concat(self.gpa, Code.Value, &.{ arguments, &.{.{ .object = .{ .string = .{ .content = "\n" } } }} }) catch |err| switch (err) {
+    const new_line_interned = self.gc.intern("\n") catch |err| switch (err) {
+        error.OutOfMemory => {
+            std.debug.print("ran out of memory\n", .{});
+            std.process.exit(1);
+        },
+    };
+
+    const new_line_value: Code.Value = .{ .object = .{ .string = .{ .content = new_line_interned } } };
+
+    self.gc.markValue(new_line_value) catch |err| switch (err) {
+        error.OutOfMemory => {
+            std.debug.print("ran out of memory\n", .{});
+            std.process.exit(1);
+        },
+    };
+
+    const new_arguments = std.mem.concat(self.gpa, Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
         error.OutOfMemory => {
             std.debug.print("ran out of memory\n", .{});
             std.process.exit(1);
@@ -301,6 +320,8 @@ fn println(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             std.debug.print("println native function: error occured while trying to print\n", .{});
         },
     };
+
+    self.gpa.free(new_arguments);
 
     return Code.Value{ .none = {} };
 }
@@ -407,8 +428,6 @@ fn time(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn typeof(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    _ = self;
-
     const value = arguments[0];
 
     const typeof_value = switch (value) {
@@ -423,7 +442,14 @@ fn typeof(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         },
     };
 
-    return Code.Value{ .object = .{ .string = .{ .content = typeof_value } } };
+    const typeof_value_interned = self.gc.intern(typeof_value) catch |err| switch (err) {
+        error.OutOfMemory => {
+            std.debug.print("ran out of memory\n", .{});
+            std.process.exit(1);
+        },
+    };
+
+    return Code.Value{ .object = .{ .string = .{ .content = typeof_value_interned } } };
 }
 
 fn array_push(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -480,6 +506,10 @@ pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
         self.frames.items[0].function.code = code;
         self.frames.items[0].ip = 0;
     }
+}
+
+pub fn addGCRoots(self: *VirtualMachine) std.mem.Allocator.Error!void {
+    try self.gc.roots.append(&self.stack);
 }
 
 pub fn run(self: *VirtualMachine) Error!Code.Value {
@@ -661,15 +691,18 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
 fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     switch (info) {
         .array => {
-            var values = std.ArrayList(Code.Value).init(self.gpa);
+            var values = std.ArrayList(Code.Value).init(self.gc.allocator());
 
             for (0..info.array.length) |_| {
-                try values.insert(0, self.stack.pop());
+                const value = self.stack.pop();
+                try self.gc.markValue(value);
+
+                try values.insert(0, value);
             }
 
             const array: Code.Value.Object.Array = .{ .values = values };
 
-            var array_on_heap = try self.gpa.alloc(Code.Value.Object.Array, 1);
+            var array_on_heap = try self.gc.allocator().alloc(Code.Value.Object.Array, 1);
             array_on_heap[0] = array;
 
             try self.stack.append(.{ .object = .{ .array = &array_on_heap[0] } });
@@ -732,7 +765,14 @@ fn add(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
             .string => switch (rhs) {
                 .object => switch (rhs.object) {
                     .string => {
-                        return self.stack.append(.{ .object = .{ .string = .{ .content = try std.mem.concat(self.gpa, u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } });
+                        try self.gc.markValue(lhs);
+                        try self.gc.markValue(rhs);
+
+                        const concatenated_string: Code.Value = .{ .object = .{ .string = .{ .content = try std.mem.concat(self.gc.allocator(), u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } };
+
+                        try self.gc.markValue(concatenated_string);
+
+                        return self.stack.append(concatenated_string);
                     },
 
                     else => {},

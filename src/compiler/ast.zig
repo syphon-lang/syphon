@@ -14,7 +14,14 @@ pub const Name = struct {
 };
 
 pub const Root = struct {
-    body: []const Node,
+    body: []Node,
+
+    pub fn destroy(self: Root, gpa: std.mem.Allocator) void {
+        for (0..self.body.len) |i| {
+            self.body[i].destroy(gpa);
+            gpa.destroy(&self.body[i]);
+        }
+    }
 };
 
 pub const Node = union(enum) {
@@ -37,19 +44,19 @@ pub const Node = union(enum) {
 
         pub const FunctionDeclaration = struct {
             name: Name,
-            parameters: []const Name,
-            body: []const Node,
+            parameters: []Name,
+            body: []Node,
         };
 
         pub const Conditional = struct {
-            conditions: []const Expr,
-            possiblities: []const []const Node,
-            fallback: []const Node,
+            conditions: []Expr,
+            possiblities: [][]Node,
+            fallback: []Node,
         };
 
         pub const WhileLoop = struct {
             condition: Expr,
-            body: []const Node,
+            body: []Node,
         };
 
         pub const Break = struct {
@@ -109,7 +116,7 @@ pub const Node = union(enum) {
         };
 
         pub const Array = struct {
-            values: []const Expr,
+            values: []Expr,
         };
 
         pub const UnaryOperation = struct {
@@ -157,16 +164,132 @@ pub const Node = union(enum) {
 
         pub const Call = struct {
             callable: *Expr,
-            arguments: []const Expr,
+            arguments: []Expr,
             source_loc: SourceLoc,
         };
     };
+
+    pub fn destroy(self: Node, gpa: std.mem.Allocator) void {
+        switch (self) {
+            .stmt => switch (self.stmt) {
+                .variable_declaration => {
+                    if (self.stmt.variable_declaration.value != null) {
+                        const expr_node: Node = .{ .expr = self.stmt.variable_declaration.value.? };
+                        expr_node.destroy(gpa);
+                    }
+                },
+
+                .function_declaration => {
+                    for (self.stmt.function_declaration.body) |stmt| {
+                        stmt.destroy(gpa);
+                    }
+
+                    gpa.free(self.stmt.function_declaration.body);
+
+                    gpa.free(self.stmt.function_declaration.parameters);
+                },
+
+                .conditional => {
+                    for (0..self.stmt.conditional.conditions.len) |i| {
+                        const expr_node: Node = .{ .expr = self.stmt.conditional.conditions[i] };
+                        expr_node.destroy(gpa);
+
+                        for (0..self.stmt.conditional.possiblities[i].len) |j| {
+                            self.stmt.conditional.possiblities[i][j].destroy(gpa);
+                        }
+
+                        gpa.free(self.stmt.conditional.possiblities[i]);
+                    }
+
+                    gpa.free(self.stmt.conditional.conditions);
+                },
+
+                .while_loop => {
+                    const expr_node: Node = .{ .expr = self.stmt.while_loop.condition };
+                    expr_node.destroy(gpa);
+
+                    for (self.stmt.while_loop.body) |stmt| {
+                        stmt.destroy(gpa);
+                    }
+
+                    gpa.free(self.stmt.while_loop.body);
+                },
+
+                else => {},
+            },
+
+            .expr => switch (self.expr) {
+                .array => {
+                    for (self.expr.array.values) |value| {
+                        const expr_node: Node = .{ .expr = value };
+                        expr_node.destroy(gpa);
+                    }
+
+                    gpa.free(self.expr.array.values);
+                },
+
+                .unary_operation => {
+                    const expr_node: Node = .{ .expr = self.expr.unary_operation.rhs.* };
+                    expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.unary_operation.rhs);
+                },
+
+                .binary_operation => {
+                    const lhs_expr_node: Node = .{ .expr = self.expr.binary_operation.lhs.* };
+                    lhs_expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.binary_operation.lhs);
+
+                    const rhs_expr_node: Node = .{ .expr = self.expr.binary_operation.rhs.* };
+                    rhs_expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.binary_operation.rhs);
+                },
+
+                .assignment => {
+                    const target_expr_node: Node = .{ .expr = self.expr.assignment.target.* };
+                    target_expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.assignment.target);
+
+                    const value_expr_node: Node = .{ .expr = self.expr.assignment.value.* };
+                    value_expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.assignment.value);
+                },
+
+                .array_subscript => {
+                    const target_expr_node: Node = .{ .expr = self.expr.array_subscript.target.* };
+                    target_expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.array_subscript.target);
+
+                    const index_expr_node: Node = .{ .expr = self.expr.array_subscript.index.* };
+                    index_expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.array_subscript.index);
+                },
+
+                .call => {
+                    const expr_node: Node = .{ .expr = self.expr.call.callable.* };
+                    expr_node.destroy(gpa);
+
+                    gpa.destroy(self.expr.call.callable);
+
+                    gpa.free(self.expr.call.arguments);
+                },
+
+                else => {},
+            },
+        }
+    }
 };
 
 pub const Parser = struct {
     buffer: [:0]const u8,
 
-    tokens: []const Token,
+    tokens: []Token,
     current_token_index: usize,
 
     error_info: ?ErrorInfo = null,
@@ -336,7 +459,7 @@ pub const Parser = struct {
         return Node{ .stmt = .{ .function_declaration = .{ .name = name, .parameters = parameters, .body = body } } };
     }
 
-    fn parseFunctionParameters(self: *Parser) Error![]const Name {
+    fn parseFunctionParameters(self: *Parser) Error![]Name {
         var parameters = std.ArrayList(Name).init(self.gpa);
 
         if (!self.expectToken(.open_paren)) {
@@ -364,7 +487,7 @@ pub const Parser = struct {
         return try parameters.toOwnedSlice();
     }
 
-    fn parseBody(self: *Parser) Error![]const Node {
+    fn parseBody(self: *Parser) Error![]Node {
         var body = std.ArrayList(Node).init(self.gpa);
 
         if (!self.expectToken(.open_brace)) {
@@ -388,7 +511,7 @@ pub const Parser = struct {
 
     fn parseConditionalStmt(self: *Parser) Error!Node {
         var conditions = std.ArrayList(Node.Expr).init(self.gpa);
-        var possiblities = std.ArrayList([]const Node).init(self.gpa);
+        var possiblities = std.ArrayList([]Node).init(self.gpa);
 
         while (self.peekToken().tag == .keyword_if) {
             _ = self.nextToken();
@@ -701,7 +824,7 @@ pub const Parser = struct {
         return Node.Expr{ .call = .{ .callable = &lhs_on_heap[0], .arguments = arguments, .source_loc = self.tokenSourceLoc(open_paren_token) } };
     }
 
-    fn parseCallArguments(self: *Parser) Error![]const Node.Expr {
+    fn parseCallArguments(self: *Parser) Error![]Node.Expr {
         var arguments = std.ArrayList(Node.Expr).init(self.gpa);
 
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {

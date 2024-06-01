@@ -2,11 +2,14 @@ const std = @import("std");
 
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
+const GarbageCollector = @import("../vm/GarbageCollector.zig");
 const VirtualMachine = @import("../vm/VirtualMachine.zig");
 
 const CodeGen = @This();
 
 gpa: std.mem.Allocator,
+
+gc: *GarbageCollector,
 
 code: VirtualMachine.Code,
 
@@ -40,8 +43,8 @@ pub const Context = struct {
     };
 };
 
-pub fn init(gpa: std.mem.Allocator, mode: Context.Mode) CodeGen {
-    return CodeGen{ .gpa = gpa, .code = .{ .constants = std.ArrayList(VirtualMachine.Code.Value).init(gpa), .instructions = std.ArrayList(VirtualMachine.Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode, .break_points = std.ArrayList(usize).init(gpa), .continue_points = std.ArrayList(usize).init(gpa) } };
+pub fn init(gpa: std.mem.Allocator, gc: *GarbageCollector, mode: Context.Mode) CodeGen {
+    return CodeGen{ .gpa = gpa, .gc = gc, .code = .{ .constants = std.ArrayList(VirtualMachine.Code.Value).init(gpa), .instructions = std.ArrayList(VirtualMachine.Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode, .break_points = std.ArrayList(usize).init(gpa), .continue_points = std.ArrayList(usize).init(gpa) } };
 }
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
@@ -126,7 +129,7 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
         .name = function_declaration.name.buffer,
         .parameters = try parameters.toOwnedSlice(),
         .code = blk: {
-            var gen = init(self.gpa, .function);
+            var gen = init(self.gpa, self.gc, .function);
 
             try gen.compileNodes(function_declaration.body);
 
@@ -332,7 +335,7 @@ fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) E
 
 fn compileStringExpr(self: *CodeGen, string: ast.Node.Expr.String) Error!void {
     try self.code.source_locations.append(string.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .string = .{ .content = string.content } } }) } });
+    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .string = .{ .content = try self.gc.intern(string.content) } } }) } });
 }
 
 fn compileIntExpr(self: *CodeGen, int: ast.Node.Expr.Int) Error!void {

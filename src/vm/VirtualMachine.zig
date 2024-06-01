@@ -485,6 +485,25 @@ fn array_pop(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return array.values.popOrNull() orelse Code.Value{ .none = {} };
 }
 
+fn len(self: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = self;
+
+    const value = arguments[0];
+
+    switch (value) {
+        .object => switch (value.object) {
+            .array => return Code.Value{ .int = @intCast(value.object.array.values.items.len) },
+            .string => return Code.Value{ .int = @intCast(value.object.string.content.len) },
+
+            else => {},
+        },
+
+        else => {},
+    }
+
+    return Code.Value{ .none = {} };
+}
+
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("print", .{ .object = .{ .native_function = .{ .name = "print", .required_arguments_count = null, .call = &print } } });
     try self.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });
@@ -494,6 +513,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try self.globals.put("typeof", .{ .object = .{ .native_function = .{ .name = "typeof", .required_arguments_count = 1, .call = &typeof } } });
     try self.globals.put("array_push", .{ .object = .{ .native_function = .{ .name = "array_push", .required_arguments_count = 2, .call = &array_push } } });
     try self.globals.put("array_pop", .{ .object = .{ .native_function = .{ .name = "array_pop", .required_arguments_count = 1, .call = &array_pop } } });
+    try self.globals.put("len", .{ .object = .{ .native_function = .{ .name = "len", .required_arguments_count = 1, .call = &len } } });
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {

@@ -211,7 +211,7 @@ pub fn init(gpa: std.mem.Allocator, gc: *GarbageCollector) Error!VirtualMachine 
     return VirtualMachine{ .gpa = gpa, .gc = gc, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
 }
 
-pub fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arguments: []const Code.Value, debug: bool) !void {
+fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arguments: []const Code.Value, debug: bool) !void {
     for (arguments, 0..) |argument, i| {
         switch (argument) {
             .none => {

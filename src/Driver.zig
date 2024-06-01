@@ -28,7 +28,7 @@ const usage =
     \\  {s} <command> [arguments]
     \\
     \\Commands:
-    \\  run <file_path>     --  run certain file
+    \\  run <file_path>     -- run certain file
     \\
     \\
 ;
@@ -116,7 +116,7 @@ pub fn run(self: *Driver, argiterator: *std.process.ArgIterator) u8 {
     return 0;
 }
 
-fn readAllFileSentinel(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]const u8 {
+fn readAllFileSentinel(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
         std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
 
@@ -130,8 +130,11 @@ fn readAllFileSentinel(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]const
         return null;
     };
 
-    var file_content_z = @as([:0]u8, @ptrCast(file_content));
-    file_content_z[file_content_z.len] = 0;
+    const file_content_z = @as([:0]u8, @ptrCast(file_content));
+
+    if (file_content.len != 0) {
+        file_content_z[file_content.len] = 0;
+    }
 
     return file_content_z;
 }
@@ -140,6 +143,11 @@ fn runRunCommand(self: *Driver) u8 {
     const options = self.cli.command.?.run;
 
     const file_content = readAllFileSentinel(self.gpa, options.file_path) orelse return 1;
+
+    if (file_content.len == 0) {
+        return 0;
+    }
+
     defer self.gpa.free(file_content);
 
     var parser = Parser.init(self.gpa, file_content) catch |err| {

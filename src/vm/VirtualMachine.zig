@@ -119,7 +119,11 @@ pub const Code = struct {
                         }
 
                         for (0..lhs.object.array.values.items.len) |i| {
-                            if (!lhs.object.array.values.items[i].eql(rhs.object.array.values.items[i], false)) {
+                            if (lhs.object.array.values.items[i] == .object and lhs.object.array.values.items[i].object == .array and lhs.object.array.values.items[i].object.array == lhs.object.array) {
+                                if (!(rhs.object.array.values.items[i] == .object and rhs.object.array.values.items[i].object == .array and rhs.object.array.values.items[i].object.array == lhs.object.array)) {
+                                    return false;
+                                }
+                            } else if (!lhs.object.array.values.items[i].eql(rhs.object.array.values.items[i], false)) {
                                 return false;
                             }
                         }

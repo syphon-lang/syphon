@@ -152,8 +152,15 @@ pub const Node = union(enum) {
 
         pub const Assignment = struct {
             target: *Expr,
+            operator: AssignmentOperator,
             value: *Expr,
             source_loc: SourceLoc,
+
+            const AssignmentOperator = enum {
+                none,
+                plus,
+                minus,
+            };
         };
 
         pub const ArraySubscript = struct {
@@ -595,7 +602,7 @@ pub const Parser = struct {
 
         fn from(token: Token) Precedence {
             return switch (token.tag) {
-                .equal_sign => .assign,
+                .plus_equal_sign, .minus_equal_sign, .equal_sign => .assign,
 
                 .bang_equal_sign, .double_equal_sign, .greater_than, .less_than => .comparison,
 
@@ -755,7 +762,9 @@ pub const Parser = struct {
             .less_than => return self.parseBinaryOperationExpr(lhs, .less_than),
             .greater_than => return self.parseBinaryOperationExpr(lhs, .greater_than),
 
-            .equal_sign => return self.parseAssignmentExpr(lhs),
+            .equal_sign => return self.parseAssignmentExpr(lhs, .none),
+            .plus_equal_sign => return self.parseAssignmentExpr(lhs, .plus),
+            .minus_equal_sign => return self.parseAssignmentExpr(lhs, .minus),
 
             .open_bracket => return self.parseArraySubscriptExpr(lhs),
 
@@ -782,7 +791,7 @@ pub const Parser = struct {
         return Node.Expr{ .binary_operation = .{ .lhs = &lhs_on_heap[0], .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
     }
 
-    fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+    fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.Assignment.AssignmentOperator) Error!Node.Expr {
         var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
@@ -792,7 +801,7 @@ pub const Parser = struct {
         var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
-        return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
+        return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .operator = operator, .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
     fn parseArraySubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {

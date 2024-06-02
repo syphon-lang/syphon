@@ -16,6 +16,8 @@ pub const State = enum {
     number,
     star,
     equal_sign,
+    plus,
+    minus,
     bang,
 };
 
@@ -107,18 +109,14 @@ pub fn next(self: *Lexer) Token {
 
                 '+' => {
                     result.buffer_loc.start = self.index;
-                    self.index += 1;
-                    result.buffer_loc.end = self.index;
                     result.tag = .plus;
-                    break;
+                    self.state = .plus;
                 },
 
                 '-' => {
                     result.buffer_loc.start = self.index;
-                    self.index += 1;
-                    result.buffer_loc.end = self.index;
                     result.tag = .minus;
-                    break;
+                    self.state = .minus;
                 },
 
                 '/' => {
@@ -282,6 +280,22 @@ pub fn next(self: *Lexer) Token {
                 },
             },
 
+            .equal_sign => switch (current_char) {
+                '=' => {
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .double_equal_sign;
+                    self.state = .start;
+                    break;
+                },
+
+                else => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+            },
+
             .bang => switch (current_char) {
                 '=' => {
                     self.index += 1;
@@ -298,11 +312,27 @@ pub fn next(self: *Lexer) Token {
                 },
             },
 
-            .equal_sign => switch (current_char) {
+            .plus => switch (current_char) {
                 '=' => {
                     self.index += 1;
                     result.buffer_loc.end = self.index;
-                    result.tag = .double_equal_sign;
+                    result.tag = .plus_equal_sign;
+                    self.state = .start;
+                    break;
+                },
+
+                else => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+            },
+
+            .minus => switch (current_char) {
+                '=' => {
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .minus_equal_sign;
                     self.state = .start;
                     break;
                 },

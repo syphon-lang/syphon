@@ -452,7 +452,26 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.{ .store = .{ .subscript = {} } });
     } else if (assignment.target.* == .identifier) {
+        if (assignment.operator != .none) {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .load = .{ .name = assignment.target.identifier.name.buffer } });
+        }
+
         try self.compileExpr(assignment.value.*);
+
+        switch (assignment.operator) {
+            .none => {},
+
+            .plus => {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .add = {} });
+            },
+
+            .minus => {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .subtract = {} });
+            },
+        }
 
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.{ .store = .{ .name = assignment.target.identifier.name.buffer } });

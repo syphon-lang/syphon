@@ -21,7 +21,7 @@ let i = 0;
 while i < len(arr) {
     arr[i] = 0;
 
-    i = i + 1;
+    i += 1;
 }
 
 let zero_arr = [0, 0, 0, 0, 0, 0];
@@ -33,7 +33,7 @@ let i = 0;
 while i < len(arr) {
     arr[i] = random(0, 10);
 
-    i = i + 1;
+    i += 1;
 }
 
 

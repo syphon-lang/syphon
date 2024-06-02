@@ -23,6 +23,8 @@ pub const Tag = enum {
     double_star,
     percent,
     bang,
+    plus_equal_sign,
+    minus_equal_sign,
     bang_equal_sign,
     equal_sign,
     double_equal_sign,

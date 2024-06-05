@@ -123,3 +123,38 @@ len(str) # 3
 len(arr) # 3
 len(89) # none
 ```
+
+- to_int
+
+Casts (float, boolean) to int but anything else to none
+
+```
+to_int(5) # 5
+to_int(5.5) # 5
+to_int(true) # 1
+to_int("hey") # none
+```
+
+- to_float
+
+Casts (int, boolean) to float but anything else to none
+
+```
+to_float(5.5) # 5.5
+to_float(5) # 5.0
+to_float(true) # 1.0
+to_float("hey") # none
+```
+
+- to_string
+
+Casts any writeable value to string
+
+```
+to_string(5) # "5"
+to_string(5.5) # "5.5"
+to_string(true) # "true"
+to_string("hey") # "hey" 
+to_string(none) # "none"
+to_string([1, 2, 3]) # "[1, 2, 3]"
+```

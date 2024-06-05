@@ -7,7 +7,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });
 }
 
-fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arguments: []const VirtualMachine.Code.Value, debug: bool) !void {
+pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B), arguments: []const VirtualMachine.Code.Value, debug: bool) !void {
     for (arguments, 0..) |argument, i| {
         switch (argument) {
             .none => {
@@ -21,7 +21,7 @@ fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arg
             .object => switch (argument.object) {
                 .string => {
                     if (debug) {
-                        try buffered_writer.writer().print("'{s}'", .{argument.object.string.content});
+                        try buffered_writer.writer().print("\"{s}\"", .{argument.object.string.content});
                     } else {
                         try buffered_writer.writer().print("{s}", .{argument.object.string.content});
                     }
@@ -34,7 +34,7 @@ fn _print(buffered_writer: *std.io.BufferedWriter(4096, std.fs.File.Writer), arg
                         if (value == .object and value.object == .array and value.object.array == argument.object.array) {
                             _ = try buffered_writer.write("..");
                         } else {
-                            try _print(buffered_writer, &.{value}, true);
+                            try _print(B, buffered_writer, &.{value}, true);
                         }
 
                         if (j < argument.object.array.values.items.len - 1) {
@@ -63,7 +63,7 @@ fn print(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virt
     const stdout = std.io.getStdOut();
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
-    _print(&buffered_writer, arguments, false) catch |err| switch (err) {
+    _print(std.fs.File.Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
         else => {
             std.debug.print("print native function: error occured while trying to print\n", .{});
         },
@@ -105,7 +105,7 @@ fn println(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vi
         },
     };
 
-    _print(&buffered_writer, new_arguments, false) catch |err| switch (err) {
+    _print(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch |err| switch (err) {
         else => {
             std.debug.print("println native function: error occured while trying to print\n", .{});
         },

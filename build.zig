@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const bdwgc = b.dependency("bdwgc", .{ .target = target, .optimize = optimize });
+    const bdwgc = b.dependency("bdwgc", .{ .target = target, .optimize = optimize, .BUILD_SHARED_LIBS = false });
 
     exe.addIncludePath(bdwgc.path("include"));
 

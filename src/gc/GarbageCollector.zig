@@ -5,6 +5,10 @@ const bdwgc = @cImport({
 });
 
 pub fn allocator() std.mem.Allocator {
+    if (bdwgc.GC_is_init_called() == 0) {
+        bdwgc.GC_init();
+    }
+
     return std.mem.Allocator{
         .ptr = undefined,
         .vtable = &.{

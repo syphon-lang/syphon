@@ -1,6 +1,6 @@
 # Syphon
 
-A general-purpose programming language for scripting an all sort of stuff
+A general-purpose programming language for scripting and all sort of stuff
 
 ## Documentation
 

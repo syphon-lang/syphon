@@ -12,6 +12,13 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const bdwgc = b.dependency("bdwgc", .{ .target = target, .optimize = optimize });
+
+    exe.addIncludePath(bdwgc.path("include"));
+
+    const bdwgc_artifact = bdwgc.artifact("gc");
+    exe.linkLibrary(bdwgc_artifact);
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

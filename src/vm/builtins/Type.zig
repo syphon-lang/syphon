@@ -10,6 +10,8 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 fn typeof(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+    _ = vm;
+
     const value = arguments[0];
 
     const result = switch (value) {
@@ -24,14 +26,7 @@ fn typeof(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
         },
     };
 
-    const result_interned = vm.gc.intern(result) catch |err| switch (err) {
-        error.OutOfMemory => {
-            std.debug.print("ran out of memory\n", .{});
-            std.process.exit(1);
-        },
-    };
-
-    return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = result_interned } } };
+    return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = result } } };
 }
 
 fn to_int(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
@@ -63,7 +58,7 @@ fn to_float(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) V
 fn to_string(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
     const Console = @import("Console.zig");
 
-    var result = std.ArrayList(u8).init(vm.gc.allocator());
+    var result = std.ArrayList(u8).init(vm.gpa);
     var buffered_writer = std.io.bufferedWriter(result.writer());
 
     Console._print(std.ArrayList(u8).Writer, &buffered_writer, arguments, false) catch |err| switch (err) {

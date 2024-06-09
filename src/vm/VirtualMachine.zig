@@ -1,13 +1,10 @@
 const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
-const GarbageCollector = @import("GarbageCollector.zig");
 
 const VirtualMachine = @This();
 
 gpa: std.mem.Allocator,
-
-gc: *GarbageCollector,
 
 frames: std.ArrayList(Frame),
 
@@ -64,7 +61,7 @@ pub const Code = struct {
             native_function: NativeFunction,
 
             pub const String = struct {
-                content: []u8,
+                content: []const u8,
             };
 
             pub const Array = struct {
@@ -211,8 +208,8 @@ pub const Code = struct {
     }
 };
 
-pub fn init(gpa: std.mem.Allocator, gc: *GarbageCollector) Error!VirtualMachine {
-    return VirtualMachine{ .gpa = gpa, .gc = gc, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
+pub fn init(gpa: std.mem.Allocator) Error!VirtualMachine {
+    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
@@ -241,10 +238,6 @@ pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
         self.frames.items[0].function.code = code;
         self.frames.items[0].ip = 0;
     }
-}
-
-pub fn addGCRoots(self: *VirtualMachine) std.mem.Allocator.Error!void {
-    try self.gc.roots.append(&self.stack);
 }
 
 pub fn run(self: *VirtualMachine) Error!Code.Value {
@@ -426,18 +419,17 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
 fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     switch (info) {
         .array => {
-            var values = std.ArrayList(Code.Value).init(self.gc.allocator());
+            var values = std.ArrayList(Code.Value).init(self.gpa);
 
             for (0..info.array.length) |_| {
                 const value = self.stack.pop();
-                try self.gc.markValue(value);
 
                 try values.insert(0, value);
             }
 
             const array: Code.Value.Object.Array = .{ .values = values };
 
-            var array_on_heap = try self.gc.allocator().alloc(Code.Value.Object.Array, 1);
+            var array_on_heap = try self.gpa.alloc(Code.Value.Object.Array, 1);
             array_on_heap[0] = array;
 
             try self.stack.append(.{ .object = .{ .array = &array_on_heap[0] } });
@@ -500,12 +492,7 @@ fn add(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
             .string => switch (rhs) {
                 .object => switch (rhs.object) {
                     .string => {
-                        try self.gc.markValue(lhs);
-                        try self.gc.markValue(rhs);
-
-                        const concatenated_string: Code.Value = .{ .object = .{ .string = .{ .content = try std.mem.concat(self.gc.allocator(), u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } };
-
-                        try self.gc.markValue(concatenated_string);
+                        const concatenated_string: Code.Value = .{ .object = .{ .string = .{ .content = try std.mem.concat(self.gpa, u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } };
 
                         return self.stack.append(concatenated_string);
                     },

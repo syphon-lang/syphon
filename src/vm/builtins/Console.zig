@@ -82,21 +82,7 @@ fn println(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vi
     const stdout = std.io.getStdOut();
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
-    const new_line_interned = vm.gc.intern("\n") catch |err| switch (err) {
-        error.OutOfMemory => {
-            std.debug.print("ran out of memory\n", .{});
-            std.process.exit(1);
-        },
-    };
-
-    const new_line_value: VirtualMachine.Code.Value = .{ .object = .{ .string = .{ .content = new_line_interned } } };
-
-    vm.gc.markValue(new_line_value) catch |err| switch (err) {
-        error.OutOfMemory => {
-            std.debug.print("ran out of memory\n", .{});
-            std.process.exit(1);
-        },
-    };
+    const new_line_value: VirtualMachine.Code.Value = .{ .object = .{ .string = .{ .content = "\n" } } };
 
     const new_arguments = std.mem.concat(vm.gpa, VirtualMachine.Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
         error.OutOfMemory => {
@@ -116,8 +102,6 @@ fn println(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vi
             std.debug.print("println native function: error occured while trying to print\n", .{});
         },
     };
-
-    vm.gpa.free(new_arguments);
 
     return VirtualMachine.Code.Value{ .none = {} };
 }

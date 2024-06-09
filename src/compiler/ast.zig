@@ -15,13 +15,6 @@ pub const Name = struct {
 
 pub const Root = struct {
     body: []Node,
-
-    pub fn destroy(self: Root, gpa: std.mem.Allocator) void {
-        for (0..self.body.len) |i| {
-            self.body[i].destroy(gpa);
-            gpa.destroy(&self.body[i]);
-        }
-    }
 };
 
 pub const Node = union(enum) {
@@ -175,122 +168,6 @@ pub const Node = union(enum) {
             source_loc: SourceLoc,
         };
     };
-
-    pub fn destroy(self: Node, gpa: std.mem.Allocator) void {
-        switch (self) {
-            .stmt => switch (self.stmt) {
-                .variable_declaration => {
-                    if (self.stmt.variable_declaration.value != null) {
-                        const expr_node: Node = .{ .expr = self.stmt.variable_declaration.value.? };
-                        expr_node.destroy(gpa);
-                    }
-                },
-
-                .function_declaration => {
-                    for (self.stmt.function_declaration.body) |stmt| {
-                        stmt.destroy(gpa);
-                    }
-
-                    gpa.free(self.stmt.function_declaration.body);
-
-                    gpa.free(self.stmt.function_declaration.parameters);
-                },
-
-                .conditional => {
-                    for (0..self.stmt.conditional.conditions.len) |i| {
-                        const expr_node: Node = .{ .expr = self.stmt.conditional.conditions[i] };
-                        expr_node.destroy(gpa);
-
-                        for (0..self.stmt.conditional.possiblities[i].len) |j| {
-                            self.stmt.conditional.possiblities[i][j].destroy(gpa);
-                        }
-
-                        gpa.free(self.stmt.conditional.possiblities[i]);
-                    }
-
-                    gpa.free(self.stmt.conditional.conditions);
-                },
-
-                .while_loop => {
-                    const expr_node: Node = .{ .expr = self.stmt.while_loop.condition };
-                    expr_node.destroy(gpa);
-
-                    for (self.stmt.while_loop.body) |stmt| {
-                        stmt.destroy(gpa);
-                    }
-
-                    gpa.free(self.stmt.while_loop.body);
-                },
-
-                else => {},
-            },
-
-            .expr => switch (self.expr) {
-                .array => {
-                    for (self.expr.array.values) |value| {
-                        const expr_node: Node = .{ .expr = value };
-                        expr_node.destroy(gpa);
-                    }
-
-                    gpa.free(self.expr.array.values);
-                },
-
-                .unary_operation => {
-                    const expr_node: Node = .{ .expr = self.expr.unary_operation.rhs.* };
-                    expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.unary_operation.rhs);
-                },
-
-                .binary_operation => {
-                    const lhs_expr_node: Node = .{ .expr = self.expr.binary_operation.lhs.* };
-                    lhs_expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.binary_operation.lhs);
-
-                    const rhs_expr_node: Node = .{ .expr = self.expr.binary_operation.rhs.* };
-                    rhs_expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.binary_operation.rhs);
-                },
-
-                .assignment => {
-                    const target_expr_node: Node = .{ .expr = self.expr.assignment.target.* };
-                    target_expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.assignment.target);
-
-                    const value_expr_node: Node = .{ .expr = self.expr.assignment.value.* };
-                    value_expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.assignment.value);
-                },
-
-                .array_subscript => {
-                    const target_expr_node: Node = .{ .expr = self.expr.array_subscript.target.* };
-                    target_expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.array_subscript.target);
-
-                    const index_expr_node: Node = .{ .expr = self.expr.array_subscript.index.* };
-                    index_expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.array_subscript.index);
-                },
-
-                .call => {
-                    const expr_node: Node = .{ .expr = self.expr.call.callable.* };
-                    expr_node.destroy(gpa);
-
-                    gpa.destroy(self.expr.call.callable);
-
-                    gpa.free(self.expr.call.arguments);
-                },
-
-                else => {},
-            },
-        }
-    }
 };
 
 pub const Parser = struct {

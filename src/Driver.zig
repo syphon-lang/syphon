@@ -2,7 +2,6 @@ const std = @import("std");
 
 const Parser = @import("compiler/ast.zig").Parser;
 const CodeGen = @import("compiler/CodeGen.zig");
-const GarbageCollector = @import("vm/GarbageCollector.zig");
 const VirtualMachine = @import("vm/VirtualMachine.zig");
 
 const Driver = @This();
@@ -148,8 +147,6 @@ fn runRunCommand(self: *Driver) u8 {
         return 0;
     }
 
-    defer self.gpa.free(file_content);
-
     var parser = Parser.init(self.gpa, file_content) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
@@ -164,9 +161,7 @@ fn runRunCommand(self: *Driver) u8 {
         },
     };
 
-    var gc = GarbageCollector.init(self.gpa);
-
-    var gen = CodeGen.init(self.gpa, &gc, .script);
+    var gen = CodeGen.init(self.gpa, .script);
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => {
@@ -176,9 +171,7 @@ fn runRunCommand(self: *Driver) u8 {
         },
     };
 
-    root.destroy(self.gpa);
-
-    var vm = VirtualMachine.init(self.gpa, &gc) catch |err| {
+    var vm = VirtualMachine.init(self.gpa) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;
@@ -191,12 +184,6 @@ fn runRunCommand(self: *Driver) u8 {
     };
 
     vm.setCode(gen.code) catch |err| {
-        std.debug.print("{s}\n", .{errorDescription(err)});
-
-        return 1;
-    };
-
-    vm.addGCRoots() catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;

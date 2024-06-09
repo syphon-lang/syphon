@@ -1,0 +1,11 @@
+.{
+    .name = "syphon",
+    .version = "0.0.0",
+    .dependencies = .{
+        .bdwgc = .{
+            .url = "git+https://github.com/ivmai/bdwgc?ref=master#8915b63d987f6034fa53d42c3a2d8a2b978f0614",
+            .hash = "12208fd4478bfb6937965941c9148f22aed41fe5f0c362a324cdd494ff5037178717",
+        },
+    },
+    .paths = .{""},
+}

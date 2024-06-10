@@ -555,6 +555,28 @@ fn divide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
+    switch (rhs) {
+        .int => {
+            if (rhs.int == 0) {
+                return error.DivisionByZero;
+            }
+        },
+
+        .float => {
+            if (rhs.float == 0) {
+                return error.DivisionByZero;
+            }
+        },
+
+        .boolean => {
+            if (rhs.boolean == false) {
+                return error.DivisionByZero;
+            }
+        },
+
+        else => {},
+    }
+
     switch (lhs) {
         .int => switch (rhs) {
             .int => return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs.int)) / @as(f64, @floatFromInt(rhs.int)) }),

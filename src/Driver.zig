@@ -190,8 +190,23 @@ fn runRunCommand(self: *Driver) u8 {
     };
 
     _ = vm.run() catch |err| switch (err) {
-        // TODO: Handle these cases properly
-        error.DivisionByZero, error.NegativeDenominator => {
+        error.DivisionByZero => {
+            const last_frame = vm.frames.getLast();
+
+            const source_loc = last_frame.function.code.source_locations.items[last_frame.ip];
+
+            std.debug.print("{s}:{}:{}: division by zero\n", .{ options.file_path, source_loc.line, source_loc.column });
+
+            return 1;
+        },
+
+        error.NegativeDenominator => {
+            const last_frame = vm.frames.getLast();
+
+            const source_loc = last_frame.function.code.source_locations.items[last_frame.ip];
+
+            std.debug.print("{s}:{}:{}: negative denominator\n", .{ options.file_path, source_loc.line, source_loc.column });
+
             return 1;
         },
 

@@ -35,9 +35,54 @@ pub const ErrorInfo = struct {
 pub const MAX_FRAMES_COUNT = 64;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 1024;
 
+pub fn StringHashMapRecorder(comptime V: type) type {
+    return struct {
+        gpa: std.mem.Allocator,
+
+        snapshots: std.ArrayList(Inner),
+
+        const K = []const u8;
+
+        const Self = StringHashMapRecorder(V);
+
+        const Inner = std.StringHashMap(V);
+
+        pub fn init(gpa: std.mem.Allocator) std.mem.Allocator.Error!Self {
+            return Self{ .gpa = gpa, .snapshots = try std.ArrayList(Inner).initCapacity(gpa, MAX_FRAMES_COUNT) };
+        }
+
+        pub fn newSnapshot(self: *Self) void {
+            self.snapshots.appendAssumeCapacity(Inner.init(self.gpa));
+        }
+
+        pub fn destroySnapshot(self: *Self) void {
+            _ = self.snapshots.pop();
+        }
+
+        pub fn get(self: *Self, key: K) ?V {
+            var i = self.snapshots.items.len;
+            while (i > 0) : (i -= 1) {
+                if (self.snapshots.items[i - 1].get(key)) |value| {
+                    return value;
+                }
+            }
+
+            return null;
+        }
+
+        pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
+            if (self.snapshots.items.len == 0) {
+                self.newSnapshot();
+            }
+
+            try self.snapshots.items[self.snapshots.items.len - 1].put(key, value);
+        }
+    };
+}
+
 pub const Frame = struct {
     function: *Code.Value.Object.Function,
-    locals: std.StringHashMap(usize),
+    locals: StringHashMapRecorder(usize),
     ip: usize = 0,
     stack_start: usize = 0,
 };
@@ -235,7 +280,7 @@ pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
         var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
         function_on_heap[0] = .{ .name = "", .parameters = &.{}, .code = code };
 
-        try self.frames.append(.{ .function = &function_on_heap[0], .locals = std.StringHashMap(usize).init(self.gpa) });
+        try self.frames.append(.{ .function = &function_on_heap[0], .locals = try StringHashMapRecorder(usize).init(self.gpa) });
     } else {
         self.frames.items[0].function.code = code;
         self.frames.items[0].ip = 0;
@@ -319,12 +364,10 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
 
         .name => {
             const value = blk: {
-                if (frame.locals.contains(info.name)) {
-                    const stack_index = frame.locals.get(info.name).?;
-
+                if (frame.locals.get(info.name)) |stack_index| {
                     break :blk self.stack.items[stack_index];
-                } else if (self.globals.contains(info.name)) {
-                    break :blk self.globals.get(info.name).?;
+                } else if (self.globals.get(info.name)) |value| {
+                    break :blk value;
                 } else {
                     var error_message_buf = std.ArrayList(u8).init(self.gpa);
 
@@ -375,16 +418,18 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
 
     switch (info) {
         .name => {
-            if (frame.locals.contains(info.name) and frame.locals.get(info.name).? >= frame.stack_start) {
-                const stack_index = frame.locals.get(info.name).?;
+            if (frame.locals.get(info.name)) |stack_index| {
+                if (stack_index >= frame.stack_start) {
+                    self.stack.items[stack_index] = value;
 
-                self.stack.items[stack_index] = value;
-            } else {
-                const stack_index = self.stack.items.len;
-                try self.stack.append(value);
-
-                try frame.locals.put(info.name, stack_index);
+                    return;
+                }
             }
+
+            const stack_index = self.stack.items.len;
+            try self.stack.append(value);
+
+            try frame.locals.put(info.name, stack_index);
         },
 
         .subscript => {
@@ -825,16 +870,12 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
             .function => {
                 try self.checkArgumentsCount(callable.object.function.parameters.len, info.arguments_count, source_loc);
 
-                const stack_start = self.stack.items.len;
+                frame.locals.newSnapshot();
 
-                var shadowed_locals = std.StringHashMap(usize).init(self.gpa);
+                const stack_start = self.stack.items.len;
 
                 for (callable.object.function.parameters, 0..) |parameter, i| {
                     try self.stack.append(arguments.items[i]);
-
-                    if (frame.locals.get(parameter)) |shadowed_local| {
-                        try shadowed_locals.put(parameter, shadowed_local);
-                    }
 
                     try frame.locals.put(parameter, stack_start + i);
                 }
@@ -845,15 +886,9 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
 
                 self.stack.shrinkRetainingCapacity(stack_start);
 
-                _ = self.frames.pop();
+                frame.locals.destroySnapshot();
 
-                for (callable.object.function.parameters) |parameter| {
-                    if (shadowed_locals.get(parameter)) |shadowed_local| {
-                        try frame.locals.put(parameter, shadowed_local);
-                    } else {
-                        _ = frame.locals.remove(parameter);
-                    }
-                }
+                _ = self.frames.pop();
 
                 return self.stack.append(return_value);
             },

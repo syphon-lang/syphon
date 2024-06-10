@@ -825,20 +825,33 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
 
                 const stack_start = self.stack.items.len;
 
-                var locals = try frame.locals.clone();
+                var shadowed_locals = std.StringHashMap(usize).init(self.gpa);
 
                 for (callable.object.function.parameters, 0..) |parameter, i| {
                     try self.stack.append(arguments.items[i]);
-                    try locals.put(parameter, stack_start + i);
+
+                    if (frame.locals.get(parameter)) |shadowed_local| {
+                        try shadowed_locals.put(parameter, shadowed_local);
+                    }
+
+                    try frame.locals.put(parameter, stack_start + i);
                 }
 
-                try self.frames.append(.{ .function = callable.object.function, .locals = locals, .stack_start = stack_start });
+                try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals, .stack_start = stack_start });
 
                 const return_value = try self.run();
 
                 self.stack.shrinkRetainingCapacity(stack_start);
 
                 _ = self.frames.pop();
+
+                for (callable.object.function.parameters) |parameter| {
+                    if (shadowed_locals.get(parameter)) |shadowed_local| {
+                        try frame.locals.put(parameter, shadowed_local);
+                    } else {
+                        _ = frame.locals.remove(parameter);
+                    }
+                }
 
                 return self.stack.append(return_value);
             },

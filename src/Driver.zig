@@ -210,6 +210,12 @@ fn runRunCommand(self: *Driver) u8 {
             return 1;
         },
 
+        error.StackOverflow => {
+            std.debug.print("{s}: stack overflow\n", .{options.file_path});
+
+            return 1;
+        },
+
         else => {
             std.debug.print("{s}:{}:{}: {s}\n", .{ options.file_path, vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
 

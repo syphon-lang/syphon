@@ -7,7 +7,7 @@ const Driver = @import("Driver.zig");
 pub fn main() u8 {
     const allocator = GarbageCollector.allocator();
 
-    var argiterator = std.process.argsWithAllocator(allocator) catch |err| {
+    var args_iterator = std.process.argsWithAllocator(allocator) catch |err| {
         std.debug.print("{s}\n", .{Driver.errorDescription(err)});
 
         return 1;
@@ -15,5 +15,5 @@ pub fn main() u8 {
 
     var driver = Driver.init(allocator);
 
-    return driver.run(&argiterator);
+    return driver.run(&args_iterator);
 }

@@ -375,23 +375,45 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                 return error.UnexpectedValue;
             }
 
-            if (target != .object and target.object != .array) {
-                self.error_info = .{ .message = "target is not an array", .source_loc = source_loc };
+            switch (target) {
+                .object => switch (target.object) {
+                    .array => {
+                        if (index.int < 0) {
+                            index.int += @as(i64, @intCast(target.object.array.values.items.len));
+                        }
 
-                return error.UnexpectedValue;
+                        if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
+                            self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+
+                            return error.IndexOverflow;
+                        }
+
+                        return self.stack.append(target.object.array.values.items[@as(usize, @intCast(index.int))]);
+                    },
+
+                    .string => {
+                        if (index.int < 0) {
+                            index.int += @as(i64, @intCast(target.object.string.content.len));
+                        }
+
+                        if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.string.content.len))) {
+                            self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+
+                            return error.IndexOverflow;
+                        }
+
+                        return self.stack.append(.{ .object = .{ .string = .{ .content = &.{target.object.string.content[@as(usize, @intCast(index.int))]} } } });
+                    },
+
+                    else => {},
+                },
+
+                else => {},
             }
 
-            if (index.int < 0) {
-                index.int += @as(i64, @intCast(target.object.array.values.items.len));
-            }
+            self.error_info = .{ .message = "target is not an array nor string", .source_loc = source_loc };
 
-            if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
-                self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
-
-                return error.IndexOverflow;
-            }
-
-            try self.stack.append(target.object.array.values.items[@as(usize, @intCast(index.int))]);
+            return error.UnexpectedValue;
         },
     }
 }

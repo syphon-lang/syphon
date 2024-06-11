@@ -32,8 +32,8 @@ pub const ErrorInfo = struct {
     source_loc: SourceLoc,
 };
 
-pub const MAX_FRAMES_COUNT = 64;
-pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 1024;
+pub const MAX_FRAMES_COUNT = 100;
+pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
 pub fn StringHashMapRecorder(comptime V: type) type {
     return struct {

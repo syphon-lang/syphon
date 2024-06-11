@@ -4,8 +4,7 @@ A general-purpose programming language for scripting and all sort of stuff
 
 ## Documentation
 
-We only have a [markdown files](docs) to explain the language in detatil
-Looking forward to make a website explaining it more
+We only have a [markdown files](docs) to explain the language in detatil, Looking forward to make a website explaining it even deeper
 
 ## Installing
 
@@ -34,3 +33,9 @@ zig build -Doptimize=ReleaseSafe
 ```
 zig build
 ```
+
+## Troubleshooting
+
+### GC Warning: Could not open /proc/stat
+
+This occurs because the Garbage Collector doesn't have the permission to know what cpu cores are available and then uses 1 core as a default, to solve this just set GC_NPROCS environment variable as the amount of cpu cores you have

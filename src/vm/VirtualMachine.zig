@@ -51,11 +51,11 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             return Self{ .gpa = gpa, .snapshots = try std.ArrayList(Inner).initCapacity(gpa, MAX_FRAMES_COUNT) };
         }
 
-        pub fn newSnapshot(self: *Self) void {
+        pub inline fn newSnapshot(self: *Self) void {
             self.snapshots.appendAssumeCapacity(Inner.init(self.gpa));
         }
 
-        pub fn destroySnapshot(self: *Self) void {
+        pub inline fn destroySnapshot(self: *Self) void {
             _ = self.snapshots.pop();
         }
 
@@ -305,27 +305,10 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
 
             .store => try self.store(instruction.store, source_loc, frame),
 
-            .jump => {
-                const info = instruction.jump;
+            .jump => jump(instruction.jump, frame),
+            .back => back(instruction.back, frame),
 
-                frame.ip += info.offset;
-            },
-
-            .jump_if_false => {
-                const value = self.stack.pop();
-
-                if (!value.is_truthy()) {
-                    const info = instruction.jump_if_false;
-
-                    frame.ip += info.offset;
-                }
-            },
-
-            .back => {
-                const info = instruction.back;
-
-                frame.ip -= info.offset;
-            },
+            .jump_if_false => self.jump_if_false(instruction.jump_if_false, frame),
 
             .make => try self.make(instruction.make),
 
@@ -463,15 +446,31 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
     }
 }
 
+inline fn jump(info: Code.Instruction.Jump, frame: *Frame) void {
+    frame.ip += info.offset;
+}
+
+inline fn back(info: Code.Instruction.Back, frame: *Frame) void {
+    frame.ip -= info.offset;
+}
+
+inline fn jump_if_false(self: *VirtualMachine, info: Code.Instruction.JumpIfFalse, frame: *Frame) void {
+    const value = self.stack.pop();
+
+    if (!value.is_truthy()) {
+        frame.ip += info.offset;
+    }
+}
+
 fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     switch (info) {
         .array => {
-            var values = std.ArrayList(Code.Value).init(self.gpa);
+            var values = try std.ArrayList(Code.Value).initCapacity(self.gpa, info.array.length);
 
             for (0..info.array.length) |_| {
                 const value = self.stack.pop();
 
-                try values.insert(0, value);
+                values.insertAssumeCapacity(0, value);
             }
 
             const array: Code.Value.Object.Array = .{ .values = values };
@@ -500,7 +499,7 @@ fn neg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn not(self: *VirtualMachine) Error!void {
+inline fn not(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
 
     try self.stack.append(.{ .boolean = !rhs.is_truthy() });
@@ -768,14 +767,14 @@ fn modulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn not_equals(self: *VirtualMachine) Error!void {
+inline fn not_equals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
     return self.stack.append(.{ .boolean = !lhs.eql(rhs, false) });
 }
 
-fn equals(self: *VirtualMachine) Error!void {
+inline fn equals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -912,7 +911,7 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
     return error.BadOperand;
 }
 
-fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: SourceLoc) Error!void {
+inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: SourceLoc) Error!void {
     if (required_count != arguments_count) {
         var error_message_buf = std.ArrayList(u8).init(self.gpa);
 

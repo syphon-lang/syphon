@@ -917,7 +917,7 @@ fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_c
         var error_message_buf = std.ArrayList(u8).init(self.gpa);
 
         const argument_or_arguments = blk: {
-            if (arguments_count != 1) {
+            if (required_count != 1) {
                 break :blk "arguments";
             } else {
                 break :blk "argument";

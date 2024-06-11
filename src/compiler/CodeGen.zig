@@ -444,6 +444,26 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.{ .subtract = {} });
             },
+
+            .forward_slash => {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .divide = {} });
+            },
+
+            .star => {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .multiply = {} });
+            },
+
+            .double_star => {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .exponent = {} });
+            },
+
+            .percent => {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .modulo = {} });
+            },
         }
 
         try self.code.source_locations.append(assignment.source_loc);

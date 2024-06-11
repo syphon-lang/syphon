@@ -1,21 +1,20 @@
 start = time()
 
-result = 0
+result = 1
 
 i = 1
 
 while i < 10000000 {
-    result = result + i
-    result = result - i
-    result = result * i
-    result = result / i
-    result = result ** i
+    result %= i
+    result += i
+    result -= i
+    result /= i
+    result *= i
+    result **= i
 
     i += 1
 }
 
 end = time()
-
-println(result)
 
 println("Took", (end - start) * 10 ** -6, "ms")

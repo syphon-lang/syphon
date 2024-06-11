@@ -8,7 +8,7 @@ fn fib(n) {
 
 start = time()
 
-println(fib(35))
+fib(35)
 
 end = time()
 

@@ -147,6 +147,10 @@ pub const Node = union(enum) {
                 none,
                 plus,
                 minus,
+                forward_slash,
+                star,
+                double_star,
+                percent,
             };
         };
 
@@ -419,7 +423,7 @@ pub const Parser = struct {
 
         fn from(token: Token) Precedence {
             return switch (token.tag) {
-                .plus_equal_sign, .minus_equal_sign, .equal_sign => .assign,
+                .plus_equal_sign, .minus_equal_sign, .forward_slash_equal_sign, .star_equal_sign, .double_star_equal_sign, .percent_equal_sign, .equal_sign => .assign,
 
                 .bang_equal_sign, .double_equal_sign, .greater_than, .less_than => .comparison,
 
@@ -582,6 +586,10 @@ pub const Parser = struct {
             .equal_sign => return self.parseAssignmentExpr(lhs, .none),
             .plus_equal_sign => return self.parseAssignmentExpr(lhs, .plus),
             .minus_equal_sign => return self.parseAssignmentExpr(lhs, .minus),
+            .forward_slash_equal_sign => return self.parseAssignmentExpr(lhs, .forward_slash),
+            .star_equal_sign => return self.parseAssignmentExpr(lhs, .star),
+            .double_star_equal_sign => return self.parseAssignmentExpr(lhs, .double_star),
+            .percent_equal_sign => return self.parseAssignmentExpr(lhs, .percent),
 
             .open_bracket => return self.parseArraySubscriptExpr(lhs),
 

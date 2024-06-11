@@ -14,11 +14,13 @@ pub const State = enum {
     identifier,
     string_literal,
     number,
-    star,
+    bang,
     equal_sign,
     plus,
     minus,
-    bang,
+    forward_slash,
+    percent,
+    star,
 };
 
 pub fn init(buffer: [:0]const u8) Lexer {
@@ -121,18 +123,14 @@ pub fn next(self: *Lexer) Token {
 
                 '/' => {
                     result.buffer_loc.start = self.index;
-                    self.index += 1;
-                    result.buffer_loc.end = self.index;
                     result.tag = .forward_slash;
-                    break;
+                    self.state = .forward_slash;
                 },
 
                 '%' => {
                     result.buffer_loc.start = self.index;
-                    self.index += 1;
-                    result.buffer_loc.end = self.index;
                     result.tag = .percent;
-                    break;
+                    self.state = .percent;
                 },
 
                 '*' => {
@@ -256,22 +254,6 @@ pub fn next(self: *Lexer) Token {
                 },
             },
 
-            .star => switch (current_char) {
-                '*' => {
-                    self.index += 1;
-                    result.buffer_loc.end = self.index;
-                    result.tag = .double_star;
-                    self.state = .start;
-                    break;
-                },
-
-                else => {
-                    result.buffer_loc.end = self.index;
-                    self.state = .start;
-                    break;
-                },
-            },
-
             .equal_sign => switch (current_char) {
                 '=' => {
                     self.index += 1;
@@ -327,6 +309,58 @@ pub fn next(self: *Lexer) Token {
                     result.tag = .minus_equal_sign;
                     self.state = .start;
                     break;
+                },
+
+                else => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+            },
+
+            .forward_slash => switch (current_char) {
+                '=' => {
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .forward_slash_equal_sign;
+                    self.state = .start;
+                    break;
+                },
+
+                else => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+            },
+
+            .percent => switch (current_char) {
+                '=' => {
+                    self.index += 1;
+                    result.buffer_loc.end = self.index;
+                    result.tag = .percent_equal_sign;
+                    self.state = .start;
+                    break;
+                },
+
+                else => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    break;
+                },
+            },
+
+            .star => switch (current_char) {
+                '*' => {
+                    result.tag = .double_star;
+                },
+
+                '=' => {
+                    if (result.tag == .star) {
+                        result.tag = .star_equal_sign;
+                    } else {
+                        result.tag = .double_star_equal_sign;
+                    }
                 },
 
                 else => {

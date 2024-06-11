@@ -1,0 +1,37 @@
+fn selection_sort(arr) {
+    let i = 0;
+
+    while i < len(arr) {
+        let swap_idx = i;
+
+        let j = i + 1;
+
+        while j < len(arr) {
+            if arr[j] < arr[swap_idx] {
+                swap_idx = j;
+            }
+
+
+            j += 1;
+        }
+
+        if swap_idx != i {
+            let temp = arr[i];
+            arr[i] = arr[swap_idx];
+            arr[swap_idx] = temp;
+        }
+
+
+        i += 1;
+    }
+}
+
+let arr = [5, 8, 10, 19, 9, 7, 12];
+
+println("First state of the Array:", arr);
+
+selection_sort(arr);
+
+println("Sorted the Array correctly:", arr == [5, 7, 8, 9, 10, 12, 19]);
+
+println("Final state of the Array:", arr);

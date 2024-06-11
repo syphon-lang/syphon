@@ -2,7 +2,7 @@ let start = time();
 
 let result = 0;
 
-let i = 0;
+let i = 1;
 while i < 10000000 {
     result = result + i;
     result = result - i;

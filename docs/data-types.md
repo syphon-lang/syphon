@@ -23,14 +23,6 @@ A 64-bit floating-points number
 200.19
 ```
 
-## String
-
-A list of characters
-
-```
-"Hello, World!"
-```
-
 ## Boolean
 
 A true or A false
@@ -38,6 +30,14 @@ A true or A false
 ```
 true
 false
+```
+
+## String
+
+An immutable list of characters
+
+```
+"Hello, World!"
 ```
 
 ## Array

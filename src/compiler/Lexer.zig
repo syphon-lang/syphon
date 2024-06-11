@@ -35,7 +35,7 @@ pub fn next(self: *Lexer) Token {
             .start => switch (current_char) {
                 0 => break,
 
-                ' ', '\r', '\n', '\t' => {},
+                ' ', '\r', '\n', '\t', ';' => {},
 
                 '#' => {
                     self.state = .comment;
@@ -174,14 +174,6 @@ pub fn next(self: *Lexer) Token {
                     self.index += 1;
                     result.buffer_loc.end = self.index;
                     result.tag = .comma;
-                    break;
-                },
-
-                ';' => {
-                    result.buffer_loc.start = self.index;
-                    self.index += 1;
-                    result.buffer_loc.end = self.index;
-                    result.tag = .semicolon;
                     break;
                 },
 

@@ -82,8 +82,6 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
 
 fn compileStmt(self: *CodeGen, stmt: ast.Node.Stmt) Error!void {
     switch (stmt) {
-        .variable_declaration => try self.compileVariableDeclarationStmt(stmt.variable_declaration),
-
         .function_declaration => try self.compileFunctionDeclarationStmt(stmt.function_declaration),
 
         .conditional => try self.compileConditionalStmt(stmt.conditional),
@@ -95,23 +93,6 @@ fn compileStmt(self: *CodeGen, stmt: ast.Node.Stmt) Error!void {
         .@"continue" => try self.compileContinueStmt(stmt.@"continue"),
 
         .@"return" => try self.compileReturnStmt(stmt.@"return"),
-    }
-}
-
-fn compileVariableDeclarationStmt(self: *CodeGen, variable_declaration: ast.Node.Stmt.VariableDeclaration) Error!void {
-    if (variable_declaration.value == null) {
-        try self.code.source_locations.append(variable_declaration.name.source_loc);
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    } else {
-        try self.compileExpr(variable_declaration.value.?);
-    }
-
-    try self.code.source_locations.append(variable_declaration.name.source_loc);
-    try self.code.instructions.append(.{ .store = .{ .name = variable_declaration.name.buffer } });
-
-    if (self.context.mode == .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
     }
 }
 
@@ -281,12 +262,7 @@ fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void
         return error.UnexpectedReturn;
     }
 
-    if (@"return".value == null) {
-        try self.code.source_locations.append(@"return".source_loc);
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    } else {
-        try self.compileExpr(@"return".value.?);
-    }
+    try self.compileExpr(@"return".value);
 
     try self.code.source_locations.append(@"return".source_loc);
     try self.code.instructions.append(.{ .@"return" = {} });

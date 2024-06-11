@@ -22,18 +22,12 @@ pub const Node = union(enum) {
     expr: Expr,
 
     pub const Stmt = union(enum) {
-        variable_declaration: VariableDeclaration,
         function_declaration: FunctionDeclaration,
         conditional: Conditional,
         while_loop: WhileLoop,
         @"break": Break,
         @"continue": Continue,
         @"return": Return,
-
-        pub const VariableDeclaration = struct {
-            name: Name,
-            value: ?Expr,
-        };
 
         pub const FunctionDeclaration = struct {
             name: Name,
@@ -61,7 +55,7 @@ pub const Node = union(enum) {
         };
 
         pub const Return = struct {
-            value: ?Expr,
+            value: Expr,
             source_loc: SourceLoc,
         };
     };
@@ -275,8 +269,6 @@ pub const Parser = struct {
 
     fn parseStmt(self: *Parser) Error!Node {
         return switch (self.peekToken().tag) {
-            .keyword_let => self.parseVariableDeclarationStmt(),
-
             .keyword_fn => self.parseFunctionDeclarationStmt(),
 
             .keyword_if => self.parseConditionalStmt(),
@@ -292,43 +284,9 @@ pub const Parser = struct {
             else => {
                 const expr = self.parseExpr(.lowest);
 
-                _ = self.expectToken(.semicolon);
-
                 return expr;
             },
         };
-    }
-
-    fn parseVariableDeclarationStmt(self: *Parser) Error!Node {
-        _ = self.nextToken();
-
-        const name = try self.parseName();
-
-        const value = switch (self.peekToken().tag) {
-            .semicolon => blk: {
-                _ = self.nextToken();
-
-                break :blk null;
-            },
-
-            .equal_sign => blk: {
-                _ = self.nextToken();
-
-                const value = (try self.parseExpr(.lowest)).expr;
-
-                _ = self.expectToken(.semicolon);
-
-                break :blk value;
-            },
-
-            else => {
-                self.error_info = .{ .message = "expected a ';' or '='", .source_loc = self.tokenSourceLoc(self.peekToken()) };
-
-                return error.UnexpectedToken;
-            },
-        };
-
-        return Node{ .stmt = .{ .variable_declaration = .{ .name = name, .value = value } } };
     }
 
     fn parseFunctionDeclarationStmt(self: *Parser) Error!Node {
@@ -431,15 +389,11 @@ pub const Parser = struct {
     fn parseBreakStmt(self: *Parser) Error!Node {
         const break_token = self.nextToken();
 
-        _ = self.expectToken(.semicolon);
-
         return Node{ .stmt = .{ .@"break" = .{ .source_loc = self.tokenSourceLoc(break_token) } } };
     }
 
     fn parseContinueStmt(self: *Parser) Error!Node {
         const continue_token = self.nextToken();
-
-        _ = self.expectToken(.semicolon);
 
         return Node{ .stmt = .{ .@"continue" = .{ .source_loc = self.tokenSourceLoc(continue_token) } } };
     }
@@ -447,21 +401,7 @@ pub const Parser = struct {
     fn parseReturnStmt(self: *Parser) Error!Node {
         const return_token = self.nextToken();
 
-        const value = switch (self.peekToken().tag) {
-            .semicolon => blk: {
-                _ = self.nextToken();
-
-                break :blk null;
-            },
-
-            else => blk: {
-                const value = (try self.parseExpr(.lowest)).expr;
-
-                _ = self.expectToken(.semicolon);
-
-                break :blk value;
-            },
-        };
+        const value = (try self.parseExpr(.lowest)).expr;
 
         return Node{ .stmt = .{ .@"return" = .{ .value = value, .source_loc = self.tokenSourceLoc(return_token) } } };
     }
@@ -501,7 +441,7 @@ pub const Parser = struct {
     fn parseExpr(self: *Parser, precedence: Precedence) Error!Node {
         var lhs = try self.parseUnaryExpr();
 
-        while (self.peekToken().tag != .semicolon and @intFromEnum(Precedence.from(self.peekToken())) > @intFromEnum(precedence)) {
+        while (@intFromEnum(Precedence.from(self.peekToken())) > @intFromEnum(precedence)) {
             lhs = try self.parseBinaryExpr(lhs);
         }
 

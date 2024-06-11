@@ -1,15 +1,15 @@
 fn fib(n) {
   if n < 2 {
-    return n;
+    return n
   }
 
-  return fib(n - 2) + fib(n - 1);
+  return fib(n - 2) + fib(n - 1)
 }
 
-let start = time();
+start = time()
 
-println(fib(35));
+println(fib(35))
 
-let end = time();
+end = time()
 
-println("Took", (end - start) * 10 ** -6, "ms");
+println("Took", (end - start) * 10 ** -6, "ms")

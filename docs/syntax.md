@@ -1,17 +1,5 @@
 # Syphon's Syntax
 
-## Variable Declaration
-
-- Initialzed Variable
-```
-let variable_name = variable_value
-```
-
-- None-Initialized Variable
-```
-let variable_name;
-```
-
 ## Function Declaration
 
 - No Parameters
@@ -66,13 +54,41 @@ while condition {
 # This is a comment
 ```
 
-## Array Subscript
+## Subscript
 
 ```
-let a = [0, 1, 2, 3, 4, 5];
+arr = [0, 1, 2, 3, 4, 5]
 
-a[0] # 0
-a[-1] # 5
-a[6] # error: index out of bounds
-a[-7] # error: index out of bounds
+str = "aaa"
+
+arr[0] # 0
+arr[-1] # 5
+arr[6] # error: index out of bounds
+arr[-7] # error: index out of bounds
+
+str[0] # a
+```
+
+## Assignment
+
+- Name Assignment
+
+```
+name = "yhya"
+```
+
+- Subscript Assignment (Only for Arrays, Strings are immutable)
+
+```
+arr = [0, 1, 2, 3, 4, 5]
+
+arr[0] = 6
+```
+
+- Multiple Assignments
+
+```
+arr = [0, 1, 2, 3, 4, 5]
+
+name = arr[0] = "yhya"
 ```

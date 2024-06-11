@@ -1,9 +1,9 @@
-let arr = [0, 2, 4, 3, 5];
+arr = [0, 2, 4, 3, 5]
 
-println("The Array to Subscript:", arr);
-println("Got a Subscript of Array at index 3:", arr[3] == 3);
+println("The Array to Subscript:", arr)
+println("Got a Subscript of Array at index 3:", arr[3] == 3)
 
-let str = "Hello, World!";
+str = "Hello, World!"
 
-println("The String to Subscript:", str);
-println("Got a Subscript of String at index 3:", str[3] == "l");
+println("The String to Subscript:", str)
+println("Got a Subscript of String at index 3:", str[3] == "l")

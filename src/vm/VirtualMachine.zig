@@ -346,23 +346,19 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
         },
 
         .name => {
-            const value = blk: {
-                if (frame.locals.get(info.name)) |stack_index| {
-                    break :blk self.stack.items[stack_index];
-                } else if (self.globals.get(info.name)) |value| {
-                    break :blk value;
-                } else {
-                    var error_message_buf = std.ArrayList(u8).init(self.gpa);
+            if (frame.locals.get(info.name)) |stack_index| {
+                try self.stack.append(self.stack.items[stack_index]);
+            } else if (self.globals.get(info.name)) |value| {
+                try self.stack.append(value);
+            } else {
+                var error_message_buf = std.ArrayList(u8).init(self.gpa);
 
-                    try error_message_buf.writer().print("undefined name '{s}'", .{info.name});
+                try error_message_buf.writer().print("undefined name '{s}'", .{info.name});
 
-                    self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+                self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
 
-                    return error.UndefinedName;
-                }
-            };
-
-            try self.stack.append(value);
+                return error.UndefinedName;
+            }
         },
 
         .subscript => {

@@ -11,8 +11,6 @@ pub fn allocator() std.mem.Allocator {
 
     bdwgc.GC_set_warn_proc(&bdwgc.GC_ignore_warn_proc);
 
-    bdwgc.GC_enable_incremental();
-
     return std.mem.Allocator{
         .ptr = undefined,
         .vtable = &.{

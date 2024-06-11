@@ -65,48 +65,42 @@ pub fn init(gpa: std.mem.Allocator) Driver {
     return Driver{ .gpa = gpa, .cli = .{} };
 }
 
-fn parseArgs(self: *Driver, argiterator: *std.process.ArgIterator) bool {
-    const program = argiterator.next().?;
+fn parseArgs(self: *Driver, args_iterator: *std.process.ArgIterator) bool {
+    const program = args_iterator.next().?;
 
-    var arg = argiterator.next();
+    while (args_iterator.next()) |arg| {
+        if (std.mem.eql(u8, arg, "run")) {
+            if (args_iterator.next()) |file_path| {
+                self.cli.command = .{ .run = .{ .file_path = file_path } };
 
-    while (arg != null) : (arg = argiterator.next()) {
-        if (std.mem.eql(u8, arg.?, "run")) {
-            const file_path = argiterator.next();
-
-            if (file_path == null) {
+                return false;
+            } else {
                 std.debug.print(run_command_usage, .{program});
 
                 std.debug.print("Error: expected a file path\n", .{});
-
-                return true;
             }
-
-            self.cli.command = .{ .run = .{ .file_path = file_path.? } };
-
-            return false;
         } else {
             std.debug.print(usage, .{program});
 
-            std.debug.print("Error: {s} is an unknown command\n", .{arg.?});
-
-            return true;
+            std.debug.print("Error: {s} is an unknown command\n", .{arg});
         }
-    }
-
-    if (self.cli.command == null) {
-        std.debug.print(usage, .{program});
-
-        std.debug.print("Error: no command provided\n", .{});
 
         return true;
     }
 
-    return false;
+    if (self.cli.command != null) {
+        return false;
+    }
+
+    std.debug.print(usage, .{program});
+
+    std.debug.print("Error: no command provided\n", .{});
+
+    return true;
 }
 
-pub fn run(self: *Driver, argiterator: *std.process.ArgIterator) u8 {
-    if (self.parseArgs(argiterator)) return 1;
+pub fn run(self: *Driver, args_iterator: *std.process.ArgIterator) u8 {
+    if (self.parseArgs(args_iterator)) return 1;
 
     switch (self.cli.command.?) {
         .run => return self.runRunCommand(),

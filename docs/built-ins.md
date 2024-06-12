@@ -113,7 +113,7 @@ array_pop(2) # none
 
 - length
 
-Gives you the length of an array or a string or a hash map, if any thing other than that is provided it will return none
+Gives you the length of an array or a string or a map, if any thing other than that is provided it will return none
 
 ```
 arr = [1, 2, 3]

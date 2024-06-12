@@ -604,7 +604,7 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
                 else => {},
             }
 
-            self.error_info = .{ .message = "target is not an array nor hash map", .source_loc = source_loc };
+            self.error_info = .{ .message = "target is not an array nor map", .source_loc = source_loc };
 
             return error.UnexpectedValue;
         },

@@ -91,38 +91,40 @@ pub const Code = struct {
         pub const HashContext = struct {
             pub fn hashable(key: Value) bool {
                 return switch (key) {
-                    .int, .float, .boolean => true,
-
                     .object => switch (key.object) {
                         .string => true,
 
                         else => false,
                     },
 
-                    else => false,
+                    else => true,
                 };
             }
 
             pub fn hash(ctx: HashContext, key: Value) u64 {
                 _ = ctx;
 
-                var hasher = std.hash.Wyhash.init(0);
+                return switch (key) {
+                    .none => 0,
 
-                switch (key) {
-                    .int => hasher.update(std.mem.asBytes(&@as(f64, @floatFromInt(key.int)))),
-                    .float => hasher.update(std.mem.asBytes(&key.float)),
-                    .boolean => hasher.update(std.mem.asBytes(&@as(f64, @floatFromInt(@intFromBool(key.boolean))))),
+                    .int => @intCast(key.int),
+
+                    .float => @intFromFloat(key.float),
+
+                    .boolean => @intFromBool(key.boolean),
 
                     .object => switch (key.object) {
-                        .string => hasher.update(key.object.string.content),
+                        .string => blk: {
+                            var hasher = std.hash.Wyhash.init(0);
+
+                            hasher.update(key.object.string.content);
+
+                            break :blk hasher.final();
+                        },
 
                         else => unreachable,
                     },
-
-                    else => {},
-                }
-
-                return hasher.final();
+                };
             }
 
             pub fn eql(ctx: HashContext, lhs: Value, rhs: Value) bool {

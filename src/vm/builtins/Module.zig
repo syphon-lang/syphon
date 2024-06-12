@@ -23,16 +23,16 @@ fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
     const file_path = arguments[0].object.string.content;
 
     if (std.mem.eql(u8, file_path, "math")) {
-        return getMathModule(vm);
+        return getMathModule(vm.gpa);
     } else {
         return getExportedValue(vm, file_path);
     }
 }
 
-fn getMathModule(vm: *VirtualMachine) VirtualMachine.Code.Value {
+fn getMathModule(gpa: std.mem.Allocator) VirtualMachine.Code.Value {
     const Math = @import("Math.zig");
 
-    const globals = Math.getGlobals(vm) catch |err| switch (err) {
+    const globals = Math.getExports(gpa) catch |err| switch (err) {
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 

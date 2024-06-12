@@ -12,7 +12,7 @@ stack: std.ArrayList(Code.Value),
 
 globals: std.StringHashMap(Code.Value),
 
-exports: std.StringHashMap(Code.Value),
+exported_value: Code.Value,
 
 start_time: std.time.Instant,
 
@@ -341,7 +341,7 @@ pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
 pub fn init(gpa: std.mem.Allocator) Error!VirtualMachine {
-    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .exports = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
+    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .exported_value = .{ .none = {} }, .start_time = try std.time.Instant.now() };
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {

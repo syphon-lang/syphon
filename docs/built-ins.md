@@ -166,15 +166,15 @@ to_string({2: 4}) # "{2: 4}"
 
 - export
 
-Exports a specific value to the users of this module
+Change the value exported the users of this module, if not changed the module will export none value
 
 ```
-export("hey", 5)
+export({"hey": 5})
 ```
 
 - import
 
-Imports a file and returns its exports as a map, if failed while importing it will return a none value
+Runs a file and gives you the exported value
 
 ```
 import("some_file.sy") # {"hey": 5}

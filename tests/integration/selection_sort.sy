@@ -1,12 +1,12 @@
 fn selection_sort(arr) {
     i = 0
 
-    while i < len(arr) {
+    while i < length(arr) {
         swap_idx = i
 
         j = i + 1
 
-        while j < len(arr) {
+        while j < length(arr) {
             if arr[j] < arr[swap_idx] {
                 swap_idx = j
             }

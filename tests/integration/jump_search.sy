@@ -1,5 +1,5 @@
 fn jump_search(arr, val, idx, jump_by) {
-    if idx > len(arr) {
+    if idx > length(arr) {
         return jump_search(arr, val, idx - jump_by, 1)
     } else if arr[idx] > val {
         return jump_search(arr, val, idx - jump_by, 1)

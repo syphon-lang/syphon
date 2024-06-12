@@ -111,7 +111,7 @@ array_pop(arr) # none
 array_pop(2) # none
 ```
 
-- len
+- length
 
 Gives you the length of an array or a string or a hash map, if any thing other than that is provided it will return none
 
@@ -122,10 +122,10 @@ str = "aaa"
 
 map = {1, 2, 3}
 
-len(str) # 3
-len(arr) # 3
-len(map) # 3
-len(89) # none
+length(str) # 3
+length(arr) # 3
+length(map) # 3
+length(89) # none
 ```
 
 - to_int

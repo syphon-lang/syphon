@@ -5,7 +5,7 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("array_push", .{ .object = .{ .native_function = .{ .name = "array_push", .required_arguments_count = 2, .call = &array_push } } });
     try vm.globals.put("array_pop", .{ .object = .{ .native_function = .{ .name = "array_pop", .required_arguments_count = 1, .call = &array_pop } } });
-    try vm.globals.put("len", .{ .object = .{ .native_function = .{ .name = "len", .required_arguments_count = 1, .call = &len } } });
+    try vm.globals.put("length", .{ .object = .{ .native_function = .{ .name = "length", .required_arguments_count = 1, .call = &length } } });
 }
 
 fn array_push(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
@@ -41,7 +41,7 @@ fn array_pop(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) 
     return array.values.popOrNull() orelse VirtualMachine.Code.Value{ .none = {} };
 }
 
-fn len(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn length(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
     _ = vm;
 
     const value = arguments[0];

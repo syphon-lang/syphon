@@ -19,6 +19,7 @@ error_info: ?ErrorInfo = null,
 pub const Error = error{
     BadOperand,
     UndefinedName,
+    UndefinedKey,
     UnexpectedValue,
     DivisionByZero,
     NegativeDenominator,
@@ -54,6 +55,7 @@ pub const Code = struct {
         pub const Object = union(enum) {
             string: String,
             array: *Array,
+            map: *Map,
             function: *Function,
             native_function: NativeFunction,
 
@@ -63,6 +65,12 @@ pub const Code = struct {
 
             pub const Array = struct {
                 values: std.ArrayList(Value),
+            };
+
+            pub const Map = struct {
+                pub const Inner = std.HashMap(Value, Value, Value.HashContext, std.hash_map.default_max_load_percentage);
+
+                inner: Inner,
             };
 
             pub const Function = struct {
@@ -78,6 +86,31 @@ pub const Code = struct {
             };
         };
 
+        pub const HashContext = struct {
+            pub fn hash(ctx: HashContext, key: Value) u64 {
+                _ = ctx;
+
+                var hasher = std.hash.Wyhash.init(0);
+
+                switch (key) {
+                    .int => hasher.update(std.mem.asBytes(&@as(f64, @floatFromInt(key.int)))),
+                    .float => hasher.update(std.mem.asBytes(&key.float)),
+                    .boolean => hasher.update(std.mem.asBytes(&@as(f64, @floatFromInt(@intFromBool(key.boolean))))),
+
+                    .object => hasher.update(std.mem.asBytes(&key)),
+
+                    else => {},
+                }
+
+                return hasher.final();
+            }
+
+            pub fn eql(ctx: HashContext, lhs: Value, rhs: Value) bool {
+                _ = ctx;
+                return lhs.eql(rhs, false);
+            }
+        };
+
         pub fn is_truthy(self: Value) bool {
             return switch (self) {
                 .none => false,
@@ -87,6 +120,7 @@ pub const Code = struct {
                 .object => switch (self.object) {
                     .string => self.object.string.content.len != 0,
                     .array => self.object.array.values.items.len != 0,
+                    .map => self.object.map.inner.count() != 0,
                     else => true,
                 },
             };
@@ -120,6 +154,28 @@ pub const Code = struct {
                                     return false;
                                 }
                             } else if (!lhs.object.array.values.items[i].eql(rhs.object.array.values.items[i], false)) {
+                                return false;
+                            }
+                        }
+                    },
+
+                    .map => {
+                        if (!(rhs == .object and rhs.object == .map)) {
+                            return false;
+                        }
+
+                        var lhs_map_iterator = lhs.object.map.inner.iterator();
+
+                        while (lhs_map_iterator.next()) |lhs_entry| {
+                            if (rhs.object.map.inner.get(lhs_entry.key_ptr.*)) |rhs_entry_value| {
+                                if (lhs_entry.value_ptr.* == .object and lhs_entry.value_ptr.object == .map and lhs_entry.value_ptr.object.map == lhs.object.map) {
+                                    if (!(rhs_entry_value == .object and rhs_entry_value.object == .map and rhs_entry_value.object.map == lhs.object.map)) {
+                                        return false;
+                                    }
+                                } else if (!lhs_entry.value_ptr.eql(rhs_entry_value, false)) {
+                                    return false;
+                                }
+                            } else {
                                 return false;
                             }
                         }
@@ -183,8 +239,13 @@ pub const Code = struct {
 
         pub const Make = union(enum) {
             array: Array,
+            map: Map,
 
             pub const Array = struct {
+                length: usize,
+            };
+
+            pub const Map = struct {
                 length: usize,
             };
         };
@@ -365,15 +426,15 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
             var index = self.stack.pop();
             const target = self.stack.pop();
 
-            if (index != .int) {
-                self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
-
-                return error.UnexpectedValue;
-            }
-
             switch (target) {
                 .object => switch (target.object) {
                     .array => {
+                        if (index != .int) {
+                            self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
+
+                            return error.UnexpectedValue;
+                        }
+
                         if (index.int < 0) {
                             index.int += @as(i64, @intCast(target.object.array.values.items.len));
                         }
@@ -388,6 +449,12 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                     },
 
                     .string => {
+                        if (index != .int) {
+                            self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
+
+                            return error.UnexpectedValue;
+                        }
+
                         if (index.int < 0) {
                             index.int += @as(i64, @intCast(target.object.string.content.len));
                         }
@@ -399,6 +466,36 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                         }
 
                         return self.stack.append(.{ .object = .{ .string = .{ .content = &.{target.object.string.content[@as(usize, @intCast(index.int))]} } } });
+                    },
+
+                    .map => {
+                        if (index == .object and index.object == .map) {
+                            self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
+
+                            return error.UnexpectedValue;
+                        }
+
+                        if (target.object.map.inner.get(index)) |value| {
+                            return self.stack.append(value);
+                        } else {
+                            const Console = @import("./builtins/Console.zig");
+
+                            var error_message_buf = std.ArrayList(u8).init(self.gpa);
+
+                            var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
+
+                            _ = try buffered_writer.write("undefined key '");
+
+                            try Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
+
+                            _ = try buffered_writer.write("' in map");
+
+                            try buffered_writer.flush();
+
+                            self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+
+                            return error.UndefinedKey;
+                        }
                     },
 
                     else => {},
@@ -437,29 +534,51 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
             var index = self.stack.pop();
             const target = self.stack.pop();
 
-            if (index != .int) {
-                self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
+            switch (target) {
+                .object => switch (target.object) {
+                    .array => {
+                        if (index != .int) {
+                            self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
 
-                return error.UnexpectedValue;
+                            return error.UnexpectedValue;
+                        }
+
+                        if (index.int < 0) {
+                            index.int += @as(i64, @intCast(target.object.array.values.items.len));
+                        }
+
+                        if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
+                            self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+
+                            return error.IndexOverflow;
+                        }
+
+                        target.object.array.values.items[@as(usize, @intCast(index.int))] = value;
+
+                        return;
+                    },
+
+                    .map => {
+                        if (index == .object and index.object == .map) {
+                            self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
+
+                            return error.UnexpectedValue;
+                        }
+
+                        try target.object.map.inner.put(index, value);
+
+                        return;
+                    },
+
+                    else => {},
+                },
+
+                else => {},
             }
 
-            if (target != .object and target.object != .array) {
-                self.error_info = .{ .message = "target is not an array", .source_loc = source_loc };
+            self.error_info = .{ .message = "target is not an array nor hash map", .source_loc = source_loc };
 
-                return error.UnexpectedValue;
-            }
-
-            if (index.int < 0) {
-                index.int += @as(i64, @intCast(target.object.array.values.items.len));
-            }
-
-            if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
-                self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
-
-                return error.IndexOverflow;
-            }
-
-            target.object.array.values.items[@as(usize, @intCast(index.int))] = value;
+            return error.UnexpectedValue;
         },
     }
 }
@@ -497,6 +616,24 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
             array_on_heap[0] = array;
 
             try self.stack.append(.{ .object = .{ .array = &array_on_heap[0] } });
+        },
+
+        .map => {
+            var inner = Code.Value.Object.Map.Inner.init(self.gpa);
+
+            for (0..info.map.length) |_| {
+                const key = self.stack.pop();
+                const value = self.stack.pop();
+
+                try inner.put(key, value);
+            }
+
+            const map: Code.Value.Object.Map = .{ .inner = inner };
+
+            var map_on_heap = try self.gpa.alloc(Code.Value.Object.Map, 1);
+            map_on_heap[0] = map;
+
+            try self.stack.append(.{ .object = .{ .map = &map_on_heap[0] } });
         },
     }
 }

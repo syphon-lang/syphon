@@ -284,7 +284,9 @@ fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
 
         .array => try self.compileArrayExpr(expr.array),
 
-        .array_subscript => try self.compileArraySubscriptExpr(expr.array_subscript),
+        .map => try self.compileMapExpr(expr.map),
+
+        .subscript => try self.compileSubscriptExpr(expr.subscript),
 
         .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
 
@@ -335,9 +337,19 @@ fn compileArrayExpr(self: *CodeGen, array: ast.Node.Expr.Array) Error!void {
     try self.code.instructions.append(.{ .make = .{ .array = .{ .length = array.values.len } } });
 }
 
-fn compileArraySubscriptExpr(self: *CodeGen, array_subscript: ast.Node.Expr.ArraySubscript) Error!void {
-    try self.compileExpr(array_subscript.target.*);
-    try self.compileExpr(array_subscript.index.*);
+fn compileMapExpr(self: *CodeGen, map: ast.Node.Expr.Map) Error!void {
+    for (0..map.keys.len) |i| {
+        try self.compileExpr(map.values[i]);
+        try self.compileExpr(map.keys[i]);
+    }
+
+    try self.code.source_locations.append(.{});
+    try self.code.instructions.append(.{ .make = .{ .map = .{ .length = map.keys.len } } });
+}
+
+fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Error!void {
+    try self.compileExpr(subscript.target.*);
+    try self.compileExpr(subscript.index.*);
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .load = .{ .subscript = {} } });
@@ -417,9 +429,9 @@ fn compileBinaryOperationExpr(self: *CodeGen, binary_operation: ast.Node.Expr.Bi
 }
 
 fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
-    if (assignment.target.* == .array_subscript) {
-        try self.compileExpr(assignment.target.array_subscript.target.*);
-        try self.compileExpr(assignment.target.array_subscript.index.*);
+    if (assignment.target.* == .subscript) {
+        try self.compileExpr(assignment.target.subscript.target.*);
+        try self.compileExpr(assignment.target.subscript.index.*);
         try self.compileExpr(assignment.value.*);
 
         try self.code.source_locations.append(assignment.source_loc);

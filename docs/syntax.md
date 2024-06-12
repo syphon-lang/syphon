@@ -59,14 +59,18 @@ while condition {
 ```
 arr = [0, 1, 2, 3, 4, 5]
 
-str = "aaa"
-
 arr[0] # 0
 arr[-1] # 5
 arr[6] # error: index out of bounds
 arr[-7] # error: index out of bounds
 
+str = "aaa"
+
 str[0] # a
+
+map = {"a": "b"}
+
+map["a"] # "b"
 ```
 
 ## Assignment
@@ -77,12 +81,16 @@ str[0] # a
 name = "yhya"
 ```
 
-- Subscript Assignment (Only for Arrays, Strings are immutable)
+- Subscript Assignment (Only for Arrays and Maps, Strings are immutable)
 
 ```
 arr = [0, 1, 2, 3, 4, 5]
 
 arr[0] = 6
+
+map = {"a": "b"}
+
+map["a"] = "c"
 ```
 
 - Multiple Assignments
@@ -90,5 +98,7 @@ arr[0] = 6
 ```
 arr = [0, 1, 2, 3, 4, 5]
 
-name = arr[0] = "yhya"
+map = {"a": "b"}
+
+name = arr[0] = map["name"] = "yhya"
 ```

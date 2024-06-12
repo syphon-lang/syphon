@@ -50,6 +50,7 @@ fn len(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virtua
         .object => switch (value.object) {
             .array => return VirtualMachine.Code.Value{ .int = @intCast(value.object.array.values.items.len) },
             .string => return VirtualMachine.Code.Value{ .int = @intCast(value.object.string.content.len) },
+            .map => return VirtualMachine.Code.Value{ .int = @intCast(value.object.map.inner.count()) },
 
             else => {},
         },

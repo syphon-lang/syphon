@@ -7,3 +7,8 @@ str = "Hello, World!"
 
 println("The String to Subscript:", str)
 println("Got a Subscript of String at index 3:", str[3] == "l")
+
+map = {1: 2, 3: 4, 4: 5}
+
+println("The Map to Subscript:", map)
+println("Got a Subscript from Map with key 3:", map[3] == 4)

@@ -78,13 +78,14 @@ Gives you the type of provided value in a string
 Usage:
 
 ```
-typeof(none) # none
-typeof("") # string
-typeof(1) # int
-typeof(1.5) # float
-typeof(true) # bool
-typeof([]) # array
-typeof(print) # function
+typeof(none) # "none"
+typeof("") # "string"
+typeof(1) # "int"
+typeof(1.5) # "float"
+typeof(true) # "bool"
+typeof([]) # "array"
+typeof({}) # "map"
+typeof(print) # "function"
 ```
 
 - array_push
@@ -94,9 +95,8 @@ Pushes the value provided into an array, returns none always and does not care i
 ```
 arr = []
 
-array_push(arr, 5) # arr is now [5]
-
-array_push(2, 5) # does not care
+array_push(arr, 5)
+array_push(2, 5) # no errors
 ```
 
 - array_pop
@@ -113,15 +113,18 @@ array_pop(2) # none
 
 - len
 
-Gives you the length of an array or a string, if any thing other than that is provided it will return none
+Gives you the length of an array or a string or a hash map, if any thing other than that is provided it will return none
 
 ```
 arr = [1, 2, 3]
 
 str = "aaa"
 
+map = {1, 2, 3}
+
 len(str) # 3
 len(arr) # 3
+len(map) # 3
 len(89) # none
 ```
 
@@ -158,4 +161,5 @@ to_string(true) # "true"
 to_string("hey") # "hey" 
 to_string(none) # "none"
 to_string([1, 2, 3]) # "[1, 2, 3]"
+to_string({2: 4}) # "{2: 4}"
 ```

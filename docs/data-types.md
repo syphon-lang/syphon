@@ -48,6 +48,14 @@ A list of values
 [0, 1, "two", false, 4]
 ```
 
+## Map
+
+A map of key to value
+
+```
+{"a": "b"}
+```
+
 ## None
 
 A value represents nothing

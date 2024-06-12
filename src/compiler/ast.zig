@@ -68,10 +68,11 @@ pub const Node = union(enum) {
         float: Float,
         boolean: Boolean,
         array: Array,
+        map: Map,
         unary_operation: UnaryOperation,
         binary_operation: BinaryOperation,
         assignment: Assignment,
-        array_subscript: ArraySubscript,
+        subscript: Subscript,
         call: Call,
 
         pub const None = struct {
@@ -103,6 +104,11 @@ pub const Node = union(enum) {
         };
 
         pub const Array = struct {
+            values: []Expr,
+        };
+
+        pub const Map = struct {
+            keys: []Expr,
             values: []Expr,
         };
 
@@ -154,7 +160,7 @@ pub const Node = union(enum) {
             };
         };
 
-        pub const ArraySubscript = struct {
+        pub const Subscript = struct {
             target: *Expr,
             index: *Expr,
             source_loc: SourceLoc,
@@ -474,6 +480,8 @@ pub const Parser = struct {
 
             .open_bracket => return self.parseArrayExpr(),
 
+            .open_brace => return self.parseMapExpr(),
+
             else => {
                 self.error_info = .{ .message = "unexpected token", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
@@ -560,6 +568,39 @@ pub const Parser = struct {
         return Node.Expr{ .array = .{ .values = try values.toOwnedSlice() } };
     }
 
+    fn parseMapExpr(self: *Parser) Error!Node.Expr {
+        _ = self.nextToken();
+
+        var keys = std.ArrayList(Node.Expr).init(self.gpa);
+        var values = std.ArrayList(Node.Expr).init(self.gpa);
+
+        while (self.peekToken().tag != .eof and self.peekToken().tag != .close_brace) {
+            try keys.append((try self.parseExpr(.lowest)).expr);
+
+            if (!self.expectToken(.colon)) {
+                self.error_info = .{ .message = "expected a ':'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            }
+
+            try values.append((try self.parseExpr(.lowest)).expr);
+
+            if (!self.expectToken(.comma) and self.peekToken().tag != .close_brace) {
+                self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            }
+        }
+
+        if (!self.expectToken(.close_brace)) {
+            self.error_info = .{ .message = "expected a '}'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        return Node.Expr{ .map = .{ .keys = try keys.toOwnedSlice(), .values = try values.toOwnedSlice() } };
+    }
+
     fn parseUnaryOperationExpr(self: *Parser, operator: Node.Expr.UnaryOperation.UnaryOperator) Error!Node.Expr {
         const operator_token = self.nextToken();
 
@@ -591,7 +632,7 @@ pub const Parser = struct {
             .double_star_equal_sign => return self.parseAssignmentExpr(lhs, .double_star),
             .percent_equal_sign => return self.parseAssignmentExpr(lhs, .percent),
 
-            .open_bracket => return self.parseArraySubscriptExpr(lhs),
+            .open_bracket => return self.parseSubscriptExpr(lhs),
 
             .open_paren => return self.parseCallExpr(lhs),
 
@@ -629,7 +670,7 @@ pub const Parser = struct {
         return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .operator = operator, .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
-    fn parseArraySubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+    fn parseSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
         var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
@@ -644,7 +685,7 @@ pub const Parser = struct {
             return error.UnexpectedToken;
         }
 
-        return Node.Expr{ .array_subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(open_bracket_token) } };
+        return Node.Expr{ .subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(open_bracket_token) } };
     }
 
     fn parseCallExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {

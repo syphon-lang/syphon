@@ -22,6 +22,7 @@ fn typeof(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
         .object => switch (value.object) {
             .string => "string",
             .array => "array",
+            .map => "map",
             .function, .native_function => "function",
         },
     };

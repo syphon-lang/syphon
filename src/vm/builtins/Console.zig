@@ -32,7 +32,7 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
 
                     for (argument.object.array.values.items, 0..) |value, j| {
                         if (value == .object and value.object == .array and value.object.array == argument.object.array) {
-                            _ = try buffered_writer.write("..");
+                            _ = try buffered_writer.write("[..]");
                         } else {
                             try _print(B, buffered_writer, &.{value}, true);
                         }
@@ -43,6 +43,34 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
                     }
 
                     _ = try buffered_writer.write("]");
+                },
+
+                .map => {
+                    _ = try buffered_writer.write("{");
+
+                    var map_iterator = argument.object.map.inner.iterator();
+
+                    var j: usize = 0;
+
+                    while (map_iterator.next()) |entry| {
+                        try _print(B, buffered_writer, &.{entry.key_ptr.*}, true);
+
+                        _ = try buffered_writer.write(": ");
+
+                        if (entry.value_ptr.* == .object and entry.value_ptr.object == .map and entry.value_ptr.object.map == argument.object.map) {
+                            _ = try buffered_writer.write("{..}");
+                        } else {
+                            try _print(B, buffered_writer, &.{entry.value_ptr.*}, true);
+                        }
+
+                        if (j < argument.object.map.inner.count() - 1) {
+                            _ = try buffered_writer.write(", ");
+                        }
+
+                        j += 1;
+                    }
+
+                    _ = try buffered_writer.write("}");
                 },
 
                 .function => try buffered_writer.writer().print("<function '{s}'>", .{argument.object.function.name}),

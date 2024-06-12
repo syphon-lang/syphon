@@ -1,0 +1,5 @@
+module = import("some_module.sy")
+
+println(module)
+println(length(module))
+println(module.hell)

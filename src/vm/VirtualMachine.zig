@@ -89,6 +89,20 @@ pub const Code = struct {
         };
 
         pub const HashContext = struct {
+            pub fn hashable(key: Value) bool {
+                return switch (key) {
+                    .int, .float, .boolean => true,
+
+                    .object => switch (key.object) {
+                        .string => true,
+
+                        else => false,
+                    },
+
+                    else => false,
+                };
+            }
+
             pub fn hash(ctx: HashContext, key: Value) u64 {
                 _ = ctx;
 
@@ -99,7 +113,11 @@ pub const Code = struct {
                     .float => hasher.update(std.mem.asBytes(&key.float)),
                     .boolean => hasher.update(std.mem.asBytes(&@as(f64, @floatFromInt(@intFromBool(key.boolean))))),
 
-                    .object => hasher.update(std.mem.asBytes(&key)),
+                    .object => switch (key.object) {
+                        .string => hasher.update(key.object.string.content),
+
+                        else => unreachable,
+                    },
 
                     else => {},
                 }
@@ -473,7 +491,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                     },
 
                     .map => {
-                        if (index == .object and index.object == .map) {
+                        if (!Code.Value.HashContext.hashable(index)) {
                             self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
                             return error.UnexpectedValue;
@@ -563,7 +581,7 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
                     },
 
                     .map => {
-                        if (index == .object and index.object == .map) {
+                        if (!Code.Value.HashContext.hashable(index)) {
                             self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
                             return error.UnexpectedValue;

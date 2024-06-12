@@ -61,14 +61,14 @@ random("", "") # none
 
 - exit
 
-Exits from the process with the status code provided, the status code maps to 0-255 range and if you provide any value other than integer it will exit with 1 instead
+Exits from the process with the status code provided, the status code maps to 0-255 range and if you provide any value other than int it will exit with 1 instead
 
 Usage:
 
 ```
 exit(10) # exits with 10
 exit(-2) # exits with 254 instead
-exit("") # exits with 1 because "" is not an integer
+exit("") # exits with 1 because "" is provided
 ```
 
 - typeof
@@ -166,7 +166,7 @@ to_string({2: 4}) # "{2: 4}"
 
 - export
 
-Change the value exported the users of this module, if not changed the module will export none value
+Changes the value exported to the users of this module, if not changed the module will export none value
 
 ```
 export({"hey": 5})
@@ -182,7 +182,7 @@ import("some_file.sy") # {"hey": 5}
 
 - hash
 
-Gives you the representation of the hashable value, if unhashable returns a none value
+Gives you the number representation of the hashable value, if unhashable returns a none value
 
 ```
 hash(5) # 5

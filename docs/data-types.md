@@ -2,7 +2,7 @@
 
 ## Number
 
-- Integer
+- Int
 
 A 64-bit number with no floating-points
 

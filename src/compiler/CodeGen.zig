@@ -481,7 +481,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.{ .store = .{ .name = assignment.target.identifier.name.buffer } });
     } else {
-        self.error_info = .{ .message = "expected a name or an array subscript to assign to", .source_loc = assignment.source_loc };
+        self.error_info = .{ .message = "expected a name or array subscript to assign to", .source_loc = assignment.source_loc };
 
         return error.BadOperand;
     }

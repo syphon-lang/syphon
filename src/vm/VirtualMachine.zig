@@ -458,7 +458,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                 .object => switch (target.object) {
                     .array => {
                         if (index != .int) {
-                            self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
+                            self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
                             return error.UnexpectedValue;
                         }
@@ -478,7 +478,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
 
                     .string => {
                         if (index != .int) {
-                            self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
+                            self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
                             return error.UnexpectedValue;
                         }
@@ -532,7 +532,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                 else => {},
             }
 
-            self.error_info = .{ .message = "target is not an array nor string", .source_loc = source_loc };
+            self.error_info = .{ .message = "target is not array nor string", .source_loc = source_loc };
 
             return error.UnexpectedValue;
         },
@@ -566,7 +566,7 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
                 .object => switch (target.object) {
                     .array => {
                         if (index != .int) {
-                            self.error_info = .{ .message = "index is not an integer", .source_loc = source_loc };
+                            self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
                             return error.UnexpectedValue;
                         }
@@ -604,7 +604,7 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
                 else => {},
             }
 
-            self.error_info = .{ .message = "target is not an array nor map", .source_loc = source_loc };
+            self.error_info = .{ .message = "target is 'array' nor 'map'", .source_loc = source_loc };
 
             return error.UnexpectedValue;
         },

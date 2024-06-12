@@ -698,14 +698,14 @@ pub const Parser = struct {
         const period_token = self.nextToken();
 
         if (self.peekToken().tag != .identifier) {
-            self.error_info = .{ .message = "expected an identifier", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+            self.error_info = .{ .message = "expected a name", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
         }
 
-        const identifer_token = self.nextToken();
+        const name_token = self.nextToken();
 
-        const rhs: Node.Expr = .{ .string = .{ .content = self.tokenValue(identifer_token), .source_loc = self.tokenSourceLoc(identifer_token) } };
+        const rhs: Node.Expr = .{ .string = .{ .content = self.tokenValue(name_token), .source_loc = self.tokenSourceLoc(name_token) } };
 
         var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;

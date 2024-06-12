@@ -220,7 +220,7 @@ pub const Parser = struct {
         return self.tokens[self.current_token_index];
     }
 
-    fn expectToken(self: *Parser, tag: Token.Tag) bool {
+    fn eatToken(self: *Parser, tag: Token.Tag) bool {
         if (self.peekToken().tag == tag) {
             _ = self.nextToken();
 
@@ -314,7 +314,7 @@ pub const Parser = struct {
     fn parseFunctionParameters(self: *Parser) Error![]Name {
         var parameters = std.ArrayList(Name).init(self.gpa);
 
-        if (!self.expectToken(.open_paren)) {
+        if (!self.eatToken(.open_paren)) {
             self.error_info = .{ .message = "expected a '('", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -323,14 +323,14 @@ pub const Parser = struct {
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {
             try parameters.append(try self.parseName());
 
-            if (!self.expectToken(.comma) and self.peekToken().tag != .close_paren) {
+            if (!self.eatToken(.comma) and self.peekToken().tag != .close_paren) {
                 self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
                 return error.UnexpectedToken;
             }
         }
 
-        if (!self.expectToken(.close_paren)) {
+        if (!self.eatToken(.close_paren)) {
             self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -342,7 +342,7 @@ pub const Parser = struct {
     fn parseBody(self: *Parser) Error![]Node {
         var body = std.ArrayList(Node).init(self.gpa);
 
-        if (!self.expectToken(.open_brace)) {
+        if (!self.eatToken(.open_brace)) {
             self.error_info = .{ .message = "expected a '{'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -352,7 +352,7 @@ pub const Parser = struct {
             try body.append(try self.parseStmt());
         }
 
-        if (!self.expectToken(.close_brace)) {
+        if (!self.eatToken(.close_brace)) {
             self.error_info = .{ .message = "expected a '}'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -373,7 +373,7 @@ pub const Parser = struct {
             try conditions.append(condition);
             try possiblities.append(possibility);
 
-            if (self.expectToken(.keyword_else)) {
+            if (self.eatToken(.keyword_else)) {
                 if (self.peekToken().tag == .keyword_if) continue;
 
                 const fallback = try self.parseBody();
@@ -535,7 +535,7 @@ pub const Parser = struct {
 
         const value = (try self.parseExpr(.lowest)).expr;
 
-        if (!self.expectToken(.close_paren)) {
+        if (!self.eatToken(.close_paren)) {
             self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -552,14 +552,14 @@ pub const Parser = struct {
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_bracket) {
             try values.append((try self.parseExpr(.lowest)).expr);
 
-            if (!self.expectToken(.comma) and self.peekToken().tag != .close_bracket) {
+            if (!self.eatToken(.comma) and self.peekToken().tag != .close_bracket) {
                 self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
                 return error.UnexpectedToken;
             }
         }
 
-        if (!self.expectToken(.close_bracket)) {
+        if (!self.eatToken(.close_bracket)) {
             self.error_info = .{ .message = "expected a ']'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -577,7 +577,7 @@ pub const Parser = struct {
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_brace) {
             try keys.append((try self.parseExpr(.lowest)).expr);
 
-            if (!self.expectToken(.colon)) {
+            if (!self.eatToken(.colon)) {
                 self.error_info = .{ .message = "expected a ':'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
                 return error.UnexpectedToken;
@@ -585,14 +585,14 @@ pub const Parser = struct {
 
             try values.append((try self.parseExpr(.lowest)).expr);
 
-            if (!self.expectToken(.comma) and self.peekToken().tag != .close_brace) {
+            if (!self.eatToken(.comma) and self.peekToken().tag != .close_brace) {
                 self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
                 return error.UnexpectedToken;
             }
         }
 
-        if (!self.expectToken(.close_brace)) {
+        if (!self.eatToken(.close_brace)) {
             self.error_info = .{ .message = "expected a '}'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -682,7 +682,7 @@ pub const Parser = struct {
         var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
-        if (!self.expectToken(.close_bracket)) {
+        if (!self.eatToken(.close_bracket)) {
             self.error_info = .{ .message = "expected a ']'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;
@@ -730,14 +730,14 @@ pub const Parser = struct {
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {
             try arguments.append((try self.parseExpr(.lowest)).expr);
 
-            if (!self.expectToken(.comma) and self.peekToken().tag != .close_paren) {
+            if (!self.eatToken(.comma) and self.peekToken().tag != .close_paren) {
                 self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
                 return error.UnexpectedToken;
             }
         }
 
-        if (!self.expectToken(.close_paren)) {
+        if (!self.eatToken(.close_paren)) {
             self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
 
             return error.UnexpectedToken;

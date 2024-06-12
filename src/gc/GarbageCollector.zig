@@ -6,10 +6,9 @@ const bdwgc = @cImport({
 
 pub fn allocator() std.mem.Allocator {
     if (bdwgc.GC_is_init_called() == 0) {
+        bdwgc.GC_set_all_interior_pointers(1);
         bdwgc.GC_init();
     }
-
-    bdwgc.GC_set_warn_proc(&bdwgc.GC_ignore_warn_proc);
 
     return std.mem.Allocator{
         .ptr = undefined,

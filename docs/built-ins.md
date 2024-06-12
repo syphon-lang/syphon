@@ -179,3 +179,13 @@ Imports a file and returns its exports as a map, if failed while importing it wi
 ```
 import("some_file.sy") # {"hey": 5}
 ```
+
+- hash
+
+Gives you the representation of the hashable value, if unhashable returns a none value
+
+```
+hash(5) # 5
+hash("string") # 5389953989438782544
+hash([1, 2]) # none
+```

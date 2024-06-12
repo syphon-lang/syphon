@@ -15,6 +15,7 @@ fn exit(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virtu
         .int => std.process.exit(@intCast(std.math.mod(i64, status_code.int, 256) catch |err| switch (err) {
             else => std.process.exit(1),
         })),
+
         else => std.process.exit(1),
     }
 }

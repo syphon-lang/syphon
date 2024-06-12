@@ -12,6 +12,8 @@ stack: std.ArrayList(Code.Value),
 
 globals: std.StringHashMap(Code.Value),
 
+exports: std.StringHashMap(Code.Value),
+
 start_time: std.time.Instant,
 
 error_info: ?ErrorInfo = null,
@@ -317,12 +319,13 @@ pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
 pub fn init(gpa: std.mem.Allocator) Error!VirtualMachine {
-    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
+    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .exports = std.StringHashMap(Code.Value).init(gpa), .start_time = try std.time.Instant.now() };
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     const Array = @import("./builtins/Array.zig");
     const Console = @import("./builtins/Console.zig");
+    const Module = @import("./builtins/Module.zig");
     const Process = @import("./builtins/Process.zig");
     const Random = @import("./builtins/Random.zig");
     const Time = @import("./builtins/Time.zig");
@@ -330,6 +333,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 
     try Array.addGlobals(self);
     try Console.addGlobals(self);
+    try Module.addGlobals(self);
     try Process.addGlobals(self);
     try Random.addGlobals(self);
     try Time.addGlobals(self);

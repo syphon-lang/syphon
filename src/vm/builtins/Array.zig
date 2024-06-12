@@ -11,7 +11,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 fn array_push(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
     _ = vm;
 
-    if (arguments[0] != .object and arguments[0].object != .array) {
+    if (!(arguments[0] == .object and arguments[0].object == .array)) {
         return VirtualMachine.Code.Value{ .none = {} };
     }
 
@@ -32,7 +32,7 @@ fn array_push(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value)
 fn array_pop(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
     _ = vm;
 
-    if (arguments[0] != .object and arguments[0].object != .array) {
+    if (!(arguments[0] == .object and arguments[0].object == .array)) {
         return VirtualMachine.Code.Value{ .none = {} };
     }
 

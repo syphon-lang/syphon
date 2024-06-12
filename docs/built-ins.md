@@ -163,3 +163,19 @@ to_string(none) # "none"
 to_string([1, 2, 3]) # "[1, 2, 3]"
 to_string({2: 4}) # "{2: 4}"
 ```
+
+- export
+
+Exports a specific value to the users of this module
+
+```
+export("hey", 5)
+```
+
+- import
+
+Imports a file and returns its exports as a map, if failed while importing it will return a none value
+
+```
+import("some_file.sy") # {"hey": 5}
+```

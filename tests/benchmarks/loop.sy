@@ -1,11 +1,11 @@
-start = time()
+benchmarker = import("benchmarker.sy")
 
-i = 0
+fn benchmark() {
+    i = 0
 
-while i < 10000000 {
-    i += 1
+    while i < 10 ** 5 {
+        i += 1
+    }
 }
 
-let end = time()
-
-println("Took", (end - start) * 10 ** -6, "ms")
+benchmarker.run(benchmark)

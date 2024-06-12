@@ -1,15 +1,15 @@
-fn fib(n) {
-  if n < 2 {
-    return n
-  }
+benchmarker = import("benchmarker.sy")
 
-  return fib(n - 2) + fib(n - 1)
+fn fib(n) {
+    if n < 2 {
+        return n
+    }
+
+    return fib(n - 1) + fib(n - 2)
 }
 
-start = time()
+fn benchmark() {
+    fib(30)
+}
 
-fib(35)
-
-end = time()
-
-println("Took", (end - start) * 10 ** -6, "ms")
+benchmarker.run(benchmark)

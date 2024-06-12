@@ -9,19 +9,37 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("import", .{ .object = .{ .native_function = .{ .name = "import", .required_arguments_count = 1, .call = &import } } });
 }
 
-pub fn @"export"(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn @"export"(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
     vm.exported_value = arguments[0];
 
     return VirtualMachine.Code.Value{ .none = {} };
 }
 
-pub fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
         return VirtualMachine.Code.Value{ .none = {} };
     }
 
     const file_path = arguments[0].object.string.content;
 
+    if (std.mem.eql(u8, file_path, "math")) {
+        return getMathModule(vm);
+    } else {
+        return getExportedValue(vm, file_path);
+    }
+}
+
+fn getMathModule(vm: *VirtualMachine) VirtualMachine.Code.Value {
+    const Math = @import("Math.zig");
+
+    const globals = Math.getGlobals(vm) catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    return globals;
+}
+
+fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) VirtualMachine.Code.Value {
     const source_dir_path = blk: {
         if (std.fs.path.dirname(vm.source_file_path)) |dir_path| {
             break :blk dir_path;

@@ -189,3 +189,13 @@ hash(5) # 5
 hash("string") # 5389953989438782544
 hash([1, 2]) # none
 ```
+
+## Native Modules
+
+- math
+
+Utilities used in Mathematics
+
+```
+import("math")
+```

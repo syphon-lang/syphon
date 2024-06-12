@@ -22,7 +22,22 @@ pub fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value)
 
     const file_path = arguments[0].object.string.content;
 
-    const file = std.fs.cwd().openFile(file_path, .{}) catch |err| switch (err) {
+    const source_dir_path = blk: {
+        if (std.fs.path.dirname(vm.source_file_path)) |dir_path| {
+            break :blk dir_path;
+        } else {
+            break :blk switch (vm.source_file_path[0] == std.fs.path.sep) {
+                true => std.fs.path.sep_str,
+                false => "." ++ std.fs.path.sep_str,
+            };
+        }
+    };
+
+    const resolved_file_path = std.fs.path.resolve(vm.gpa, &.{ source_dir_path, file_path }) catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    const file = std.fs.cwd().openFile(resolved_file_path, .{}) catch |err| switch (err) {
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
@@ -32,11 +47,13 @@ pub fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value)
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
+    if (file_content.len == 0) {
+        return VirtualMachine.Code.Value{ .none = {} };
+    }
+
     const file_content_z = @as([:0]u8, @ptrCast(file_content));
 
-    if (file_content.len != 0) {
-        file_content_z[file_content.len] = 0;
-    }
+    file_content_z[file_content.len] = 0;
 
     var parser = Parser.init(vm.gpa, file_content_z) catch |err| switch (err) {
         else => return VirtualMachine.Code.Value{ .none = {} },
@@ -52,7 +69,7 @@ pub fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value)
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
-    var other_vm = VirtualMachine.init(vm.gpa) catch |err| switch (err) {
+    var other_vm = VirtualMachine.init(vm.gpa, resolved_file_path) catch |err| switch (err) {
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 

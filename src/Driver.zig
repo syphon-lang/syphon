@@ -165,7 +165,7 @@ fn runRunCommand(self: *Driver) u8 {
         },
     };
 
-    var vm = VirtualMachine.init(self.gpa) catch |err| {
+    var vm = VirtualMachine.init(self.gpa, options.file_path) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;

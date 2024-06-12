@@ -36,6 +36,7 @@ pub const Tag = enum {
     less_than,
     comma,
     colon,
+    period,
     keyword_fn,
     keyword_return,
     keyword_while,

@@ -441,7 +441,7 @@ pub const Parser = struct {
 
                 .open_paren => .call,
 
-                .open_bracket => .subscript,
+                .open_bracket, .period => .subscript,
 
                 else => .lowest,
             };
@@ -632,9 +632,11 @@ pub const Parser = struct {
             .double_star_equal_sign => return self.parseAssignmentExpr(lhs, .double_star),
             .percent_equal_sign => return self.parseAssignmentExpr(lhs, .percent),
 
-            .open_bracket => return self.parseSubscriptExpr(lhs),
-
             .open_paren => return self.parseCallExpr(lhs),
+
+            .open_bracket => return self.parseBracketSubscriptExpr(lhs),
+
+            .period => return self.parsePeriodSubscriptExpr(lhs),
 
             else => {
                 self.error_info = .{ .message = "unexpected token", .source_loc = self.tokenSourceLoc(self.peekToken()) };
@@ -670,7 +672,7 @@ pub const Parser = struct {
         return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .operator = operator, .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
-    fn parseSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+    fn parseBracketSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
         var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
@@ -682,10 +684,33 @@ pub const Parser = struct {
 
         if (!self.expectToken(.close_bracket)) {
             self.error_info = .{ .message = "expected a ']'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
             return error.UnexpectedToken;
         }
 
         return Node.Expr{ .subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(open_bracket_token) } };
+    }
+
+    fn parsePeriodSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
+        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        lhs_on_heap[0] = lhs;
+
+        const period_token = self.nextToken();
+
+        if (self.peekToken().tag != .identifier) {
+            self.error_info = .{ .message = "expected an identifier", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        const identifer_token = self.nextToken();
+
+        const rhs: Node.Expr = .{ .string = .{ .content = self.tokenValue(identifer_token), .source_loc = self.tokenSourceLoc(identifer_token) } };
+
+        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        rhs_on_heap[0] = rhs;
+
+        return Node.Expr{ .subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(period_token) } };
     }
 
     fn parseCallExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {

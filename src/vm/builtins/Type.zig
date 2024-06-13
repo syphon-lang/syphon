@@ -63,24 +63,15 @@ fn to_string(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) 
     var buffered_writer = std.io.bufferedWriter(result.writer());
 
     Console._print(std.ArrayList(u8).Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
-        else => {
-            std.debug.print("to_string: error occured while try to convert the value to string\n", .{});
-            std.process.exit(1);
-        },
+        else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
     buffered_writer.flush() catch |err| switch (err) {
-        else => {
-            std.debug.print("to_string: error occured while try to convert the value to string\n", .{});
-            std.process.exit(1);
-        },
+        else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
     const result_owned = result.toOwnedSlice() catch |err| switch (err) {
-        error.OutOfMemory => {
-            std.debug.print("ran out of memory\n", .{});
-            std.process.exit(1);
-        },
+        else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
     return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = result_owned } } };

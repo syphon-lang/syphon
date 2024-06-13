@@ -113,10 +113,7 @@ fn println(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vi
     const new_line_value: VirtualMachine.Code.Value = .{ .object = .{ .string = .{ .content = "\n" } } };
 
     const new_arguments = std.mem.concat(vm.gpa, VirtualMachine.Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
-        error.OutOfMemory => {
-            std.debug.print("ran out of memory\n", .{});
-            std.process.exit(1);
-        },
+        else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
     _print(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch |err| switch (err) {

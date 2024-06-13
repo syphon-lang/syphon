@@ -18,6 +18,8 @@ start_time: std.time.Instant,
 
 source_file_path: []const u8,
 
+open_files: std.AutoHashMap(i32, std.fs.File),
+
 error_info: ?ErrorInfo = null,
 
 pub const Error = error{
@@ -363,7 +365,7 @@ pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
 pub fn init(gpa: std.mem.Allocator, source_file_path: []const u8) Error!VirtualMachine {
-    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .exported_value = .{ .none = {} }, .start_time = try std.time.Instant.now(), .source_file_path = source_file_path };
+    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .exported_value = .{ .none = {} }, .start_time = try std.time.Instant.now(), .source_file_path = source_file_path, .open_files = std.AutoHashMap(i32, std.fs.File).init(gpa) };
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {

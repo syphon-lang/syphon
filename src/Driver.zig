@@ -17,7 +17,7 @@ const CLI = struct {
         run: Run,
 
         const Run = struct {
-            file_path: []const u8,
+            argv: []const []const u8,
         };
     };
 };
@@ -70,33 +70,49 @@ fn parseArgs(self: *Driver, args_iterator: *std.process.ArgIterator) bool {
 
     while (args_iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "run")) {
-            if (args_iterator.next()) |file_path| {
-                self.cli.command = .{ .run = .{ .file_path = file_path } };
+            var argv = std.ArrayList([]const u8).init(self.gpa);
 
-                return false;
-            } else {
+            while (args_iterator.next()) |remaining_arg| {
+                argv.append(remaining_arg) catch |err| {
+                    std.debug.print("{s}\n", .{errorDescription(err)});
+
+                    return true;
+                };
+            }
+
+            if (argv.items.len == 0) {
                 std.debug.print(run_command_usage, .{program});
 
-                std.debug.print("Error: expected a file path\n", .{});
+                std.debug.print("Error: expected a file_path\n", .{});
+
+                return true;
             }
+
+            const owned_argv = argv.toOwnedSlice() catch |err| {
+                std.debug.print("{s}\n", .{errorDescription(err)});
+
+                return true;
+            };
+
+            self.cli.command = .{ .run = .{ .argv = owned_argv } };
         } else {
             std.debug.print(usage, .{program});
 
             std.debug.print("Error: {s} is an unknown command\n", .{arg});
+
+            return true;
         }
+    }
+
+    if (self.cli.command == null) {
+        std.debug.print(usage, .{program});
+
+        std.debug.print("Error: no command provided\n", .{});
 
         return true;
     }
 
-    if (self.cli.command != null) {
-        return false;
-    }
-
-    std.debug.print(usage, .{program});
-
-    std.debug.print("Error: no command provided\n", .{});
-
-    return true;
+    return false;
 }
 
 pub fn run(self: *Driver, args_iterator: *std.process.ArgIterator) u8 {
@@ -109,7 +125,7 @@ pub fn run(self: *Driver, args_iterator: *std.process.ArgIterator) u8 {
     return 0;
 }
 
-fn readAllFileSentinel(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
+fn readAllZ(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
         std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
 
@@ -135,7 +151,9 @@ fn readAllFileSentinel(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
 fn runRunCommand(self: *Driver) u8 {
     const options = self.cli.command.?.run;
 
-    const file_content = readAllFileSentinel(self.gpa, options.file_path) orelse return 1;
+    const file_path = options.argv[0];
+
+    const file_content = readAllZ(self.gpa, file_path) orelse return 1;
 
     if (file_content.len == 0) {
         return 0;
@@ -149,7 +167,7 @@ fn runRunCommand(self: *Driver) u8 {
 
     const root = parser.parseRoot() catch |err| switch (err) {
         else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ options.file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
 
             return 1;
         },
@@ -159,13 +177,13 @@ fn runRunCommand(self: *Driver) u8 {
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ options.file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
 
             return 1;
         },
     };
 
-    var vm = VirtualMachine.init(self.gpa, options.file_path) catch |err| {
+    var vm = VirtualMachine.init(self.gpa, options.argv) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;
@@ -189,7 +207,7 @@ fn runRunCommand(self: *Driver) u8 {
 
             const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
 
-            std.debug.print("{s}:{}:{}: division by zero\n", .{ options.file_path, source_loc.line, source_loc.column });
+            std.debug.print("{s}:{}:{}: division by zero\n", .{ file_path, source_loc.line, source_loc.column });
 
             return 1;
         },
@@ -199,7 +217,7 @@ fn runRunCommand(self: *Driver) u8 {
 
             const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
 
-            std.debug.print("{s}:{}:{}: negative denominator\n", .{ options.file_path, source_loc.line, source_loc.column });
+            std.debug.print("{s}:{}:{}: negative denominator\n", .{ file_path, source_loc.line, source_loc.column });
 
             return 1;
         },
@@ -209,13 +227,13 @@ fn runRunCommand(self: *Driver) u8 {
 
             const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
 
-            std.debug.print("{s}:{}:{}: stack overflow\n", .{ options.file_path, source_loc.line, source_loc.column });
+            std.debug.print("{s}:{}:{}: stack overflow\n", .{ file_path, source_loc.line, source_loc.column });
 
             return 1;
         },
 
         else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ options.file_path, vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
 
             return 1;
         },

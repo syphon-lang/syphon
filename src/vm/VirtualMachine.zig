@@ -16,9 +16,9 @@ exported_value: Code.Value,
 
 start_time: std.time.Instant,
 
-source_file_path: []const u8,
-
 open_files: std.AutoHashMap(i32, std.fs.File),
+
+argv: []const []const u8,
 
 error_info: ?ErrorInfo = null,
 
@@ -71,6 +71,22 @@ pub const Code = struct {
 
             pub const Array = struct {
                 values: std.ArrayList(Value),
+
+                pub fn fromStringSlices(gpa: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
+                    var values = try std.ArrayList(Value).initCapacity(gpa, from.len);
+
+                    for (from) |content| {
+                        const value: Value = .{ .object = .{ .string = .{ .content = content } } };
+                        values.appendAssumeCapacity(value);
+                    }
+
+                    const array: Array = .{ .values = values };
+
+                    var array_on_heap = try gpa.alloc(Array, 1);
+                    array_on_heap[0] = array;
+
+                    return Value{ .object = .{ .array = &array_on_heap[0] } };
+                }
             };
 
             pub const Map = struct {
@@ -364,8 +380,17 @@ pub fn StringHashMapRecorder(comptime V: type) type {
 pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
-pub fn init(gpa: std.mem.Allocator, source_file_path: []const u8) Error!VirtualMachine {
-    return VirtualMachine{ .gpa = gpa, .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT), .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE), .globals = std.StringHashMap(Code.Value).init(gpa), .exported_value = .{ .none = {} }, .start_time = try std.time.Instant.now(), .source_file_path = source_file_path, .open_files = std.AutoHashMap(i32, std.fs.File).init(gpa) };
+pub fn init(gpa: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
+    return VirtualMachine{
+        .gpa = gpa,
+        .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT),
+        .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE),
+        .globals = std.StringHashMap(Code.Value).init(gpa),
+        .exported_value = .{ .none = {} },
+        .start_time = try std.time.Instant.now(),
+        .open_files = std.AutoHashMap(i32, std.fs.File).init(gpa),
+        .argv = argv,
+    };
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {

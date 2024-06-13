@@ -26,6 +26,8 @@ fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
         return getMathModule(vm.gpa);
     } else if (std.mem.eql(u8, file_path, "fs")) {
         return getFileSystemModule(vm.gpa);
+    } else if (std.mem.eql(u8, file_path, "process")) {
+        return getProcessModule(vm);
     } else {
         return getExportedValue(vm, file_path);
     }
@@ -51,12 +53,24 @@ fn getFileSystemModule(gpa: std.mem.Allocator) VirtualMachine.Code.Value {
     return exports;
 }
 
+fn getProcessModule(vm: *VirtualMachine) VirtualMachine.Code.Value {
+    const Process = @import("Process.zig");
+
+    const exports = Process.getExports(vm) catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    return exports;
+}
+
 fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) VirtualMachine.Code.Value {
+    const source_file_path = vm.argv[0];
+
     const source_dir_path = blk: {
-        if (std.fs.path.dirname(vm.source_file_path)) |dir_path| {
+        if (std.fs.path.dirname(source_file_path)) |dir_path| {
             break :blk dir_path;
         } else {
-            break :blk switch (vm.source_file_path[0] == std.fs.path.sep) {
+            break :blk switch (source_file_path[0] == std.fs.path.sep) {
                 true => std.fs.path.sep_str,
                 false => "." ++ std.fs.path.sep_str,
             };
@@ -99,7 +113,7 @@ fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) VirtualMachine.C
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
-    var other_vm = VirtualMachine.init(vm.gpa, resolved_file_path) catch |err| switch (err) {
+    var other_vm = VirtualMachine.init(vm.gpa, &.{resolved_file_path}) catch |err| switch (err) {
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 

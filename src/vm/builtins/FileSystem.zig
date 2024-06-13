@@ -9,6 +9,7 @@ pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine
     try exports.put("delete", .{ .object = .{ .native_function = .{ .name = "delete", .required_arguments_count = 1, .call = &delete } } });
     try exports.put("close", .{ .object = .{ .native_function = .{ .name = "close", .required_arguments_count = 1, .call = &close } } });
     try exports.put("close_all", .{ .object = .{ .native_function = .{ .name = "close_all", .required_arguments_count = 0, .call = &closeAll } } });
+    try exports.put("cwd", .{ .object = .{ .native_function = .{ .name = "cwd", .required_arguments_count = 0, .call = &cwd } } });
     try exports.put("write", .{ .object = .{ .native_function = .{ .name = "write", .required_arguments_count = 2, .call = &write } } });
     try exports.put("read_line", .{ .object = .{ .native_function = .{ .name = "read_line", .required_arguments_count = 1, .call = &readLine } } });
     try exports.put("read_all", .{ .object = .{ .native_function = .{ .name = "read_all", .required_arguments_count = 1, .call = &readAll } } });
@@ -76,6 +77,16 @@ fn closeAll(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) V
     }
 
     return VirtualMachine.Code.Value{ .none = {} };
+}
+
+fn cwd(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+    _ = arguments;
+
+    const cwd_file_path = std.fs.cwd().realpathAlloc(vm.gpa, ".") catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = cwd_file_path } } };
 }
 
 fn write(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {

@@ -12,6 +12,7 @@ pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine
     try exports.put("cwd", .{ .object = .{ .native_function = .{ .name = "cwd", .required_arguments_count = 0, .call = &cwd } } });
     try exports.put("chdir", .{ .object = .{ .native_function = .{ .name = "chdir", .required_arguments_count = 1, .call = &chdir } } });
     try exports.put("write", .{ .object = .{ .native_function = .{ .name = "write", .required_arguments_count = 2, .call = &write } } });
+    try exports.put("read", .{ .object = .{ .native_function = .{ .name = "read", .required_arguments_count = 1, .call = &read } } });
     try exports.put("read_line", .{ .object = .{ .native_function = .{ .name = "read_line", .required_arguments_count = 1, .call = &readLine } } });
     try exports.put("read_all", .{ .object = .{ .native_function = .{ .name = "read_all", .required_arguments_count = 1, .call = &readAll } } });
 
@@ -133,6 +134,32 @@ fn write(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virt
         buffered_writer.flush() catch |err| switch (err) {
             else => return VirtualMachine.Code.Value{ .none = {} },
         };
+    }
+
+    return VirtualMachine.Code.Value{ .none = {} };
+}
+
+fn read(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+    if (arguments[0] != .int) {
+        return VirtualMachine.Code.Value{ .none = {} };
+    }
+
+    const file_location: i32 = @intCast(arguments[0].int);
+
+    if (vm.open_files.get(file_location)) |file| {
+        const buf = vm.gpa.alloc(u8, 1) catch |err| switch (err) {
+            else => return VirtualMachine.Code.Value{ .none = {} },
+        };
+
+        const n = file.reader().read(buf) catch |err| switch (err) {
+            else => return VirtualMachine.Code.Value{ .none = {} },
+        };
+
+        if (n == 0) {
+            return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = "" } } };
+        }
+
+        return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = buf } } };
     }
 
     return VirtualMachine.Code.Value{ .none = {} };

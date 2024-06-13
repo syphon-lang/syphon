@@ -53,14 +53,17 @@ pub fn StringHashMapRecorder(comptime V: type) type {
 
         snapshots: std.ArrayList(Inner),
 
-        const K = []const u8;
-
         const Self = StringHashMapRecorder(V);
 
         const Inner = std.StringHashMap(V);
 
+        const K = []const u8;
+
         pub fn init(gpa: std.mem.Allocator) std.mem.Allocator.Error!Self {
-            return Self{ .gpa = gpa, .snapshots = try std.ArrayList(Inner).initCapacity(gpa, MAX_FRAMES_COUNT) };
+            return Self{
+                .gpa = gpa,
+                .snapshots = try std.ArrayList(Inner).initCapacity(gpa, MAX_FRAMES_COUNT),
+            };
         }
 
         pub inline fn newSnapshot(self: *Self) void {

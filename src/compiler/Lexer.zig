@@ -24,7 +24,11 @@ pub const State = enum {
 };
 
 pub fn init(buffer: [:0]const u8) Lexer {
-    return Lexer{ .buffer = buffer, .index = 0, .state = .start };
+    return Lexer{
+        .buffer = buffer,
+        .index = 0,
+        .state = .start,
+    };
 }
 
 pub fn next(self: *Lexer) Token {

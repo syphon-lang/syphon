@@ -62,7 +62,10 @@ pub fn errorDescription(e: anyerror) []const u8 {
 }
 
 pub fn init(gpa: std.mem.Allocator) Driver {
-    return Driver{ .gpa = gpa, .cli = .{} };
+    return Driver{
+        .gpa = gpa,
+        .cli = .{},
+    };
 }
 
 fn parseArgs(self: *Driver, args_iterator: *std.process.ArgIterator) bool {

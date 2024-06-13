@@ -42,7 +42,19 @@ pub const Context = struct {
 };
 
 pub fn init(gpa: std.mem.Allocator, mode: Context.Mode) CodeGen {
-    return CodeGen{ .gpa = gpa, .code = .{ .constants = std.ArrayList(Code.Value).init(gpa), .instructions = std.ArrayList(Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode, .break_points = std.ArrayList(usize).init(gpa), .continue_points = std.ArrayList(usize).init(gpa) } };
+    return CodeGen{
+        .gpa = gpa,
+        .code = .{
+            .constants = std.ArrayList(Code.Value).init(gpa),
+            .instructions = std.ArrayList(Code.Instruction).init(gpa),
+            .source_locations = std.ArrayList(SourceLoc).init(gpa),
+        },
+        .context = .{
+            .mode = mode,
+            .break_points = std.ArrayList(usize).init(gpa),
+            .continue_points = std.ArrayList(usize).init(gpa),
+        },
+    };
 }
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {

@@ -99,3 +99,13 @@ fs.cwd() # "/home/yhya/Programming"
 fs.chdir("/")
 fs.cwd() # "/"
 ```
+
+- access
+
+Checks if file can be accessed
+
+```
+fs.access("some_file") # true
+fs.access("other_non_existent_file") # false
+fs.access(02) # none
+```

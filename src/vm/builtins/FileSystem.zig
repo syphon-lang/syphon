@@ -6,6 +6,7 @@ pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine
     var exports = std.StringHashMap(VirtualMachine.Code.Value).init(gpa);
 
     try exports.put("open", .{ .object = .{ .native_function = .{ .name = "open", .required_arguments_count = 1, .call = &open } } });
+    try exports.put("delete", .{ .object = .{ .native_function = .{ .name = "delete", .required_arguments_count = 1, .call = &delete } } });
     try exports.put("close", .{ .object = .{ .native_function = .{ .name = "close", .required_arguments_count = 1, .call = &close } } });
     try exports.put("close_all", .{ .object = .{ .native_function = .{ .name = "close_all", .required_arguments_count = 0, .call = &closeAll } } });
     try exports.put("write", .{ .object = .{ .native_function = .{ .name = "write", .required_arguments_count = 2, .call = &write } } });
@@ -31,6 +32,22 @@ fn open(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virtu
     };
 
     return VirtualMachine.Code.Value{ .int = @intCast(file.handle) };
+}
+
+fn delete(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+    _ = vm;
+
+    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+        return VirtualMachine.Code.Value{ .none = {} };
+    }
+
+    const file_path = arguments[0].object.string.content;
+
+    std.fs.cwd().deleteFile(file_path) catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    return VirtualMachine.Code.Value{ .none = {} };
 }
 
 fn close(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {

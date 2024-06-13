@@ -199,3 +199,11 @@ Utilities used in Mathematics
 ```
 import("math")
 ```
+
+- fs
+
+Opening and Reading and Writing files
+
+```
+import("fs")
+```

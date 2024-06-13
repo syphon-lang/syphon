@@ -10,6 +10,7 @@ pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine
     try exports.put("close", .{ .object = .{ .native_function = .{ .name = "close", .required_arguments_count = 1, .call = &close } } });
     try exports.put("close_all", .{ .object = .{ .native_function = .{ .name = "close_all", .required_arguments_count = 0, .call = &closeAll } } });
     try exports.put("cwd", .{ .object = .{ .native_function = .{ .name = "cwd", .required_arguments_count = 0, .call = &cwd } } });
+    try exports.put("chdir", .{ .object = .{ .native_function = .{ .name = "chdir", .required_arguments_count = 1, .call = &chdir } } });
     try exports.put("write", .{ .object = .{ .native_function = .{ .name = "write", .required_arguments_count = 2, .call = &write } } });
     try exports.put("read_line", .{ .object = .{ .native_function = .{ .name = "read_line", .required_arguments_count = 1, .call = &readLine } } });
     try exports.put("read_all", .{ .object = .{ .native_function = .{ .name = "read_all", .required_arguments_count = 1, .call = &readAll } } });
@@ -87,6 +88,26 @@ fn cwd(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virtua
     };
 
     return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = cwd_file_path } } };
+}
+
+fn chdir(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+    _ = vm;
+
+    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+        return VirtualMachine.Code.Value{ .none = {} };
+    }
+
+    const dir_path = arguments[0].object.string.content;
+
+    const dir = std.fs.cwd().openDir(dir_path, .{}) catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    dir.setAsCwd() catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    return VirtualMachine.Code.Value{ .none = {} };
 }
 
 fn write(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {

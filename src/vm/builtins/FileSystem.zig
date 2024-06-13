@@ -1,9 +1,10 @@
 const std = @import("std");
 
+const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
-pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine.Code.Value {
-    var exports = std.StringHashMap(VirtualMachine.Code.Value).init(gpa);
+pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!Code.Value {
+    var exports = std.StringHashMap(Code.Value).init(gpa);
 
     try exports.put("open", .{ .object = .{ .native_function = .{ .name = "open", .required_arguments_count = 1, .call = &open } } });
     try exports.put("delete", .{ .object = .{ .native_function = .{ .name = "delete", .required_arguments_count = 1, .call = &delete } } });
@@ -17,46 +18,46 @@ pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!VirtualMachine
     try exports.put("read_line", .{ .object = .{ .native_function = .{ .name = "read_line", .required_arguments_count = 1, .call = &readLine } } });
     try exports.put("read_all", .{ .object = .{ .native_function = .{ .name = "read_all", .required_arguments_count = 1, .call = &readAll } } });
 
-    return VirtualMachine.Code.Value.Object.Map.fromStringHashMap(gpa, exports);
+    return Code.Value.Object.Map.fromStringHashMap(gpa, exports);
 }
 
-fn open(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_path = arguments[0].object.string.content;
 
     const file = std.fs.cwd().createFile(file_path, .{ .truncate = false, .read = true }) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     vm.open_files.put(file.handle, file) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
-    return VirtualMachine.Code.Value{ .int = @intCast(file.handle) };
+    return Code.Value{ .int = @intCast(file.handle) };
 }
 
-fn delete(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn delete(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_path = arguments[0].object.string.content;
 
     std.fs.cwd().deleteFile(file_path) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn close(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn close(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_location: i32 = @intCast(arguments[0].int);
@@ -67,10 +68,10 @@ fn close(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virt
         _ = vm.open_files.remove(file_location);
     }
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn closeAll(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn closeAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = arguments;
 
     var open_files_iterator = vm.open_files.iterator();
@@ -79,62 +80,62 @@ fn closeAll(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) V
         file_entry.value_ptr.close();
     }
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn cwd(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn cwd(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = arguments;
 
     const cwd_file_path = std.fs.cwd().realpathAlloc(vm.gpa, ".") catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
-    return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = cwd_file_path } } };
+    return Code.Value{ .object = .{ .string = .{ .content = cwd_file_path } } };
 }
 
-fn chdir(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn chdir(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const dir_path = arguments[0].object.string.content;
 
     const dir = std.fs.cwd().openDir(dir_path, .{}) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     dir.setAsCwd() catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn access(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn access(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_path = arguments[0].object.string.content;
 
     std.fs.cwd().access(file_path, .{ .mode = .read_write }) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .boolean = false },
+        else => return Code.Value{ .boolean = false },
     };
 
-    return VirtualMachine.Code.Value{ .boolean = true };
+    return Code.Value{ .boolean = true };
 }
 
-fn write(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     if (!(arguments[1] == .object and arguments[1].object == .string)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_location: i32 = @intCast(arguments[0].int);
@@ -145,75 +146,75 @@ fn write(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virt
         var buffered_writer = std.io.bufferedWriter(file.writer());
 
         buffered_writer.writer().writeAll(write_content) catch |err| switch (err) {
-            else => return VirtualMachine.Code.Value{ .none = {} },
+            else => return Code.Value{ .none = {} },
         };
 
         buffered_writer.flush() catch |err| switch (err) {
-            else => return VirtualMachine.Code.Value{ .none = {} },
+            else => return Code.Value{ .none = {} },
         };
     }
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn read(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_location: i32 = @intCast(arguments[0].int);
 
     if (vm.open_files.get(file_location)) |file| {
         const buf = vm.gpa.alloc(u8, 1) catch |err| switch (err) {
-            else => return VirtualMachine.Code.Value{ .none = {} },
+            else => return Code.Value{ .none = {} },
         };
 
         const n = file.reader().read(buf) catch |err| switch (err) {
-            else => return VirtualMachine.Code.Value{ .none = {} },
+            else => return Code.Value{ .none = {} },
         };
 
         if (n == 0) {
-            return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = "" } } };
+            return Code.Value{ .object = .{ .string = .{ .content = "" } } };
         }
 
-        return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = buf } } };
+        return Code.Value{ .object = .{ .string = .{ .content = buf } } };
     }
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn readLine(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_location: i32 = @intCast(arguments[0].int);
 
     if (vm.open_files.get(file_location)) |file| {
         const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.gpa, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
-            else => return VirtualMachine.Code.Value{ .none = {} },
+            else => return Code.Value{ .none = {} },
         } orelse "";
 
-        return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = file_content } } };
+        return Code.Value{ .object = .{ .string = .{ .content = file_content } } };
     }
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn readAll(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_location: i32 = @intCast(arguments[0].int);
 
     if (vm.open_files.get(file_location)) |file| {
         const file_content = file.reader().readAllAlloc(vm.gpa, std.math.maxInt(u32)) catch |err| switch (err) {
-            else => return VirtualMachine.Code.Value{ .none = {} },
+            else => return Code.Value{ .none = {} },
         };
 
-        return VirtualMachine.Code.Value{ .object = .{ .string = .{ .content = file_content } } };
+        return Code.Value{ .object = .{ .string = .{ .content = file_content } } };
     }
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }

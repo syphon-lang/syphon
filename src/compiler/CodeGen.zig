@@ -1,14 +1,15 @@
 const std = @import("std");
 
+const Code = @import("../vm/Code.zig");
+const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
-const VirtualMachine = @import("../vm/VirtualMachine.zig");
 
 const CodeGen = @This();
 
 gpa: std.mem.Allocator,
 
-code: VirtualMachine.Code,
+code: Code,
 
 context: Context,
 
@@ -41,7 +42,7 @@ pub const Context = struct {
 };
 
 pub fn init(gpa: std.mem.Allocator, mode: Context.Mode) CodeGen {
-    return CodeGen{ .gpa = gpa, .code = .{ .constants = std.ArrayList(VirtualMachine.Code.Value).init(gpa), .instructions = std.ArrayList(VirtualMachine.Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode, .break_points = std.ArrayList(usize).init(gpa), .continue_points = std.ArrayList(usize).init(gpa) } };
+    return CodeGen{ .gpa = gpa, .code = .{ .constants = std.ArrayList(Code.Value).init(gpa), .instructions = std.ArrayList(Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode, .break_points = std.ArrayList(usize).init(gpa), .continue_points = std.ArrayList(usize).init(gpa) } };
 }
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
@@ -103,7 +104,7 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
         try parameters.append(name.buffer);
     }
 
-    const function: VirtualMachine.Code.Value.Object.Function = .{
+    const function: Code.Value.Object.Function = .{
         .name = function_declaration.name.buffer,
         .parameters = try parameters.toOwnedSlice(),
         .code = blk: {
@@ -117,7 +118,7 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
         },
     };
 
-    var function_on_heap = try self.gpa.alloc(VirtualMachine.Code.Value.Object.Function, 1);
+    var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
     function_on_heap[0] = function;
 
     try self.code.source_locations.append(function_declaration.name.source_loc);

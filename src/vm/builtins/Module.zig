@@ -1,23 +1,24 @@
 const std = @import("std");
 
-const VirtualMachine = @import("../VirtualMachine.zig");
 const Parser = @import("../../compiler/ast.zig").Parser;
 const CodeGen = @import("../../compiler/CodeGen.zig");
+const Code = @import("../Code.zig");
+const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("export", .{ .object = .{ .native_function = .{ .name = "export", .required_arguments_count = 1, .call = &@"export" } } });
     try vm.globals.put("import", .{ .object = .{ .native_function = .{ .name = "import", .required_arguments_count = 1, .call = &import } } });
 }
 
-fn @"export"(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     vm.exported_value = arguments[0];
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_path = arguments[0].object.string.content;
@@ -33,37 +34,37 @@ fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
     }
 }
 
-fn getMathModule(gpa: std.mem.Allocator) VirtualMachine.Code.Value {
+fn getMathModule(gpa: std.mem.Allocator) Code.Value {
     const Math = @import("Math.zig");
 
     const exports = Math.getExports(gpa) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     return exports;
 }
 
-fn getFileSystemModule(gpa: std.mem.Allocator) VirtualMachine.Code.Value {
+fn getFileSystemModule(gpa: std.mem.Allocator) Code.Value {
     const FileSystem = @import("FileSystem.zig");
 
     const exports = FileSystem.getExports(gpa) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     return exports;
 }
 
-fn getProcessModule(vm: *VirtualMachine) VirtualMachine.Code.Value {
+fn getProcessModule(vm: *VirtualMachine) Code.Value {
     const Process = @import("Process.zig");
 
     const exports = Process.getExports(vm) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     return exports;
 }
 
-fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) VirtualMachine.Code.Value {
+fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     const source_file_path = vm.argv[0];
 
     const source_dir_path = blk: {
@@ -78,21 +79,21 @@ fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) VirtualMachine.C
     };
 
     const resolved_file_path = std.fs.path.resolve(vm.gpa, &.{ source_dir_path, file_path }) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     const file = std.fs.cwd().openFile(resolved_file_path, .{}) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     defer file.close();
 
     const file_content = file.reader().readAllAlloc(vm.gpa, std.math.maxInt(u32)) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     if (file_content.len == 0) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const file_content_z = @as([:0]u8, @ptrCast(file_content));
@@ -100,33 +101,33 @@ fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) VirtualMachine.C
     file_content_z[file_content.len] = 0;
 
     var parser = Parser.init(vm.gpa, file_content_z) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     var gen = CodeGen.init(vm.gpa, .script);
 
     gen.compileRoot(root) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     var other_vm = VirtualMachine.init(vm.gpa, &.{resolved_file_path}) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     other_vm.addGlobals() catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     other_vm.setCode(gen.code) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     _ = other_vm.run() catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
     return other_vm.exported_value;

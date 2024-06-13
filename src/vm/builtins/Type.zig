@@ -43,7 +43,7 @@ fn to_int(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
     }
 }
 
-fn to_float(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+pub fn to_float(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
     _ = vm;
 
     const value = arguments[0];

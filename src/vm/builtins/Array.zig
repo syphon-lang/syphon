@@ -20,10 +20,7 @@ fn array_push(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value)
     const value = arguments[1];
 
     array.values.append(value) catch |err| switch (err) {
-        error.OutOfMemory => {
-            std.debug.print("ran out of memory\n", .{});
-            std.process.exit(1);
-        },
+        else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
     return VirtualMachine.Code.Value{ .none = {} };

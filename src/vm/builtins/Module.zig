@@ -24,6 +24,8 @@ fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
 
     if (std.mem.eql(u8, file_path, "math")) {
         return getMathModule(vm.gpa);
+    } else if (std.mem.eql(u8, file_path, "fs")) {
+        return getFileSystemModule(vm.gpa);
     } else {
         return getExportedValue(vm, file_path);
     }
@@ -32,11 +34,21 @@ fn import(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
 fn getMathModule(gpa: std.mem.Allocator) VirtualMachine.Code.Value {
     const Math = @import("Math.zig");
 
-    const globals = Math.getExports(gpa) catch |err| switch (err) {
+    const exports = Math.getExports(gpa) catch |err| switch (err) {
         else => return VirtualMachine.Code.Value{ .none = {} },
     };
 
-    return globals;
+    return exports;
+}
+
+fn getFileSystemModule(gpa: std.mem.Allocator) VirtualMachine.Code.Value {
+    const FileSystem = @import("FileSystem.zig");
+
+    const exports = FileSystem.getExports(gpa) catch |err| switch (err) {
+        else => return VirtualMachine.Code.Value{ .none = {} },
+    };
+
+    return exports;
 }
 
 fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) VirtualMachine.Code.Value {

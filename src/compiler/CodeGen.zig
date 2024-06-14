@@ -37,7 +37,6 @@ pub const Context = struct {
     pub const Mode = enum {
         script,
         function,
-        repl,
     };
 };
 
@@ -64,10 +63,8 @@ pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
 }
 
 fn endCode(self: *CodeGen) Error!void {
-    if (self.code.instructions.items.len == 0 or self.context.mode != .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    }
+    try self.code.source_locations.append(.{});
+    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .@"return" = {} });
@@ -85,10 +82,8 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
         .expr => {
             try self.compileExpr(node.expr);
 
-            if (self.context.mode != .repl) {
-                try self.code.source_locations.append(.{});
-                try self.code.instructions.append(.{ .pop = {} });
-            }
+            try self.code.source_locations.append(.{});
+            try self.code.instructions.append(.{ .pop = {} });
         },
     }
 }
@@ -138,11 +133,6 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
 
     try self.code.source_locations.append(function_declaration.name.source_loc);
     try self.code.instructions.append(.{ .store = .{ .name = function_declaration.name.buffer } });
-
-    if (self.context.mode == .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    }
 }
 
 fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional) Error!void {
@@ -237,11 +227,6 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
     self.context.break_points.shrinkRetainingCapacity(previous_break_points_len);
 
     self.context.continue_points.shrinkRetainingCapacity(previous_continue_points_len);
-
-    if (self.context.mode == .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    }
 }
 
 fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {

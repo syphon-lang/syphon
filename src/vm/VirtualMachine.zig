@@ -75,6 +75,7 @@ pub fn StringHashMapRecorder(comptime V: type) type {
 
         pub fn get(self: Self, key: K) ?V {
             var i = self.snapshots.items.len;
+
             while (i > 0) : (i -= 1) {
                 if (self.snapshots.items[i - 1].get(key)) |value| {
                     return value;
@@ -136,10 +137,12 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
     if (self.frames.items.len == 0) {
-        var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
-        function_on_heap[0] = .{ .name = "", .parameters = &.{}, .code = code };
+        const value = try Code.Value.Object.Function.init(self.gpa, "entry", &.{}, code);
 
-        try self.frames.append(.{ .function = &function_on_heap[0], .locals = try StringHashMapRecorder(usize).init(self.gpa) });
+        try self.frames.append(.{
+            .function = value.object.function,
+            .locals = try StringHashMapRecorder(usize).init(self.gpa),
+        });
     } else {
         self.frames.items[0].function.code = code;
         self.frames.items[0].ip = 0;
@@ -406,12 +409,7 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
                 values.insertAssumeCapacity(0, value);
             }
 
-            const array: Code.Value.Object.Array = .{ .values = values };
-
-            var array_on_heap = try self.gpa.alloc(Code.Value.Object.Array, 1);
-            array_on_heap[0] = array;
-
-            try self.stack.append(.{ .object = .{ .array = &array_on_heap[0] } });
+            try self.stack.append(try Code.Value.Object.Array.init(self.gpa, values));
         },
 
         .map => {
@@ -424,12 +422,7 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
                 try inner.put(key, value);
             }
 
-            const map: Code.Value.Object.Map = .{ .inner = inner };
-
-            var map_on_heap = try self.gpa.alloc(Code.Value.Object.Map, 1);
-            map_on_heap[0] = map;
-
-            try self.stack.append(.{ .object = .{ .map = &map_on_heap[0] } });
+            try self.stack.append(try Code.Value.Object.Map.init(self.gpa, inner));
         },
     }
 }

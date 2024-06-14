@@ -4,10 +4,10 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("typeof", .{ .object = .{ .native_function = .{ .name = "typeof", .required_arguments_count = 1, .call = &typeof } } });
-    try vm.globals.put("to_int", .{ .object = .{ .native_function = .{ .name = "to_int", .required_arguments_count = 1, .call = &to_int } } });
-    try vm.globals.put("to_float", .{ .object = .{ .native_function = .{ .name = "to_float", .required_arguments_count = 1, .call = &to_float } } });
-    try vm.globals.put("to_string", .{ .object = .{ .native_function = .{ .name = "to_string", .required_arguments_count = 1, .call = &to_string } } });
+    try vm.globals.put("typeof", Code.Value.Object.NativeFunction.init("typeof", 1, &typeof));
+    try vm.globals.put("to_int", Code.Value.Object.NativeFunction.init("to_int", 1, &to_int));
+    try vm.globals.put("to_float", Code.Value.Object.NativeFunction.init("to_float", 1, &to_float));
+    try vm.globals.put("to_string", Code.Value.Object.NativeFunction.init("to_string", 1, &to_string));
 }
 
 fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

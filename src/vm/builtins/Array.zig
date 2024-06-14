@@ -4,9 +4,9 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("array_push", .{ .object = .{ .native_function = .{ .name = "array_push", .required_arguments_count = 2, .call = &array_push } } });
-    try vm.globals.put("array_pop", .{ .object = .{ .native_function = .{ .name = "array_pop", .required_arguments_count = 1, .call = &array_pop } } });
-    try vm.globals.put("length", .{ .object = .{ .native_function = .{ .name = "length", .required_arguments_count = 1, .call = &length } } });
+    try vm.globals.put("array_push", Code.Value.Object.NativeFunction.init("array_push", 2, &array_push));
+    try vm.globals.put("array_pop", Code.Value.Object.NativeFunction.init("array_pop", 1, &array_pop));
+    try vm.globals.put("length", Code.Value.Object.NativeFunction.init("length", 1, &length));
 }
 
 fn array_push(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

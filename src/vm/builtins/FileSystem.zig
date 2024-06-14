@@ -6,17 +6,17 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(gpa);
 
-    try exports.put("open", .{ .object = .{ .native_function = .{ .name = "open", .required_arguments_count = 1, .call = &open } } });
-    try exports.put("delete", .{ .object = .{ .native_function = .{ .name = "delete", .required_arguments_count = 1, .call = &delete } } });
-    try exports.put("close", .{ .object = .{ .native_function = .{ .name = "close", .required_arguments_count = 1, .call = &close } } });
-    try exports.put("close_all", .{ .object = .{ .native_function = .{ .name = "close_all", .required_arguments_count = 0, .call = &closeAll } } });
-    try exports.put("cwd", .{ .object = .{ .native_function = .{ .name = "cwd", .required_arguments_count = 0, .call = &cwd } } });
-    try exports.put("chdir", .{ .object = .{ .native_function = .{ .name = "chdir", .required_arguments_count = 1, .call = &chdir } } });
-    try exports.put("access", .{ .object = .{ .native_function = .{ .name = "access", .required_arguments_count = 1, .call = &access } } });
-    try exports.put("write", .{ .object = .{ .native_function = .{ .name = "write", .required_arguments_count = 2, .call = &write } } });
-    try exports.put("read", .{ .object = .{ .native_function = .{ .name = "read", .required_arguments_count = 1, .call = &read } } });
-    try exports.put("read_line", .{ .object = .{ .native_function = .{ .name = "read_line", .required_arguments_count = 1, .call = &readLine } } });
-    try exports.put("read_all", .{ .object = .{ .native_function = .{ .name = "read_all", .required_arguments_count = 1, .call = &readAll } } });
+    try exports.put("open", Code.Value.Object.NativeFunction.init("open", 1, &open));
+    try exports.put("delete", Code.Value.Object.NativeFunction.init("delete", 1, &delete));
+    try exports.put("close", Code.Value.Object.NativeFunction.init("close", 1, &close));
+    try exports.put("close_all", Code.Value.Object.NativeFunction.init("close_all", 0, &closeAll));
+    try exports.put("cwd", Code.Value.Object.NativeFunction.init("cwd", 0, &cwd));
+    try exports.put("chdir", Code.Value.Object.NativeFunction.init("chdir", 1, &chdir));
+    try exports.put("access", Code.Value.Object.NativeFunction.init("access", 1, &access));
+    try exports.put("write", Code.Value.Object.NativeFunction.init("write", 2, &write));
+    try exports.put("read", Code.Value.Object.NativeFunction.init("read", 1, &read));
+    try exports.put("read_line", Code.Value.Object.NativeFunction.init("read_line", 1, &readLine));
+    try exports.put("read_all", Code.Value.Object.NativeFunction.init("read_all", 1, &readAll));
 
     return Code.Value.Object.Map.fromStringHashMap(gpa, exports);
 }

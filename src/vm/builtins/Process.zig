@@ -4,7 +4,7 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("exit", .{ .object = .{ .native_function = .{ .name = "exit", .required_arguments_count = 1, .call = &exit } } });
+    try vm.globals.put("exit", Code.Value.Object.NativeFunction.init("exit", 1, &exit));
 }
 
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {

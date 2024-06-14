@@ -5,7 +5,7 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("random", .{ .object = .{ .native_function = .{ .name = "random", .required_arguments_count = 2, .call = &random } } });
+    try vm.globals.put("random", Code.Value.Object.NativeFunction.init("random", 2, &random));
 }
 
 fn random(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

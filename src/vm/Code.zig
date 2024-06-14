@@ -32,6 +32,15 @@ pub const Value = union(enum) {
         pub const Array = struct {
             values: std.ArrayList(Value),
 
+            pub fn init(gpa: std.mem.Allocator, values: std.ArrayList(Value)) std.mem.Allocator.Error!Value {
+                const array: Array = .{ .values = values };
+
+                var array_on_heap = try gpa.alloc(Array, 1);
+                array_on_heap[0] = array;
+
+                return Value{ .object = .{ .array = &array_on_heap[0] } };
+            }
+
             pub fn fromStringSlices(gpa: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
                 var values = try std.ArrayList(Value).initCapacity(gpa, from.len);
 
@@ -40,12 +49,7 @@ pub const Value = union(enum) {
                     values.appendAssumeCapacity(value);
                 }
 
-                const array: Array = .{ .values = values };
-
-                var array_on_heap = try gpa.alloc(Array, 1);
-                array_on_heap[0] = array;
-
-                return Value{ .object = .{ .array = &array_on_heap[0] } };
+                return init(gpa, values);
             }
         };
 
@@ -53,6 +57,15 @@ pub const Value = union(enum) {
             pub const Inner = std.HashMap(Value, Value, Value.HashContext, std.hash_map.default_max_load_percentage);
 
             inner: Inner,
+
+            pub fn init(gpa: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
+                const map: Map = .{ .inner = inner };
+
+                var map_on_heap = try gpa.alloc(Map, 1);
+                map_on_heap[0] = map;
+
+                return Value{ .object = .{ .map = &map_on_heap[0] } };
+            }
 
             pub fn fromStringHashMap(gpa: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
                 var inner = Inner.init(gpa);
@@ -66,12 +79,7 @@ pub const Value = union(enum) {
                     try inner.put(key, value);
                 }
 
-                const map: Map = .{ .inner = inner };
-
-                var map_on_heap = try gpa.alloc(Map, 1);
-                map_on_heap[0] = map;
-
-                return Value{ .object = .{ .map = &map_on_heap[0] } };
+                return init(gpa, inner);
             }
         };
 
@@ -79,12 +87,27 @@ pub const Value = union(enum) {
             name: []const u8,
             parameters: []const []const u8,
             code: Code,
+
+            pub fn init(gpa: std.mem.Allocator, name: []const u8, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
+                const function: Function = .{ .name = name, .parameters = parameters, .code = code };
+
+                var function_on_heap = try gpa.alloc(Function, 1);
+                function_on_heap[0] = function;
+
+                return Value{ .object = .{ .function = &function_on_heap[0] } };
+            }
         };
 
         pub const NativeFunction = struct {
             name: []const u8,
             required_arguments_count: ?usize,
-            call: *const fn (*VirtualMachine, []const Value) Value,
+            call: Call,
+
+            const Call = *const fn (*VirtualMachine, []const Value) Value;
+
+            pub fn init(name: []const u8, required_arguments_count: ?usize, call: Call) Value {
+                return Value{ .object = .{ .native_function = .{ .name = name, .required_arguments_count = required_arguments_count, .call = call } } };
+            }
         };
     };
 

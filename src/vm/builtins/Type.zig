@@ -31,7 +31,7 @@ fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .object = .{ .string = .{ .content = result } } };
 }
 
-fn to_int(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+pub fn to_int(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     const value = arguments[0];

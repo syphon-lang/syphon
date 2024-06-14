@@ -86,6 +86,10 @@ pub fn StringHashMapRecorder(comptime V: type) type {
         }
 
         pub fn getFromLastSnapshot(self: Self, key: K) ?V {
+            if (self.snapshots.items.len == 0) {
+                return null;
+            }
+
             return self.snapshots.getLast().get(key);
         }
 

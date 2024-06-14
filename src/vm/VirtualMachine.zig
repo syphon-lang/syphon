@@ -809,12 +809,6 @@ fn greater_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
 fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLoc, frame: *Frame) Error!void {
     const callable = self.stack.pop();
 
-    var arguments = try std.ArrayList(Code.Value).initCapacity(self.gpa, info.arguments_count);
-
-    for (0..info.arguments_count) |_| {
-        try arguments.insert(0, self.stack.pop());
-    }
-
     if (callable == .object) {
         switch (callable.object) {
             .function => {
@@ -822,11 +816,9 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
 
                 frame.locals.newSnapshot();
 
-                const stack_start = self.stack.items.len;
+                const stack_start = self.stack.items.len - info.arguments_count;
 
                 for (callable.object.function.parameters, 0..) |parameter, i| {
-                    try self.stack.append(arguments.items[i]);
-
                     try frame.locals.put(parameter, stack_start + i);
                 }
 
@@ -846,6 +838,12 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
             .native_function => {
                 if (callable.object.native_function.required_arguments_count != null) {
                     try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, info.arguments_count, source_loc);
+                }
+
+                var arguments = try std.ArrayList(Code.Value).initCapacity(self.gpa, info.arguments_count);
+
+                for (0..info.arguments_count) |_| {
+                    try arguments.insert(0, self.stack.pop());
                 }
 
                 const return_value = callable.object.native_function.call(self, arguments.items);

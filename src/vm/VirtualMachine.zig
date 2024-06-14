@@ -44,7 +44,6 @@ pub const Frame = struct {
     function: *Code.Value.Object.Function,
     locals: StringHashMapRecorder(usize),
     ip: usize = 0,
-    stack_start: usize = 0,
 };
 
 pub fn StringHashMapRecorder(comptime V: type) type {
@@ -74,7 +73,7 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             _ = self.snapshots.pop();
         }
 
-        pub fn get(self: *Self, key: K) ?V {
+        pub fn get(self: Self, key: K) ?V {
             var i = self.snapshots.items.len;
             while (i > 0) : (i -= 1) {
                 if (self.snapshots.items[i - 1].get(key)) |value| {
@@ -83,6 +82,10 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             }
 
             return null;
+        }
+
+        pub fn getFromLastSnapshot(self: Self, key: K) ?V {
+            return self.snapshots.getLast().get(key);
         }
 
         pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
@@ -311,12 +314,10 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
 
     switch (info) {
         .name => {
-            if (frame.locals.get(info.name)) |stack_index| {
-                if (stack_index >= frame.stack_start) {
-                    self.stack.items[stack_index] = value;
+            if (frame.locals.getFromLastSnapshot(info.name)) |stack_index| {
+                self.stack.items[stack_index] = value;
 
-                    return;
-                }
+                return;
             }
 
             const stack_index = self.stack.items.len;
@@ -829,7 +830,7 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
                     try frame.locals.put(parameter, stack_start + i);
                 }
 
-                try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals, .stack_start = stack_start });
+                try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals });
 
                 const return_value = try self.run();
 

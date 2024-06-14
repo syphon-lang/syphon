@@ -175,14 +175,14 @@ pub const Node = union(enum) {
 };
 
 pub const Parser = struct {
+    gpa: std.mem.Allocator,
+
     buffer: [:0]const u8,
 
     tokens: []Token,
     current_token_index: usize,
 
     error_info: ?ErrorInfo = null,
-
-    gpa: std.mem.Allocator,
 
     pub const Error = error{
         UnexpectedToken,
@@ -207,7 +207,12 @@ pub const Parser = struct {
             if (token.tag == .eof) break;
         }
 
-        return Parser{ .buffer = buffer, .tokens = try tokens.toOwnedSlice(), .current_token_index = 0, .gpa = gpa };
+        return Parser{
+            .gpa = gpa,
+            .buffer = buffer,
+            .tokens = try tokens.toOwnedSlice(),
+            .current_token_index = 0,
+        };
     }
 
     fn nextToken(self: *Parser) Token {

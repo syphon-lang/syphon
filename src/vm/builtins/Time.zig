@@ -1,12 +1,13 @@
 const std = @import("std");
 
+const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("time", .{ .object = .{ .native_function = .{ .name = "time", .required_arguments_count = 0, .call = &time } } });
+    try vm.globals.put("time", Code.Value.Object.NativeFunction.init("time", 0, &time));
 }
 
-pub fn time(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+pub fn time(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = arguments;
 
     const now_time = std.time.Instant.now() catch |err| switch (err) {
@@ -15,5 +16,5 @@ pub fn time(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) V
 
     const elapsed_time = now_time.since(vm.start_time);
 
-    return VirtualMachine.Code.Value{ .int = @intCast(elapsed_time) };
+    return Code.Value{ .int = @intCast(elapsed_time) };
 }

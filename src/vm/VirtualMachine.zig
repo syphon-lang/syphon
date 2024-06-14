@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
+const Code = @import("Code.zig");
 
 const VirtualMachine = @This();
 
@@ -43,293 +44,6 @@ pub const Frame = struct {
     function: *Code.Value.Object.Function,
     locals: StringHashMapRecorder(usize),
     ip: usize = 0,
-    stack_start: usize = 0,
-};
-
-pub const Code = struct {
-    constants: std.ArrayList(Value),
-    instructions: std.ArrayList(Instruction),
-    source_locations: std.ArrayList(SourceLoc),
-
-    pub const Value = union(enum) {
-        none: void,
-        int: i64,
-        float: f64,
-        boolean: bool,
-        object: Object,
-
-        pub const Object = union(enum) {
-            string: String,
-            array: *Array,
-            map: *Map,
-            function: *Function,
-            native_function: NativeFunction,
-
-            pub const String = struct {
-                content: []const u8,
-            };
-
-            pub const Array = struct {
-                values: std.ArrayList(Value),
-
-                pub fn fromStringSlices(gpa: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
-                    var values = try std.ArrayList(Value).initCapacity(gpa, from.len);
-
-                    for (from) |content| {
-                        const value: Value = .{ .object = .{ .string = .{ .content = content } } };
-                        values.appendAssumeCapacity(value);
-                    }
-
-                    const array: Array = .{ .values = values };
-
-                    var array_on_heap = try gpa.alloc(Array, 1);
-                    array_on_heap[0] = array;
-
-                    return Value{ .object = .{ .array = &array_on_heap[0] } };
-                }
-            };
-
-            pub const Map = struct {
-                pub const Inner = std.HashMap(Value, Value, Value.HashContext, std.hash_map.default_max_load_percentage);
-
-                inner: Inner,
-
-                pub fn fromStringHashMap(gpa: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
-                    var inner = Inner.init(gpa);
-
-                    var from_entries_iterator = from.iterator();
-
-                    while (from_entries_iterator.next()) |from_entry| {
-                        const key: Value = .{ .object = .{ .string = .{ .content = from_entry.key_ptr.* } } };
-                        const value = from_entry.value_ptr.*;
-
-                        try inner.put(key, value);
-                    }
-
-                    const map: Map = .{ .inner = inner };
-
-                    var map_on_heap = try gpa.alloc(Map, 1);
-                    map_on_heap[0] = map;
-
-                    return Value{ .object = .{ .map = &map_on_heap[0] } };
-                }
-            };
-
-            pub const Function = struct {
-                name: []const u8,
-                parameters: []const []const u8,
-                code: Code,
-            };
-
-            pub const NativeFunction = struct {
-                name: []const u8,
-                required_arguments_count: ?usize,
-                call: *const fn (*VirtualMachine, []const Value) Value,
-            };
-        };
-
-        pub const HashContext = struct {
-            pub fn hashable(key: Value) bool {
-                return switch (key) {
-                    .object => switch (key.object) {
-                        .string => true,
-
-                        else => false,
-                    },
-
-                    else => true,
-                };
-            }
-
-            pub fn hash(ctx: HashContext, key: Value) u64 {
-                _ = ctx;
-
-                @setRuntimeSafety(false);
-
-                return switch (key) {
-                    .none => 0,
-
-                    .int => @intCast(key.int),
-
-                    .float => @intFromFloat(key.float),
-
-                    .boolean => @intFromBool(key.boolean),
-
-                    .object => switch (key.object) {
-                        .string => blk: {
-                            var hasher = std.hash.Wyhash.init(0);
-
-                            hasher.update(key.object.string.content);
-
-                            break :blk hasher.final();
-                        },
-
-                        else => unreachable,
-                    },
-                };
-            }
-
-            pub fn eql(ctx: HashContext, lhs: Value, rhs: Value) bool {
-                _ = ctx;
-                return lhs.eql(rhs, false);
-            }
-        };
-
-        pub fn is_truthy(self: Value) bool {
-            return switch (self) {
-                .none => false,
-                .int => self.int != 0,
-                .float => self.float != 0.0,
-                .boolean => self.boolean,
-                .object => switch (self.object) {
-                    .string => self.object.string.content.len != 0,
-                    .array => self.object.array.values.items.len != 0,
-                    .map => self.object.map.inner.count() != 0,
-                    else => true,
-                },
-            };
-        }
-
-        pub fn eql(lhs: Value, rhs: Value, strict: bool) bool {
-            if (lhs.is_truthy() != rhs.is_truthy()) {
-                return false;
-            }
-
-            switch (lhs) {
-                .none => return rhs == .none,
-
-                .int => return (rhs == .int and lhs.int == rhs.int) or (!strict and rhs == .float and @as(f64, @floatFromInt(lhs.int)) == rhs.float) or (!strict and rhs == .boolean and lhs.int == @as(i64, @intFromBool(rhs.boolean))),
-
-                .float => return (rhs == .float and lhs.float == rhs.float) or (!strict and rhs == .int and lhs.float == @as(f64, @floatFromInt(rhs.int))) or (!strict and rhs == .boolean and lhs.float == @as(f64, @floatFromInt(@intFromBool(rhs.boolean)))),
-
-                .boolean => return (rhs == .boolean and lhs.boolean == rhs.boolean) or (!strict and rhs == .int and @as(i64, @intFromBool(lhs.boolean)) == rhs.int) or (!strict and rhs == .float and @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) == rhs.float),
-
-                .object => switch (lhs.object) {
-                    .string => return rhs == .object and rhs.object == .string and std.mem.eql(u8, lhs.object.string.content, rhs.object.string.content),
-
-                    .array => {
-                        if (!(rhs == .object and rhs.object == .array and lhs.object.array.values.items.len == rhs.object.array.values.items.len)) {
-                            return false;
-                        }
-
-                        for (0..lhs.object.array.values.items.len) |i| {
-                            if (lhs.object.array.values.items[i] == .object and lhs.object.array.values.items[i].object == .array and lhs.object.array.values.items[i].object.array == lhs.object.array) {
-                                if (!(rhs.object.array.values.items[i] == .object and rhs.object.array.values.items[i].object == .array and rhs.object.array.values.items[i].object.array == lhs.object.array)) {
-                                    return false;
-                                }
-                            } else if (!lhs.object.array.values.items[i].eql(rhs.object.array.values.items[i], false)) {
-                                return false;
-                            }
-                        }
-                    },
-
-                    .map => {
-                        if (!(rhs == .object and rhs.object == .map)) {
-                            return false;
-                        }
-
-                        var lhs_map_iterator = lhs.object.map.inner.iterator();
-
-                        while (lhs_map_iterator.next()) |lhs_entry| {
-                            if (rhs.object.map.inner.get(lhs_entry.key_ptr.*)) |rhs_entry_value| {
-                                if (lhs_entry.value_ptr.* == .object and lhs_entry.value_ptr.object == .map and lhs_entry.value_ptr.object.map == lhs.object.map) {
-                                    if (!(rhs_entry_value == .object and rhs_entry_value.object == .map and rhs_entry_value.object.map == lhs.object.map)) {
-                                        return false;
-                                    }
-                                } else if (!lhs_entry.value_ptr.eql(rhs_entry_value, false)) {
-                                    return false;
-                                }
-                            } else {
-                                return false;
-                            }
-                        }
-                    },
-
-                    // Comparing with pointers instead of checking everything is used here because when you do "function == other_function" you are just comparing function pointers
-                    .function => return rhs == .object and rhs.object == .function and lhs.object.function == rhs.object.function,
-                    .native_function => return rhs == .object and rhs.object == .native_function and lhs.object.native_function.call == rhs.object.native_function.call,
-                },
-            }
-
-            return true;
-        }
-    };
-
-    pub const Instruction = union(enum) {
-        load: Load,
-        store: Store,
-        jump: Jump,
-        jump_if_false: JumpIfFalse,
-        back: Back,
-        make: Make,
-        neg: void,
-        not: void,
-        add: void,
-        subtract: void,
-        divide: void,
-        multiply: void,
-        exponent: void,
-        modulo: void,
-        not_equals: void,
-        equals: void,
-        less_than: void,
-        greater_than: void,
-        call: Call,
-        pop: void,
-        @"return": void,
-
-        pub const Load = union(enum) {
-            constant: usize,
-            name: []const u8,
-            subscript: void,
-        };
-
-        pub const Store = union(enum) {
-            name: []const u8,
-            subscript: void,
-        };
-
-        pub const Jump = struct {
-            offset: usize,
-        };
-
-        pub const JumpIfFalse = struct {
-            offset: usize,
-        };
-
-        pub const Back = struct {
-            offset: usize,
-        };
-
-        pub const Make = union(enum) {
-            array: Array,
-            map: Map,
-
-            pub const Array = struct {
-                length: usize,
-            };
-
-            pub const Map = struct {
-                length: usize,
-            };
-        };
-
-        pub const Call = struct {
-            arguments_count: usize,
-        };
-    };
-
-    pub fn addConstant(self: *Code, value: Value) std.mem.Allocator.Error!usize {
-        for (self.constants.items, 0..) |constant, i| {
-            if (constant.eql(value, true)) {
-                return i;
-            }
-        }
-
-        try self.constants.append(value);
-
-        return self.constants.items.len - 1;
-    }
 };
 
 pub fn StringHashMapRecorder(comptime V: type) type {
@@ -338,14 +52,17 @@ pub fn StringHashMapRecorder(comptime V: type) type {
 
         snapshots: std.ArrayList(Inner),
 
-        const K = []const u8;
-
         const Self = StringHashMapRecorder(V);
 
         const Inner = std.StringHashMap(V);
 
+        const K = []const u8;
+
         pub fn init(gpa: std.mem.Allocator) std.mem.Allocator.Error!Self {
-            return Self{ .gpa = gpa, .snapshots = try std.ArrayList(Inner).initCapacity(gpa, MAX_FRAMES_COUNT) };
+            return Self{
+                .gpa = gpa,
+                .snapshots = try std.ArrayList(Inner).initCapacity(gpa, MAX_FRAMES_COUNT),
+            };
         }
 
         pub inline fn newSnapshot(self: *Self) void {
@@ -356,8 +73,9 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             _ = self.snapshots.pop();
         }
 
-        pub fn get(self: *Self, key: K) ?V {
+        pub fn get(self: Self, key: K) ?V {
             var i = self.snapshots.items.len;
+
             while (i > 0) : (i -= 1) {
                 if (self.snapshots.items[i - 1].get(key)) |value| {
                     return value;
@@ -365,6 +83,14 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             }
 
             return null;
+        }
+
+        pub fn getFromLastSnapshot(self: Self, key: K) ?V {
+            if (self.snapshots.items.len == 0) {
+                return null;
+            }
+
+            return self.snapshots.getLast().get(key);
         }
 
         pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
@@ -415,10 +141,12 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
     if (self.frames.items.len == 0) {
-        var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
-        function_on_heap[0] = .{ .name = "", .parameters = &.{}, .code = code };
+        const value = try Code.Value.Object.Function.init(self.gpa, "entry", &.{}, code);
 
-        try self.frames.append(.{ .function = &function_on_heap[0], .locals = try StringHashMapRecorder(usize).init(self.gpa) });
+        try self.frames.append(.{
+            .function = value.object.function,
+            .locals = try StringHashMapRecorder(usize).init(self.gpa),
+        });
     } else {
         self.frames.items[0].function.code = code;
         self.frames.items[0].ip = 0;
@@ -593,12 +321,10 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
 
     switch (info) {
         .name => {
-            if (frame.locals.get(info.name)) |stack_index| {
-                if (stack_index >= frame.stack_start) {
-                    self.stack.items[stack_index] = value;
+            if (frame.locals.getFromLastSnapshot(info.name)) |stack_index| {
+                self.stack.items[stack_index] = value;
 
-                    return;
-                }
+                return;
             }
 
             const stack_index = self.stack.items.len;
@@ -687,12 +413,7 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
                 values.insertAssumeCapacity(0, value);
             }
 
-            const array: Code.Value.Object.Array = .{ .values = values };
-
-            var array_on_heap = try self.gpa.alloc(Code.Value.Object.Array, 1);
-            array_on_heap[0] = array;
-
-            try self.stack.append(.{ .object = .{ .array = &array_on_heap[0] } });
+            try self.stack.append(try Code.Value.Object.Array.init(self.gpa, values));
         },
 
         .map => {
@@ -705,12 +426,7 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
                 try inner.put(key, value);
             }
 
-            const map: Code.Value.Object.Map = .{ .inner = inner };
-
-            var map_on_heap = try self.gpa.alloc(Code.Value.Object.Map, 1);
-            map_on_heap[0] = map;
-
-            try self.stack.append(.{ .object = .{ .map = &map_on_heap[0] } });
+            try self.stack.append(try Code.Value.Object.Map.init(self.gpa, inner));
         },
     }
 }
@@ -1090,12 +806,6 @@ fn greater_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
 fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLoc, frame: *Frame) Error!void {
     const callable = self.stack.pop();
 
-    var arguments = try std.ArrayList(Code.Value).initCapacity(self.gpa, info.arguments_count);
-
-    for (0..info.arguments_count) |_| {
-        try arguments.insert(0, self.stack.pop());
-    }
-
     if (callable == .object) {
         switch (callable.object) {
             .function => {
@@ -1103,15 +813,13 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
 
                 frame.locals.newSnapshot();
 
-                const stack_start = self.stack.items.len;
+                const stack_start = self.stack.items.len - info.arguments_count;
 
                 for (callable.object.function.parameters, 0..) |parameter, i| {
-                    try self.stack.append(arguments.items[i]);
-
                     try frame.locals.put(parameter, stack_start + i);
                 }
 
-                try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals, .stack_start = stack_start });
+                try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals });
 
                 const return_value = try self.run();
 
@@ -1127,6 +835,12 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
             .native_function => {
                 if (callable.object.native_function.required_arguments_count != null) {
                     try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, info.arguments_count, source_loc);
+                }
+
+                var arguments = try std.ArrayList(Code.Value).initCapacity(self.gpa, info.arguments_count);
+
+                for (0..info.arguments_count) |_| {
+                    try arguments.insert(0, self.stack.pop());
                 }
 
                 const return_value = callable.object.native_function.call(self, arguments.items);

@@ -1,14 +1,15 @@
 const std = @import("std");
 
+const Code = @import("../vm/Code.zig");
+const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
-const VirtualMachine = @import("../vm/VirtualMachine.zig");
 
 const CodeGen = @This();
 
 gpa: std.mem.Allocator,
 
-code: VirtualMachine.Code,
+code: Code,
 
 context: Context,
 
@@ -36,12 +37,23 @@ pub const Context = struct {
     pub const Mode = enum {
         script,
         function,
-        repl,
     };
 };
 
 pub fn init(gpa: std.mem.Allocator, mode: Context.Mode) CodeGen {
-    return CodeGen{ .gpa = gpa, .code = .{ .constants = std.ArrayList(VirtualMachine.Code.Value).init(gpa), .instructions = std.ArrayList(VirtualMachine.Code.Instruction).init(gpa), .source_locations = std.ArrayList(SourceLoc).init(gpa) }, .context = .{ .mode = mode, .break_points = std.ArrayList(usize).init(gpa), .continue_points = std.ArrayList(usize).init(gpa) } };
+    return CodeGen{
+        .gpa = gpa,
+        .code = .{
+            .constants = std.ArrayList(Code.Value).init(gpa),
+            .instructions = std.ArrayList(Code.Instruction).init(gpa),
+            .source_locations = std.ArrayList(SourceLoc).init(gpa),
+        },
+        .context = .{
+            .mode = mode,
+            .break_points = std.ArrayList(usize).init(gpa),
+            .continue_points = std.ArrayList(usize).init(gpa),
+        },
+    };
 }
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
@@ -51,10 +63,8 @@ pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
 }
 
 fn endCode(self: *CodeGen) Error!void {
-    if (self.code.instructions.items.len == 0 or self.context.mode != .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    }
+    try self.code.source_locations.append(.{});
+    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .@"return" = {} });
@@ -72,10 +82,8 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
         .expr => {
             try self.compileExpr(node.expr);
 
-            if (self.context.mode != .repl) {
-                try self.code.source_locations.append(.{});
-                try self.code.instructions.append(.{ .pop = {} });
-            }
+            try self.code.source_locations.append(.{});
+            try self.code.instructions.append(.{ .pop = {} });
         },
     }
 }
@@ -103,7 +111,7 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
         try parameters.append(name.buffer);
     }
 
-    const function: VirtualMachine.Code.Value.Object.Function = .{
+    const function: Code.Value.Object.Function = .{
         .name = function_declaration.name.buffer,
         .parameters = try parameters.toOwnedSlice(),
         .code = blk: {
@@ -117,7 +125,7 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
         },
     };
 
-    var function_on_heap = try self.gpa.alloc(VirtualMachine.Code.Value.Object.Function, 1);
+    var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
     function_on_heap[0] = function;
 
     try self.code.source_locations.append(function_declaration.name.source_loc);
@@ -125,11 +133,6 @@ fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node
 
     try self.code.source_locations.append(function_declaration.name.source_loc);
     try self.code.instructions.append(.{ .store = .{ .name = function_declaration.name.buffer } });
-
-    if (self.context.mode == .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    }
 }
 
 fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional) Error!void {
@@ -224,11 +227,6 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
     self.context.break_points.shrinkRetainingCapacity(previous_break_points_len);
 
     self.context.continue_points.shrinkRetainingCapacity(previous_continue_points_len);
-
-    if (self.context.mode == .repl) {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
-    }
 }
 
 fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {

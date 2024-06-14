@@ -1,13 +1,14 @@
 const std = @import("std");
 
+const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("print", .{ .object = .{ .native_function = .{ .name = "print", .required_arguments_count = null, .call = &print } } });
-    try vm.globals.put("println", .{ .object = .{ .native_function = .{ .name = "println", .required_arguments_count = null, .call = &println } } });
+    try vm.globals.put("print", Code.Value.Object.NativeFunction.init("print", null, &print));
+    try vm.globals.put("println", Code.Value.Object.NativeFunction.init("println", null, &println));
 }
 
-pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B), arguments: []const VirtualMachine.Code.Value, debug: bool) !void {
+pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B), arguments: []const Code.Value, debug: bool) !void {
     for (arguments, 0..) |argument, i| {
         switch (argument) {
             .none => {
@@ -85,7 +86,7 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
     }
 }
 
-fn print(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn print(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     const stdout = std.io.getStdOut();
@@ -103,17 +104,17 @@ fn print(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Virt
         },
     };
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn println(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn println(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const stdout = std.io.getStdOut();
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
-    const new_line_value: VirtualMachine.Code.Value = .{ .object = .{ .string = .{ .content = "\n" } } };
+    const new_line_value: Code.Value = .{ .object = .{ .string = .{ .content = "\n" } } };
 
-    const new_arguments = std.mem.concat(vm.gpa, VirtualMachine.Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+    const new_arguments = std.mem.concat(vm.gpa, Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
     };
 
     _print(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch |err| switch (err) {
@@ -128,5 +129,5 @@ fn println(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vi
         },
     };
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }

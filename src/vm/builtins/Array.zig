@@ -1,18 +1,19 @@
 const std = @import("std");
 
+const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("array_push", .{ .object = .{ .native_function = .{ .name = "array_push", .required_arguments_count = 2, .call = &array_push } } });
-    try vm.globals.put("array_pop", .{ .object = .{ .native_function = .{ .name = "array_pop", .required_arguments_count = 1, .call = &array_pop } } });
-    try vm.globals.put("length", .{ .object = .{ .native_function = .{ .name = "length", .required_arguments_count = 1, .call = &length } } });
+    try vm.globals.put("array_push", Code.Value.Object.NativeFunction.init("array_push", 2, &array_push));
+    try vm.globals.put("array_pop", Code.Value.Object.NativeFunction.init("array_pop", 1, &array_pop));
+    try vm.globals.put("length", Code.Value.Object.NativeFunction.init("length", 1, &length));
 }
 
-fn array_push(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn array_push(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const array = arguments[0].object.array;
@@ -20,34 +21,34 @@ fn array_push(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value)
     const value = arguments[1];
 
     array.values.append(value) catch |err| switch (err) {
-        else => return VirtualMachine.Code.Value{ .none = {} },
+        else => return Code.Value{ .none = {} },
     };
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }
 
-fn array_pop(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn array_pop(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
-        return VirtualMachine.Code.Value{ .none = {} };
+        return Code.Value{ .none = {} };
     }
 
     const array = arguments[0].object.array;
 
-    return array.values.popOrNull() orelse VirtualMachine.Code.Value{ .none = {} };
+    return array.values.popOrNull() orelse Code.Value{ .none = {} };
 }
 
-fn length(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) VirtualMachine.Code.Value {
+fn length(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     const value = arguments[0];
 
     switch (value) {
         .object => switch (value.object) {
-            .array => return VirtualMachine.Code.Value{ .int = @intCast(value.object.array.values.items.len) },
-            .string => return VirtualMachine.Code.Value{ .int = @intCast(value.object.string.content.len) },
-            .map => return VirtualMachine.Code.Value{ .int = @intCast(value.object.map.inner.count()) },
+            .array => return Code.Value{ .int = @intCast(value.object.array.values.items.len) },
+            .string => return Code.Value{ .int = @intCast(value.object.string.content.len) },
+            .map => return Code.Value{ .int = @intCast(value.object.map.inner.count()) },
 
             else => {},
         },
@@ -55,5 +56,5 @@ fn length(vm: *VirtualMachine, arguments: []const VirtualMachine.Code.Value) Vir
         else => {},
     }
 
-    return VirtualMachine.Code.Value{ .none = {} };
+    return Code.Value{ .none = {} };
 }

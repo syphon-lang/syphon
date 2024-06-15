@@ -6,7 +6,7 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(gpa);
 
-    try exports.put("listen", Code.Value.Object.NativeFunction.init("listen", 2, &listen));
+    try exports.put("listen", Code.Value.Object.NativeFunction.init("listen", 3, &listen));
 
     return Code.Value.Object.Map.fromStringHashMap(gpa, exports);
 }
@@ -15,23 +15,29 @@ fn listen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const Console = @import("Console.zig");
     const Type = @import("Type.zig");
 
-    const port = Type.to_int(vm, arguments);
+    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+        return Code.Value{ .none = {} };
+    }
+
+    const address = arguments[0].object.string.content;
+
+    const port = Type.to_int(vm, arguments[1..]);
 
     if (port == .none) {
         return Code.Value{ .none = {} };
     }
 
-    if (!(arguments[1] == .object and arguments[1].object == .function)) {
+    if (!(arguments[2] == .object and arguments[2].object == .function)) {
         return Code.Value{ .none = {} };
     }
 
-    const handler = arguments[1].object.function;
+    const handler = arguments[2].object.function;
 
-    const address = std.net.Address.resolveIp("0.0.0.0", @intCast(port.int)) catch |err| switch (err) {
+    const resolved_address = std.net.Address.resolveIp(address, @intCast(port.int)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
-    var listener = address.listen(.{ .reuse_address = true }) catch |err| switch (err) {
+    var net_server = resolved_address.listen(.{ .reuse_address = true }) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -40,13 +46,13 @@ fn listen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const frame = &vm.frames.items[vm.frames.items.len - 1];
 
     while (true) {
-        const connection = listener.accept() catch |err| switch (err) {
+        const connection = net_server.accept() catch |err| switch (err) {
             else => return Code.Value{ .none = {} },
         };
 
-        var server = std.http.Server.init(connection, &read_buffer);
+        var http_server = std.http.Server.init(connection, &read_buffer);
 
-        var request = server.receiveHead() catch |err| switch (err) {
+        var raw_request = http_server.receiveHead() catch |err| switch (err) {
             else => return Code.Value{ .none = {} },
         };
 
@@ -58,7 +64,7 @@ fn listen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             else => return Code.Value{ .none = {} },
         };
 
-        const response_value = vm.run() catch |err| switch (err) {
+        const user_response = vm.run() catch |err| switch (err) {
             else => return Code.Value{ .none = {} },
         };
 
@@ -72,7 +78,7 @@ fn listen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
         var buffered_writer = std.io.bufferedWriter(response.writer());
 
-        Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{response_value}, false) catch |err| switch (err) {
+        Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{user_response}, false) catch |err| switch (err) {
             else => return Code.Value{ .none = {} },
         };
 
@@ -84,7 +90,7 @@ fn listen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             else => return Code.Value{ .none = {} },
         };
 
-        request.respond(response_owned, .{}) catch |err| switch (err) {
+        raw_request.respond(response_owned, .{}) catch |err| switch (err) {
             else => return Code.Value{ .none = {} },
         };
     }

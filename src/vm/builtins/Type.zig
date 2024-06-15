@@ -5,9 +5,9 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("typeof", Code.Value.Object.NativeFunction.init("typeof", 1, &typeof));
-    try vm.globals.put("to_int", Code.Value.Object.NativeFunction.init("to_int", 1, &to_int));
-    try vm.globals.put("to_float", Code.Value.Object.NativeFunction.init("to_float", 1, &to_float));
-    try vm.globals.put("to_string", Code.Value.Object.NativeFunction.init("to_string", 1, &to_string));
+    try vm.globals.put("to_int", Code.Value.Object.NativeFunction.init("to_int", 1, &toInt));
+    try vm.globals.put("to_float", Code.Value.Object.NativeFunction.init("to_float", 1, &toFloat));
+    try vm.globals.put("to_string", Code.Value.Object.NativeFunction.init("to_string", 1, &toString));
 }
 
 fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -31,7 +31,7 @@ fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .object = .{ .string = .{ .content = result } } };
 }
 
-pub fn to_int(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+pub fn toInt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     const value = arguments[0];
@@ -44,7 +44,7 @@ pub fn to_int(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     }
 }
 
-pub fn to_float(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     const value = arguments[0];
@@ -57,7 +57,7 @@ pub fn to_float(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     }
 }
 
-fn to_string(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const Console = @import("Console.zig");
 
     var result = std.ArrayList(u8).init(vm.gpa);

@@ -137,17 +137,12 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
-    if (self.frames.items.len == 0) {
-        const value = try Code.Value.Object.Function.init(self.gpa, "entry", &.{}, code);
+    const value = try Code.Value.Object.Function.init(self.gpa, "entry", &.{}, code);
 
-        try self.frames.append(.{
-            .function = value.object.function,
-            .locals = try StringHashMapRecorder(usize).init(self.gpa),
-        });
-    } else {
-        self.frames.items[0].function.code = code;
-        self.frames.items[0].ip = 0;
-    }
+    try self.frames.append(.{
+        .function = value.object.function,
+        .locals = try StringHashMapRecorder(usize).init(self.gpa),
+    });
 }
 
 pub fn run(self: *VirtualMachine) Error!Code.Value {

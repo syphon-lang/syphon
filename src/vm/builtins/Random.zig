@@ -11,8 +11,8 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 fn random(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const Type = @import("Type.zig");
 
-    var min = Type.to_float(vm, &.{arguments[0]});
-    var max = Type.to_float(vm, &.{arguments[1]});
+    var min = Type.toFloat(vm, &.{arguments[0]});
+    var max = Type.toFloat(vm, &.{arguments[1]});
 
     if (min == .none or max == .none) {
         return Code.Value{ .none = {} };

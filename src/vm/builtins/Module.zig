@@ -131,10 +131,6 @@ fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    other_vm.addGlobals() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
-    };
-
     other_vm.setCode(gen.code) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };

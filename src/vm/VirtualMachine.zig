@@ -105,7 +105,7 @@ pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
 pub fn init(gpa: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
-    return VirtualMachine{
+    var vm: VirtualMachine = .{
         .gpa = gpa,
         .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT),
         .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE),
@@ -114,6 +114,10 @@ pub fn init(gpa: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachi
         .start_time = try std.time.Instant.now(),
         .argv = argv,
     };
+
+    try vm.addGlobals();
+
+    return vm;
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {

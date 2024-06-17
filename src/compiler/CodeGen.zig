@@ -426,61 +426,71 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
     if (assignment.target.* == .subscript) {
         try self.compileExpr(assignment.target.subscript.target.*);
         try self.compileExpr(assignment.target.subscript.index.*);
+
+        if (assignment.operator != .none) {
+            try self.compileExpr(assignment.target.*);
+        }
+
         try self.compileExpr(assignment.value.*);
+
+        try handleAssignmentOperator(self, assignment);
 
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.{ .store = .{ .subscript = {} } });
     } else if (assignment.target.* == .identifier) {
         if (assignment.operator != .none) {
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .load = .{ .name = assignment.target.identifier.name.buffer } });
+            try self.compileExpr(assignment.target.*);
         }
 
         try self.compileExpr(assignment.value.*);
 
-        switch (assignment.operator) {
-            .none => {},
-
-            .plus => {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .add = {} });
-            },
-
-            .minus => {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .subtract = {} });
-            },
-
-            .forward_slash => {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .divide = {} });
-            },
-
-            .star => {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .multiply = {} });
-            },
-
-            .double_star => {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .exponent = {} });
-            },
-
-            .percent => {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .modulo = {} });
-            },
-        }
+        try handleAssignmentOperator(self, assignment);
 
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.{ .store = .{ .name = assignment.target.identifier.name.buffer } });
     } else {
-        self.error_info = .{ .message = "expected a name or array subscript to assign to", .source_loc = assignment.source_loc };
+        self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = assignment.source_loc };
 
         return error.BadOperand;
     }
 
     try self.compileExpr(assignment.target.*);
+}
+
+inline fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
+    switch (assignment.operator) {
+        .none => {},
+
+        .plus => {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .add = {} });
+        },
+
+        .minus => {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .subtract = {} });
+        },
+
+        .forward_slash => {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .divide = {} });
+        },
+
+        .star => {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .multiply = {} });
+        },
+
+        .double_star => {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .exponent = {} });
+        },
+
+        .percent => {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .modulo = {} });
+        },
+    }
 }
 
 fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {

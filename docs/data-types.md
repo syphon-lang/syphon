@@ -66,7 +66,7 @@ A map of key to value
 
 ## Function
 
-A callable value that is called by the virtual machine and must be defined the user
+A callable value that is called by the virtual machine and must be defined by the user
 
 ```
 fn () {

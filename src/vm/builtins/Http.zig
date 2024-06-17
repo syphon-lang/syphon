@@ -3,12 +3,12 @@ const std = @import("std");
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
-pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!Code.Value {
-    var exports = std.StringHashMap(Code.Value).init(gpa);
+pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
+    var exports = std.StringHashMap(Code.Value).init(vm.gpa);
 
-    try exports.put("listen", Code.Value.Object.NativeFunction.init("listen", 3, &listen));
+    try exports.put("listen", Code.Value.Object.NativeFunction.init(3, &listen));
 
-    return Code.Value.Object.Map.fromStringHashMap(gpa, exports);
+    return Code.Value.Object.Map.fromStringHashMap(vm.gpa, exports);
 }
 
 fn listen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

@@ -1,31 +1,15 @@
 # Syphon's Syntax
 
-## Function Declaration
-
-- No Parameters
-```
-fn function_name() {
-
-}
-```
-
-- With Parameters
-```
-fn function_name(a, b) {
-
-}
-```
-
-## Function Calling
+## Calling
 
 - No Arguments
 ```
-function_name()
+callable()
 ```
 
 - With Arguments
 ```
-function_name(1, 2)
+callable(1, 2)
 ```
 
 ## Conditional

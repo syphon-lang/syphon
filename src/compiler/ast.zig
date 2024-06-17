@@ -22,18 +22,11 @@ pub const Node = union(enum) {
     expr: Expr,
 
     pub const Stmt = union(enum) {
-        function_declaration: FunctionDeclaration,
         conditional: Conditional,
         while_loop: WhileLoop,
         @"break": Break,
         @"continue": Continue,
         @"return": Return,
-
-        pub const FunctionDeclaration = struct {
-            name: Name,
-            parameters: []Name,
-            body: []Node,
-        };
 
         pub const Conditional = struct {
             conditions: []Expr,
@@ -69,6 +62,7 @@ pub const Node = union(enum) {
         boolean: Boolean,
         array: Array,
         map: Map,
+        function: Function,
         unary_operation: UnaryOperation,
         binary_operation: BinaryOperation,
         assignment: Assignment,
@@ -110,6 +104,12 @@ pub const Node = union(enum) {
         pub const Map = struct {
             keys: []Expr,
             values: []Expr,
+        };
+
+        pub const Function = struct {
+            parameters: []Name,
+            body: []Node,
+            source_loc: SourceLoc,
         };
 
         pub const UnaryOperation = struct {
@@ -284,8 +284,6 @@ pub const Parser = struct {
 
     fn parseStmt(self: *Parser) Error!Node {
         return switch (self.peekToken().tag) {
-            .keyword_fn => self.parseFunctionDeclarationStmt(),
-
             .keyword_if => self.parseConditionalStmt(),
 
             .keyword_while => self.parseWhileLoopStmt(),
@@ -302,46 +300,6 @@ pub const Parser = struct {
                 return expr;
             },
         };
-    }
-
-    fn parseFunctionDeclarationStmt(self: *Parser) Error!Node {
-        _ = self.nextToken();
-
-        const name = try self.parseName();
-
-        const parameters = try self.parseFunctionParameters();
-
-        const body = try self.parseBody();
-
-        return Node{ .stmt = .{ .function_declaration = .{ .name = name, .parameters = parameters, .body = body } } };
-    }
-
-    fn parseFunctionParameters(self: *Parser) Error![]Name {
-        var parameters = std.ArrayList(Name).init(self.gpa);
-
-        if (!self.eatToken(.open_paren)) {
-            self.error_info = .{ .message = "expected a '('", .source_loc = self.tokenSourceLoc(self.peekToken()) };
-
-            return error.UnexpectedToken;
-        }
-
-        while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {
-            try parameters.append(try self.parseName());
-
-            if (!self.eatToken(.comma) and self.peekToken().tag != .close_paren) {
-                self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
-
-                return error.UnexpectedToken;
-            }
-        }
-
-        if (!self.eatToken(.close_paren)) {
-            self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
-
-            return error.UnexpectedToken;
-        }
-
-        return try parameters.toOwnedSlice();
     }
 
     fn parseBody(self: *Parser) Error![]Node {
@@ -467,6 +425,8 @@ pub const Parser = struct {
         switch (self.peekToken().tag) {
             .keyword_none => return self.parseNoneExpr(),
 
+            .keyword_fn => return self.parseFunctionExpr(),
+
             .identifier => return self.parseIdentifierExpr(),
 
             .string_literal => return self.parseStringExpr(),
@@ -497,6 +457,44 @@ pub const Parser = struct {
 
     fn parseNoneExpr(self: *Parser) Node.Expr {
         return Node.Expr{ .none = .{ .source_loc = self.tokenSourceLoc(self.nextToken()) } };
+    }
+
+    fn parseFunctionExpr(self: *Parser) Error!Node.Expr {
+        const fn_token = self.nextToken();
+
+        const parameters = try self.parseFunctionParameters();
+
+        const body = try self.parseBody();
+
+        return Node.Expr{ .function = .{ .parameters = parameters, .body = body, .source_loc = self.tokenSourceLoc(fn_token) } };
+    }
+
+    fn parseFunctionParameters(self: *Parser) Error![]Name {
+        var parameters = std.ArrayList(Name).init(self.gpa);
+
+        if (!self.eatToken(.open_paren)) {
+            self.error_info = .{ .message = "expected a '('", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {
+            try parameters.append(try self.parseName());
+
+            if (!self.eatToken(.comma) and self.peekToken().tag != .close_paren) {
+                self.error_info = .{ .message = "expected a ','", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+                return error.UnexpectedToken;
+            }
+        }
+
+        if (!self.eatToken(.close_paren)) {
+            self.error_info = .{ .message = "expected a ')'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
+
+            return error.UnexpectedToken;
+        }
+
+        return try parameters.toOwnedSlice();
     }
 
     fn parseIdentifierExpr(self: *Parser) Error!Node.Expr {

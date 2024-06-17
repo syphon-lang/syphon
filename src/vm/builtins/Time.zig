@@ -4,7 +4,7 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("time", Code.Value.Object.NativeFunction.init("time", 0, &time));
+    try vm.globals.put("time", Code.Value.Object.NativeFunction.init(0, &time));
 }
 
 pub fn time(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

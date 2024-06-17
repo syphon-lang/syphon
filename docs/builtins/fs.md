@@ -35,14 +35,6 @@ Closes a file by descriptor
 fs.close(fd)
 ```
 
-- close_all
-
-Closes all open files
-
-```
-fs.close_all()
-```
-
 - write
 
 Replaces the content of a file with the provided one

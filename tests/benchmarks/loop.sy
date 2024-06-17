@@ -1,11 +1,9 @@
 benchmarker = import("benchmarker.sy")
 
-fn benchmark() {
+benchmarker.run(fn () {
     i = 0
 
     while i < 10 ** 5 {
         i += 1
     }
-}
-
-benchmarker.run(benchmark)
+})

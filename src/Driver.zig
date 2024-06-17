@@ -192,12 +192,6 @@ fn runRunCommand(self: *Driver) u8 {
         return 1;
     };
 
-    vm.addGlobals() catch |err| {
-        std.debug.print("{s}\n", .{errorDescription(err)});
-
-        return 1;
-    };
-
     vm.setCode(gen.code) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 

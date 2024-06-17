@@ -1,13 +1,11 @@
-fn run(benchmark) {
-    start = time()
-
-    benchmark()
-
-    end = time()
-
-    println("Took", (end - start) * 10 ** -6, "ms")
-}
-
 export({
-    "run": run,
+    "run": fn (benchmark) {
+        start = time()
+
+        benchmark()
+
+        end = time()
+
+        println("Took", (end - start) * 10 ** -6, "ms")
+    },
 })

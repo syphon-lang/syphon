@@ -90,8 +90,6 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
 
 fn compileStmt(self: *CodeGen, stmt: ast.Node.Stmt) Error!void {
     switch (stmt) {
-        .function_declaration => try self.compileFunctionDeclarationStmt(stmt.function_declaration),
-
         .conditional => try self.compileConditionalStmt(stmt.conditional),
 
         .while_loop => try self.compileWhileLoopStmt(stmt.while_loop),
@@ -102,37 +100,6 @@ fn compileStmt(self: *CodeGen, stmt: ast.Node.Stmt) Error!void {
 
         .@"return" => try self.compileReturnStmt(stmt.@"return"),
     }
-}
-
-fn compileFunctionDeclarationStmt(self: *CodeGen, function_declaration: ast.Node.Stmt.FunctionDeclaration) Error!void {
-    var parameters = std.ArrayList([]const u8).init(self.gpa);
-
-    for (function_declaration.parameters) |name| {
-        try parameters.append(name.buffer);
-    }
-
-    const function: Code.Value.Object.Function = .{
-        .name = function_declaration.name.buffer,
-        .parameters = try parameters.toOwnedSlice(),
-        .code = blk: {
-            var gen = init(self.gpa, .function);
-
-            try gen.compileNodes(function_declaration.body);
-
-            try gen.endCode();
-
-            break :blk gen.code;
-        },
-    };
-
-    var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
-    function_on_heap[0] = function;
-
-    try self.code.source_locations.append(function_declaration.name.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .function = &function_on_heap[0] } }) } });
-
-    try self.code.source_locations.append(function_declaration.name.source_loc);
-    try self.code.instructions.append(.{ .store = .{ .name = function_declaration.name.buffer } });
 }
 
 fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional) Error!void {
@@ -284,6 +251,8 @@ fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
 
         .map => try self.compileMapExpr(expr.map),
 
+        .function => try self.compileFunctionExpr(expr.function),
+
         .subscript => try self.compileSubscriptExpr(expr.subscript),
 
         .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
@@ -343,6 +312,33 @@ fn compileMapExpr(self: *CodeGen, map: ast.Node.Expr.Map) Error!void {
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .make = .{ .map = .{ .length = map.keys.len } } });
+}
+
+fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Error!void {
+    var parameters = std.ArrayList([]const u8).init(self.gpa);
+
+    for (ast_function.parameters) |ast_parameter| {
+        try parameters.append(ast_parameter.buffer);
+    }
+
+    const function: Code.Value.Object.Function = .{
+        .parameters = try parameters.toOwnedSlice(),
+        .code = blk: {
+            var gen = init(self.gpa, .function);
+
+            try gen.compileNodes(ast_function.body);
+
+            try gen.endCode();
+
+            break :blk gen.code;
+        },
+    };
+
+    var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
+    function_on_heap[0] = function;
+
+    try self.code.source_locations.append(ast_function.source_loc);
+    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .function = &function_on_heap[0] } }) } });
 }
 
 fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Error!void {

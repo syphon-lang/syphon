@@ -1,4 +1,4 @@
-fn selection_sort(arr) {
+selection_sort = fn (arr) {
     i = 0
 
     while i < length(arr) {

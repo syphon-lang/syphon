@@ -1,5 +1,13 @@
 # Syphon's Data Types
 
+## None
+
+A value represents nothing
+
+```
+none
+```
+
 ## Number
 
 - Int
@@ -56,10 +64,16 @@ A map of key to value
 {"a": "b"}
 ```
 
-## None
+## Function
 
-A value represents nothing
+A callable value that is called by the virtual machine and must be defined the user
 
 ```
-none
+fn () {
+
+}
 ```
+
+## Native Function
+
+A callable value that is called by the host machine and must be defined by the virtual machine

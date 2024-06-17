@@ -84,12 +84,11 @@ pub const Value = union(enum) {
         };
 
         pub const Function = struct {
-            name: []const u8,
             parameters: []const []const u8,
             code: Code,
 
-            pub fn init(gpa: std.mem.Allocator, name: []const u8, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
-                const function: Function = .{ .name = name, .parameters = parameters, .code = code };
+            pub fn init(gpa: std.mem.Allocator, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
+                const function: Function = .{ .parameters = parameters, .code = code };
 
                 var function_on_heap = try gpa.alloc(Function, 1);
                 function_on_heap[0] = function;
@@ -99,14 +98,13 @@ pub const Value = union(enum) {
         };
 
         pub const NativeFunction = struct {
-            name: []const u8,
             required_arguments_count: ?usize,
             call: Call,
 
             const Call = *const fn (*VirtualMachine, []const Value) Value;
 
-            pub fn init(name: []const u8, required_arguments_count: ?usize, call: Call) Value {
-                return Value{ .object = .{ .native_function = .{ .name = name, .required_arguments_count = required_arguments_count, .call = call } } };
+            pub fn init(required_arguments_count: ?usize, call: Call) Value {
+                return Value{ .object = .{ .native_function = .{ .required_arguments_count = required_arguments_count, .call = call } } };
             }
         };
     };

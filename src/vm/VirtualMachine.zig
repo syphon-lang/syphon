@@ -17,8 +17,6 @@ exported_value: Code.Value,
 
 start_time: std.time.Instant,
 
-open_files: std.AutoHashMap(i32, std.fs.File),
-
 argv: []const []const u8,
 
 error_info: ?ErrorInfo = null,
@@ -107,16 +105,19 @@ pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
 pub fn init(gpa: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
-    return VirtualMachine{
+    var vm: VirtualMachine = .{
         .gpa = gpa,
         .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT),
         .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE),
         .globals = std.StringHashMap(Code.Value).init(gpa),
         .exported_value = .{ .none = {} },
         .start_time = try std.time.Instant.now(),
-        .open_files = std.AutoHashMap(i32, std.fs.File).init(gpa),
         .argv = argv,
     };
+
+    try vm.addGlobals();
+
+    return vm;
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
@@ -140,17 +141,12 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
-    if (self.frames.items.len == 0) {
-        const value = try Code.Value.Object.Function.init(self.gpa, "entry", &.{}, code);
+    const value = try Code.Value.Object.Function.init(self.gpa, &.{}, code);
 
-        try self.frames.append(.{
-            .function = value.object.function,
-            .locals = try StringHashMapRecorder(usize).init(self.gpa),
-        });
-    } else {
-        self.frames.items[0].function.code = code;
-        self.frames.items[0].ip = 0;
-    }
+    try self.frames.append(.{
+        .function = value.object.function,
+        .locals = try StringHashMapRecorder(usize).init(self.gpa),
+    });
 }
 
 pub fn run(self: *VirtualMachine) Error!Code.Value {

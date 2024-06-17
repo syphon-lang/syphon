@@ -23,33 +23,34 @@ fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_path = arguments[0].object.string.content;
 
-    if (std.mem.eql(u8, file_path, "math")) {
-        return getMathModule(vm.gpa);
-    } else if (std.mem.eql(u8, file_path, "fs")) {
-        return getFileSystemModule(vm.gpa);
-    } else if (std.mem.eql(u8, file_path, "process")) {
-        return getProcessModule(vm);
-    } else if (std.mem.eql(u8, file_path, "http")) {
-        return getHttpModule(vm.gpa);
+    if (NativeModules.get(file_path)) |getNativeModule| {
+        return getNativeModule(vm);
     } else {
         return getExportedValue(vm, file_path);
     }
 }
 
-fn getMathModule(gpa: std.mem.Allocator) Code.Value {
+const NativeModules = std.StaticStringMap(*const fn (*VirtualMachine) Code.Value).initComptime(.{
+    .{ "math", &getMathModule },
+    .{ "fs", &getFileSystemModule },
+    .{ "process", &getProcessModule },
+    .{ "http", &getHttpModule },
+});
+
+fn getMathModule(vm: *VirtualMachine) Code.Value {
     const Math = @import("Math.zig");
 
-    const exports = Math.getExports(gpa) catch |err| switch (err) {
+    const exports = Math.getExports(vm) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
     return exports;
 }
 
-fn getFileSystemModule(gpa: std.mem.Allocator) Code.Value {
+fn getFileSystemModule(vm: *VirtualMachine) Code.Value {
     const FileSystem = @import("FileSystem.zig");
 
-    const exports = FileSystem.getExports(gpa) catch |err| switch (err) {
+    const exports = FileSystem.getExports(vm) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -66,10 +67,10 @@ fn getProcessModule(vm: *VirtualMachine) Code.Value {
     return exports;
 }
 
-fn getHttpModule(gpa: std.mem.Allocator) Code.Value {
+fn getHttpModule(vm: *VirtualMachine) Code.Value {
     const Http = @import("Http.zig");
 
-    const exports = Http.getExports(gpa) catch |err| switch (err) {
+    const exports = Http.getExports(vm) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 

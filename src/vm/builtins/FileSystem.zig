@@ -3,8 +3,8 @@ const std = @import("std");
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
-pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!Code.Value {
-    var exports = std.StringHashMap(Code.Value).init(gpa);
+pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
+    var exports = std.StringHashMap(Code.Value).init(vm.gpa);
 
     try exports.put("open", Code.Value.Object.NativeFunction.init("open", 1, &open));
     try exports.put("delete", Code.Value.Object.NativeFunction.init("delete", 1, &delete));
@@ -18,7 +18,7 @@ pub fn getExports(gpa: std.mem.Allocator) std.mem.Allocator.Error!Code.Value {
     try exports.put("read_line", Code.Value.Object.NativeFunction.init("read_line", 1, &readLine));
     try exports.put("read_all", Code.Value.Object.NativeFunction.init("read_all", 1, &readAll));
 
-    return Code.Value.Object.Map.fromStringHashMap(gpa, exports);
+    return Code.Value.Object.Map.fromStringHashMap(vm.gpa, exports);
 }
 
 fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

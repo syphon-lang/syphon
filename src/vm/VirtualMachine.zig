@@ -305,7 +305,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                 else => {},
             }
 
-            self.error_info = .{ .message = "target is not array nor string", .source_loc = source_loc };
+            self.error_info = .{ .message = "target is not array nor string nor map", .source_loc = source_loc };
 
             return error.UnexpectedValue;
         },

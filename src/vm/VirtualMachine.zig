@@ -17,8 +17,6 @@ exported_value: Code.Value,
 
 start_time: std.time.Instant,
 
-open_files: std.AutoHashMap(i32, std.fs.File),
-
 argv: []const []const u8,
 
 error_info: ?ErrorInfo = null,
@@ -114,7 +112,6 @@ pub fn init(gpa: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachi
         .globals = std.StringHashMap(Code.Value).init(gpa),
         .exported_value = .{ .none = {} },
         .start_time = try std.time.Instant.now(),
-        .open_files = std.AutoHashMap(i32, std.fs.File).init(gpa),
         .argv = argv,
     };
 }

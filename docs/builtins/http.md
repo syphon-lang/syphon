@@ -15,9 +15,7 @@ http = import("http")
 Starts a server and calls the handler function on each request the server gets, the handler function is expected to get one parameter which is the request and returns a value which is the response
 
 ```
-fn handler(request) {
+http.listen("0.0.0.0", 8080, fn (request) {
     return "Hello, World!"
-}
-
-http.listen(address, port, handler)
+})
 ```

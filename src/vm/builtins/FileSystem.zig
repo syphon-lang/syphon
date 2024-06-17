@@ -6,16 +6,16 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.gpa);
 
-    try exports.put("open", Code.Value.Object.NativeFunction.init("open", 1, &open));
-    try exports.put("delete", Code.Value.Object.NativeFunction.init("delete", 1, &delete));
-    try exports.put("close", Code.Value.Object.NativeFunction.init("close", 1, &close));
-    try exports.put("cwd", Code.Value.Object.NativeFunction.init("cwd", 0, &cwd));
-    try exports.put("chdir", Code.Value.Object.NativeFunction.init("chdir", 1, &chdir));
-    try exports.put("access", Code.Value.Object.NativeFunction.init("access", 1, &access));
-    try exports.put("write", Code.Value.Object.NativeFunction.init("write", 2, &write));
-    try exports.put("read", Code.Value.Object.NativeFunction.init("read", 1, &read));
-    try exports.put("read_line", Code.Value.Object.NativeFunction.init("read_line", 1, &readLine));
-    try exports.put("read_all", Code.Value.Object.NativeFunction.init("read_all", 1, &readAll));
+    try exports.put("open", Code.Value.Object.NativeFunction.init(1, &open));
+    try exports.put("delete", Code.Value.Object.NativeFunction.init(1, &delete));
+    try exports.put("close", Code.Value.Object.NativeFunction.init(1, &close));
+    try exports.put("cwd", Code.Value.Object.NativeFunction.init(0, &cwd));
+    try exports.put("chdir", Code.Value.Object.NativeFunction.init(1, &chdir));
+    try exports.put("access", Code.Value.Object.NativeFunction.init(1, &access));
+    try exports.put("write", Code.Value.Object.NativeFunction.init(2, &write));
+    try exports.put("read", Code.Value.Object.NativeFunction.init(1, &read));
+    try exports.put("read_line", Code.Value.Object.NativeFunction.init(1, &readLine));
+    try exports.put("read_all", Code.Value.Object.NativeFunction.init(1, &readAll));
 
     return Code.Value.Object.Map.fromStringHashMap(vm.gpa, exports);
 }

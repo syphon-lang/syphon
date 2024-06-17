@@ -4,8 +4,8 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("print", Code.Value.Object.NativeFunction.init("print", null, &print));
-    try vm.globals.put("println", Code.Value.Object.NativeFunction.init("println", null, &println));
+    try vm.globals.put("print", Code.Value.Object.NativeFunction.init(null, &print));
+    try vm.globals.put("println", Code.Value.Object.NativeFunction.init(null, &println));
 }
 
 pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B), arguments: []const Code.Value, debug: bool) !void {
@@ -74,9 +74,9 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
                     _ = try buffered_writer.write("}");
                 },
 
-                .function => try buffered_writer.writer().print("<function '{s}'>", .{argument.object.function.name}),
+                .function => try buffered_writer.writer().print("<function>", .{}),
 
-                .native_function => try buffered_writer.writer().print("<native function '{s}'>", .{argument.object.native_function.name}),
+                .native_function => try buffered_writer.writer().print("<native function>", .{}),
             },
         }
 

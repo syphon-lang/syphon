@@ -141,7 +141,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
-    const value = try Code.Value.Object.Function.init(self.gpa, "entry", &.{}, code);
+    const value = try Code.Value.Object.Function.init(self.gpa, &.{}, code);
 
     try self.frames.append(.{
         .function = value.object.function,

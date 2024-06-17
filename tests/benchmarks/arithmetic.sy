@@ -1,6 +1,6 @@
 benchmarker = import("benchmarker.sy")
 
-fn benchmark() {
+benchmarker.run(fn () {
     result = 1
 
     i = 1
@@ -15,6 +15,4 @@ fn benchmark() {
 
         i += 1
     }
-}
-
-benchmarker.run(benchmark)
+})

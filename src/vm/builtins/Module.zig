@@ -6,8 +6,8 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("export", Code.Value.Object.NativeFunction.init("export", 1, &@"export"));
-    try vm.globals.put("import", Code.Value.Object.NativeFunction.init("import", 1, &import));
+    try vm.globals.put("export", Code.Value.Object.NativeFunction.init(1, &@"export"));
+    try vm.globals.put("import", Code.Value.Object.NativeFunction.init(1, &import));
 }
 
 fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

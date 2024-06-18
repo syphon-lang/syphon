@@ -16,8 +16,6 @@ duplicate_stdin = fn () {
 }
 
 concat_files = fn () {
-    result = ""
-
     i = 1
 
     while i < length(process.argv) {
@@ -37,15 +35,13 @@ concat_files = fn () {
                 break
             }
 
-            result += line + "\n"
+            println(line)
         }
 
         fs.close(file)
 
         i += 1
     }
-
-    print(result)
 }
 
 if length(process.argv) < 2 {

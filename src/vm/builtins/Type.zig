@@ -40,8 +40,23 @@ pub fn toInt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         .int => return value,
         .float => return Code.Value{ .int = @intFromFloat(value.float) },
         .boolean => return Code.Value{ .int = @intFromBool(value.boolean) },
-        else => return Code.Value{ .none = {} },
+
+        .object => switch (value.object) {
+            .string => {
+                const parsed_int = std.fmt.parseInt(i64, value.object.string.content, 10) catch {
+                    return Code.Value{ .none = {} };
+                };
+
+                return Code.Value{ .int = parsed_int };
+            },
+
+            else => {},
+        },
+
+        else => {},
     }
+
+    return Code.Value{ .none = {} };
 }
 
 pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -53,8 +68,23 @@ pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         .float => return value,
         .int => return Code.Value{ .float = @floatFromInt(value.int) },
         .boolean => return Code.Value{ .float = @floatFromInt(@intFromBool(value.boolean)) },
-        else => return Code.Value{ .none = {} },
+
+        .object => switch (value.object) {
+            .string => {
+                const parsed_float = std.fmt.parseFloat(f64, value.object.string.content) catch {
+                    return Code.Value{ .none = {} };
+                };
+
+                return Code.Value{ .float = parsed_float };
+            },
+
+            else => {},
+        },
+
+        else => {},
     }
+
+    return Code.Value{ .none = {} };
 }
 
 pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

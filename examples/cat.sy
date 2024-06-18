@@ -1,23 +1,57 @@
 fs = import("fs")
 process = import("process")
 
+duplicate_stdin = fn () {
+    stdin = 0
+
+    while true {
+        input = fs.read_line(stdin)
+
+        if input == none {
+            break
+        }
+
+        println(input)
+    }
+}
+
+concat_files = fn () {
+    result = ""
+
+    i = 1
+
+    while i < length(process.argv) {
+        file_path = process.argv[i]
+
+        if !fs.access(file_path) {
+            println(file_path + ": could not open file")
+            exit(1)
+        }
+
+        file = fs.open(file_path)
+
+        while true {
+            line = fs.read_line(file)
+
+            if line == none {
+                break
+            }
+
+            result += line + "\n"
+        }
+
+        fs.close(file)
+
+        i += 1
+    }
+
+    print(result)
+}
+
 if length(process.argv) < 2 {
-    println("usage:", process.argv[0], "<file path>")
-    println("error: file path not provided")
-    exit(1)
+    duplicate_stdin()
+} else if process.argv[1] == "-" {
+    duplicate_stdin()
+} else {
+    concat_files()
 }
-
-file_path = process.argv[1]
-
-if !fs.access(file_path) {
-    println(file_path + ": could not open file")
-    exit(1)
-}
-
-file = fs.open(file_path)
-
-file_content = fs.read_all(file)
-
-println(file_content)
-
-fs.close(file)

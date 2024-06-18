@@ -53,6 +53,7 @@ fs.read(fd) # "e"
 fs.read(fd) # "l"
 fs.read(fd) # "l"
 fs.read(fd) # "o"
+fs.read(fd) # none
 ```
 
 - read_line
@@ -61,7 +62,7 @@ Reads until new line or the end of the file stream
 
 ```
 fs.read_line(fd) # "Hello World"
-fs.read_line(fd) # ""
+fs.read_line(fd) # none
 ```
 
 - read_all

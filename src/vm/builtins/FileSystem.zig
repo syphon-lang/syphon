@@ -162,7 +162,7 @@ fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     };
 
     if (n == 0) {
-        return Code.Value{ .object = .{ .string = .{ .content = "" } } };
+        return Code.Value{ .none = {} };
     }
 
     return Code.Value{ .object = .{ .string = .{ .content = buf } } };
@@ -179,9 +179,13 @@ fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.gpa, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
-    } orelse "";
+    };
 
-    return Code.Value{ .object = .{ .string = .{ .content = file_content } } };
+    if (file_content == null) {
+        return Code.Value{ .none = {} };
+    }
+
+    return Code.Value{ .object = .{ .string = .{ .content = file_content.? } } };
 }
 
 fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

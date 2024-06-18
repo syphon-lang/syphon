@@ -35,10 +35,17 @@ fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     };
 
     if (builtin.os.tag == .windows) {
-        @setRuntimeSafety(false);
-        return Code.Value{ .int = @intCast(@intFromPtr(file.handle)) };
+        return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(file.handle))) };
     } else {
         return Code.Value{ .int = @intCast(file.handle) };
+    }
+}
+
+fn getFile(argument: Code.Value) std.fs.File {
+    if (builtin.os.tag == .windows) {
+        return std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(argument.int))))) };
+    } else {
+        return std.fs.File{ .handle = @intCast(argument.int) };
     }
 }
 
@@ -65,14 +72,7 @@ fn close(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const file = blk: {
-        if (builtin.os.tag == .windows) {
-            @setRuntimeSafety(false);
-            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
-        } else {
-            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
-        }
-    };
+    const file = getFile(arguments[0]);
 
     file.close();
 
@@ -136,14 +136,7 @@ fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const file = blk: {
-        if (builtin.os.tag == .windows) {
-            @setRuntimeSafety(false);
-            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
-        } else {
-            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
-        }
-    };
+    const file = getFile(arguments[0]);
 
     const write_content = arguments[1].object.string.content;
 
@@ -165,14 +158,7 @@ fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const file = blk: {
-        if (builtin.os.tag == .windows) {
-            @setRuntimeSafety(false);
-            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
-        } else {
-            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
-        }
-    };
+    const file = getFile(arguments[0]);
 
     const buf = vm.gpa.alloc(u8, 1) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
@@ -194,14 +180,7 @@ fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const file = blk: {
-        if (builtin.os.tag == .windows) {
-            @setRuntimeSafety(false);
-            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
-        } else {
-            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
-        }
-    };
+    const file = getFile(arguments[0]);
 
     const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.gpa, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
@@ -219,14 +198,7 @@ fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const file = blk: {
-        if (builtin.os.tag == .windows) {
-            @setRuntimeSafety(false);
-            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
-        } else {
-            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
-        }
-    };
+    const file = getFile(arguments[0]);
 
     const file_content = file.reader().readAllAlloc(vm.gpa, std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },

@@ -1,0 +1,23 @@
+fs = import("fs")
+process = import("process")
+
+if length(process.argv) < 2 {
+    println("usage:", process.argv[0], "<file path>")
+    println("error: file path not provided")
+    exit(1)
+}
+
+file_path = process.argv[1]
+
+if !fs.access(file_path) {
+    println(file_path + ": could not open file")
+    exit(1)
+}
+
+file = fs.open(file_path)
+
+file_content = fs.read_all(file)
+
+println(file_content)
+
+fs.close(file)

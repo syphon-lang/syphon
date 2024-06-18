@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
@@ -33,7 +34,12 @@ fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    return Code.Value{ .int = @intCast(file.handle) };
+    if (builtin.os.tag == .windows) {
+        @setRuntimeSafety(false);
+        return Code.Value{ .int = @intCast(@intFromPtr(file.handle)) };
+    } else {
+        return Code.Value{ .int = @intCast(file.handle) };
+    }
 }
 
 fn delete(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -59,9 +65,14 @@ fn close(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const fd: i32 = @intCast(arguments[0].int);
-
-    const file: std.fs.File = .{ .handle = fd };
+    const file = blk: {
+        if (builtin.os.tag == .windows) {
+            @setRuntimeSafety(false);
+            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
+        } else {
+            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
+        }
+    };
 
     file.close();
 
@@ -125,9 +136,14 @@ fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const fd: i32 = @intCast(arguments[0].int);
-
-    const file: std.fs.File = .{ .handle = fd };
+    const file = blk: {
+        if (builtin.os.tag == .windows) {
+            @setRuntimeSafety(false);
+            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
+        } else {
+            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
+        }
+    };
 
     const write_content = arguments[1].object.string.content;
 
@@ -149,9 +165,14 @@ fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const fd: i32 = @intCast(arguments[0].int);
-
-    const file: std.fs.File = .{ .handle = fd };
+    const file = blk: {
+        if (builtin.os.tag == .windows) {
+            @setRuntimeSafety(false);
+            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
+        } else {
+            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
+        }
+    };
 
     const buf = vm.gpa.alloc(u8, 1) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
@@ -173,9 +194,14 @@ fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const fd: i32 = @intCast(arguments[0].int);
-
-    const file: std.fs.File = .{ .handle = fd };
+    const file = blk: {
+        if (builtin.os.tag == .windows) {
+            @setRuntimeSafety(false);
+            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
+        } else {
+            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
+        }
+    };
 
     const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.gpa, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
@@ -193,9 +219,14 @@ fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const fd: i32 = @intCast(arguments[0].int);
-
-    const file: std.fs.File = .{ .handle = fd };
+    const file = blk: {
+        if (builtin.os.tag == .windows) {
+            @setRuntimeSafety(false);
+            break :blk std.fs.File{ .handle = @ptrFromInt(@as(usize, @intCast(arguments[0].int))) };
+        } else {
+            break :blk std.fs.File{ .handle = @intCast(arguments[0].int) };
+        }
+    };
 
     const file_content = file.reader().readAllAlloc(vm.gpa, std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },

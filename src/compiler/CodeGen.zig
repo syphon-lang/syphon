@@ -180,12 +180,12 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     self.code.instructions.items[jump_if_false_point] = .{ .jump_if_false = .{ .offset = self.code.instructions.items.len - jump_if_false_point } };
 
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .back = .{ .offset = self.code.instructions.items.len - condition_point + 1 } });
-
     for (self.context.break_points.items[previous_break_points_len..]) |break_point| {
         self.code.instructions.items[break_point] = .{ .jump = .{ .offset = self.code.instructions.items.len - break_point } };
     }
+
+    try self.code.source_locations.append(.{});
+    try self.code.instructions.append(.{ .back = .{ .offset = self.code.instructions.items.len - condition_point + 1 } });
 
     for (self.context.continue_points.items[previous_continue_points_len..]) |continue_point| {
         self.code.instructions.items[continue_point] = .{ .back = .{ .offset = continue_point - condition_point + 1 } };

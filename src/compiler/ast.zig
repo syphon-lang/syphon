@@ -187,6 +187,7 @@ pub const Parser = struct {
     pub const Error = error{
         UnexpectedToken,
         InvalidNumber,
+        InvalidString,
     } || std.mem.Allocator.Error;
 
     pub const ErrorInfo = struct {
@@ -501,8 +502,73 @@ pub const Parser = struct {
         return Node.Expr{ .identifier = .{ .name = try self.parseName() } };
     }
 
-    fn parseStringExpr(self: *Parser) Node.Expr {
-        return Node.Expr{ .string = .{ .content = self.tokenValue(self.peekToken()), .source_loc = self.tokenSourceLoc(self.nextToken()) } };
+    fn parseStringExpr(self: *Parser) Error!Node.Expr {
+        const content = self.tokenValue(self.peekToken());
+        const source_loc = self.tokenSourceLoc(self.nextToken());
+
+        var unescaped = std.ArrayList(u8).init(self.gpa);
+
+        var escaping = false;
+
+        for (content) |char| {
+            switch (escaping) {
+                false => switch (char) {
+                    '\\' => escaping = true,
+
+                    else => try unescaped.append(char),
+                },
+
+                true => {
+                    escaping = false;
+
+                    switch (char) {
+                        '\\' => {
+                            try unescaped.append('\\');
+                        },
+
+                        'n' => {
+                            try unescaped.append('\n');
+                        },
+
+                        'r' => {
+                            try unescaped.append('\r');
+                        },
+
+                        't' => {
+                            try unescaped.append('\t');
+                        },
+
+                        'e' => {
+                            try unescaped.append(27);
+                        },
+
+                        'v' => {
+                            try unescaped.append(11);
+                        },
+
+                        'b' => {
+                            try unescaped.append(8);
+                        },
+
+                        'f' => {
+                            try unescaped.append(20);
+                        },
+
+                        '"' => {
+                            try unescaped.append('"');
+                        },
+
+                        else => {
+                            self.error_info = .{ .message = "invalid escape character in string", .source_loc = source_loc };
+
+                            return error.InvalidString;
+                        },
+                    }
+                },
+            }
+        }
+
+        return Node.Expr{ .string = .{ .content = try unescaped.toOwnedSlice(), .source_loc = source_loc } };
     }
 
     fn parseIntExpr(self: *Parser) Error!Node.Expr {

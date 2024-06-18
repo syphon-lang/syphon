@@ -251,10 +251,12 @@ pub fn next(self: *Lexer) Token {
                 },
 
                 '"' => {
-                    result.buffer_loc.end = self.index;
-                    self.index += 1;
-                    self.state = .start;
-                    break;
+                    if (self.buffer[self.index - 1] != '\\') {
+                        result.buffer_loc.end = self.index;
+                        self.index += 1;
+                        self.state = .start;
+                        break;
+                    }
                 },
 
                 else => {},

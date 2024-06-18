@@ -124,6 +124,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     const Array = @import("./builtins/Array.zig");
     const Console = @import("./builtins/Console.zig");
     const Hash = @import("./builtins/Hash.zig");
+    const Map = @import("./builtins/Map.zig");
     const Module = @import("./builtins/Module.zig");
     const Process = @import("./builtins/Process.zig");
     const Random = @import("./builtins/Random.zig");
@@ -133,6 +134,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try Array.addGlobals(self);
     try Console.addGlobals(self);
     try Hash.addGlobals(self);
+    try Map.addGlobals(self);
     try Module.addGlobals(self);
     try Process.addGlobals(self);
     try Random.addGlobals(self);

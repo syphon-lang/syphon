@@ -191,3 +191,23 @@ hash(5) # 5
 hash("string") # 5389953989438782544
 hash([1, 2]) # none
 ```
+
+- map_keys
+
+Gives you an array of the keys stored in the provided map
+
+```
+map = {1: 2, 3: 4}
+
+println(map_keys(map)) # [1, 3]
+```
+
+- map_values
+
+Gives you an array of the values stored in the provided map
+
+```
+map = {1: 2, 3: 4}
+
+println(map_values(map)) # [2, 4]
+```

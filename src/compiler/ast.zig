@@ -508,18 +508,18 @@ pub const Parser = struct {
 
         var unescaped = std.ArrayList(u8).init(self.gpa);
 
-        var escaping = false;
+        var unescaping = false;
 
         for (content) |char| {
-            switch (escaping) {
+            switch (unescaping) {
                 false => switch (char) {
-                    '\\' => escaping = true,
+                    '\\' => unescaping = true,
 
                     else => try unescaped.append(char),
                 },
 
                 true => {
-                    escaping = false;
+                    unescaping = false;
 
                     switch (char) {
                         '\\' => {

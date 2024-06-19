@@ -1,0 +1,34 @@
+fs = import("fs")
+io = import("io")
+process = import("process")
+
+secret = to_int(random(0, 10))
+
+while true {
+    print("Guess a number between 0 and 10: ")
+
+    raw_input = fs.read_line(io.stdin)
+
+    if raw_input == none {
+        break
+    }
+
+    parsed_input = to_int(raw_input)
+
+    if parsed_input == none {
+        println("Try again with a number")
+
+        continue
+    }
+
+    if parsed_input > secret {
+        println("Try again with a number smaller than that")
+    } else if parsed_input < secret {
+        println("Try again with a number bigger than that")
+    } else {
+        println("You got it! Now the secret will change")
+        println("")
+
+        secret = to_int(random(0, 10))
+    }
+}

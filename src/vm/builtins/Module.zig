@@ -31,25 +31,36 @@ fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 const NativeModules = std.StaticStringMap(*const fn (*VirtualMachine) Code.Value).initComptime(.{
-    .{ "math", &getMathModule },
     .{ "fs", &getFileSystemModule },
+    .{ "io", &getIOModule },
+    .{ "math", &getMathModule },
     .{ "process", &getProcessModule },
 });
 
-fn getMathModule(vm: *VirtualMachine) Code.Value {
-    const Math = @import("Math.zig");
+fn getFileSystemModule(vm: *VirtualMachine) Code.Value {
+    const FileSystem = @import("FileSystem.zig");
 
-    const exports = Math.getExports(vm) catch |err| switch (err) {
+    const exports = FileSystem.getExports(vm) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
     return exports;
 }
 
-fn getFileSystemModule(vm: *VirtualMachine) Code.Value {
-    const FileSystem = @import("FileSystem.zig");
+fn getIOModule(vm: *VirtualMachine) Code.Value {
+    const IO = @import("IO.zig");
 
-    const exports = FileSystem.getExports(vm) catch |err| switch (err) {
+    const exports = IO.getExports(vm) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    return exports;
+}
+
+fn getMathModule(vm: *VirtualMachine) Code.Value {
+    const Math = @import("Math.zig");
+
+    const exports = Math.getExports(vm) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 

@@ -68,14 +68,14 @@ pub fn init(gpa: std.mem.Allocator) Driver {
     };
 }
 
-fn parseArgs(self: *Driver, args_iterator: *std.process.ArgIterator) bool {
-    const program = args_iterator.next().?;
+fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
+    const program = arg_iterator.next().?;
 
-    while (args_iterator.next()) |arg| {
+    while (arg_iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "run")) {
             var argv = std.ArrayList([]const u8).init(self.gpa);
 
-            while (args_iterator.next()) |remaining_arg| {
+            while (arg_iterator.next()) |remaining_arg| {
                 argv.append(remaining_arg) catch |err| {
                     std.debug.print("{s}\n", .{errorDescription(err)});
 
@@ -118,8 +118,8 @@ fn parseArgs(self: *Driver, args_iterator: *std.process.ArgIterator) bool {
     return false;
 }
 
-pub fn run(self: *Driver, args_iterator: *std.process.ArgIterator) u8 {
-    if (self.parseArgs(args_iterator)) return 1;
+pub fn run(self: *Driver, arg_iterator: *std.process.ArgIterator) u8 {
+    if (self.parseArgs(arg_iterator)) return 1;
 
     switch (self.cli.command.?) {
         .run => return self.runRunCommand(),

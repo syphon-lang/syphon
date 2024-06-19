@@ -70,9 +70,9 @@ pub const Value = union(enum) {
             pub fn fromStringHashMap(gpa: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
                 var inner = Inner.init(gpa);
 
-                var from_entries_iterator = from.iterator();
+                var from_iterator = from.iterator();
 
-                while (from_entries_iterator.next()) |from_entry| {
+                while (from_iterator.next()) |from_entry| {
                     const key: Value = .{ .object = .{ .string = .{ .content = from_entry.key_ptr.* } } };
                     const value = from_entry.value_ptr.*;
 

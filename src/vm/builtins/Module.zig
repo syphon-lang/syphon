@@ -34,7 +34,6 @@ const NativeModules = std.StaticStringMap(*const fn (*VirtualMachine) Code.Value
     .{ "math", &getMathModule },
     .{ "fs", &getFileSystemModule },
     .{ "process", &getProcessModule },
-    .{ "http", &getHttpModule },
 });
 
 fn getMathModule(vm: *VirtualMachine) Code.Value {
@@ -61,16 +60,6 @@ fn getProcessModule(vm: *VirtualMachine) Code.Value {
     const Process = @import("Process.zig");
 
     const exports = Process.getExports(vm) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
-    };
-
-    return exports;
-}
-
-fn getHttpModule(vm: *VirtualMachine) Code.Value {
-    const Http = @import("Http.zig");
-
-    const exports = Http.getExports(vm) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 

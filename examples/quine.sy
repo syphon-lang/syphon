@@ -1,0 +1,27 @@
+src = "src = \"?\"\n\ni = 0\n\nwhile i < length(src) {\n    if ord(src[i]) == 63 {\n        j = 0\n\n        while j < length(src) {\n            if src[j] == \"\\n\" {\n                print(\"\\\\n\")\n            } else if src[j] == \"\\\"\" {\n                print(\"\\\\\\\"\")\n            } else if src[j] == \"\\\\\" {\n                print(\"\\\\\\\\\")\n            } else {\n                print(src[j])\n            }\n\n            j += 1\n        }\n    } else {\n        print(src[i])\n    }\n\n    i += 1\n}\n"
+
+i = 0
+
+while i < length(src) {
+    if ord(src[i]) == 63 {
+        j = 0
+
+        while j < length(src) {
+            if src[j] == "\n" {
+                print("\\n")
+            } else if src[j] == "\"" {
+                print("\\\"")
+            } else if src[j] == "\\" {
+                print("\\\\")
+            } else {
+                print(src[j])
+            }
+
+            j += 1
+        }
+    } else {
+        print(src[i])
+    }
+
+    i += 1
+}

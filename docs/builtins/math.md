@@ -28,7 +28,7 @@ math.sqrt(65) # 8.06225774829855
 
 - sin
 
-Gives you the sine of an angle measured in radians
+Gives you the sine of an angle
 
 ```
 math.sin(180) # -0.8011526357338304
@@ -37,7 +37,7 @@ math.sin(90) # 0.8939966636005579
 
 - cos
 
-Gives you the cosine of an angle measured in radians
+Gives you the cosine of an angle
 
 ```
 math.cos(180) # -0.5984600690578581

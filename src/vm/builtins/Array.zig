@@ -7,6 +7,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("array_push", Code.Value.Object.NativeFunction.init(2, &array_push));
     try vm.globals.put("array_pop", Code.Value.Object.NativeFunction.init(1, &array_pop));
     try vm.globals.put("length", Code.Value.Object.NativeFunction.init(1, &length));
+    try vm.globals.put("contains", Code.Value.Object.NativeFunction.init(2, &contains));
 }
 
 fn array_push(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -49,6 +50,47 @@ fn length(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             .array => return Code.Value{ .int = @intCast(value.object.array.values.items.len) },
             .string => return Code.Value{ .int = @intCast(value.object.string.content.len) },
             .map => return Code.Value{ .int = @intCast(value.object.map.inner.count()) },
+
+            else => {},
+        },
+
+        else => {},
+    }
+
+    return Code.Value{ .none = {} };
+}
+
+fn contains(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = vm;
+
+    const target = arguments[0];
+    const value = arguments[1];
+
+    switch (target) {
+        .object => switch (target.object) {
+            .array => {
+                for (target.object.array.values.items) |other_value| {
+                    if (value.eql(other_value, false)) {
+                        return Code.Value{ .boolean = true };
+                    }
+                }
+
+                return Code.Value{ .boolean = false };
+            },
+
+            .string => {
+                if (!(value == .object and value.object == .string)) {
+                    return Code.Value{ .boolean = false };
+                }
+
+                for (0..target.object.string.content.len) |i| {
+                    if (std.mem.startsWith(u8, target.object.string.content[i..], value.object.string.content)) {
+                        return Code.Value{ .boolean = true };
+                    }
+                }
+
+                return Code.Value{ .boolean = false };
+            },
 
             else => {},
         },

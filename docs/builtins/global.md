@@ -166,6 +166,20 @@ length(map) # 3
 length(89) # none
 ```
 
+- contains
+
+Checks if a value in the values of an (array, string)
+
+```
+arr = ["a", "b", "c"]
+
+str = "abc"
+
+contains(arr, "a") # true
+contains(str, "a") # true
+contains(4, "a") # none
+```
+
 - export
 
 Changes the value exported to the users of this module, by default it exports none

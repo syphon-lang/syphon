@@ -13,6 +13,7 @@ pub const State = enum {
     comment,
     identifier,
     string_literal,
+    string_literal_back_slash,
     number,
     bang,
     equal_sign,
@@ -250,16 +251,39 @@ pub fn next(self: *Lexer) Token {
                     break;
                 },
 
+                '\\' => {
+                    self.state = .string_literal_back_slash;
+                },
+
                 '"' => {
-                    if (self.buffer[self.index - 1] != '\\') {
-                        result.buffer_loc.end = self.index;
-                        self.index += 1;
-                        self.state = .start;
-                        break;
-                    }
+                    result.buffer_loc.end = self.index;
+                    self.index += 1;
+                    self.state = .start;
+                    break;
                 },
 
                 else => {},
+            },
+
+            .string_literal_back_slash => switch (current_char) {
+                0 => {
+                    result.buffer_loc.end = self.index;
+                    self.state = .start;
+                    result.tag = .invalid;
+                    break;
+                },
+
+                '\n' => {
+                    result.buffer_loc.end = self.index;
+                    self.index += 1;
+                    self.state = .start;
+                    result.tag = .invalid;
+                    break;
+                },
+
+                else => {
+                    self.state = .string_literal;
+                },
             },
 
             .number => switch (current_char) {

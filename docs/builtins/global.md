@@ -180,6 +180,24 @@ contains(str, "a") # true
 contains(4, "a") # none
 ```
 
+- ord
+
+Gives you the unicode representation of a one character
+
+```
+ord("?") # 63
+ord(2) # none
+```
+
+- chr
+
+Converts the unicode representation to a character
+
+```
+chr(63) # "?"
+chr("jdlf") # none
+```
+
 - export
 
 Changes the value exported to the users of this module, by default it exports none

@@ -1,0 +1,19 @@
+i = 0
+
+while i < 8 {
+    j = 0
+
+    while j < 8 {
+        if (i + j) % 2 == 0 {
+            print("\e[47m  \e[0m")
+        } else {
+            print("\e[100m  \e[0m")
+        }
+
+        j += 1
+    }
+
+    println()
+
+    i += 1
+}

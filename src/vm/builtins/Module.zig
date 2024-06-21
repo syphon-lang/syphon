@@ -118,13 +118,21 @@ fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => {
+            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
+
+            std.process.exit(1);
+        },
     };
 
     var gen = CodeGen.init(vm.gpa, .script);
 
     gen.compileRoot(root) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => {
+            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
+
+            std.process.exit(1);
+        },
     };
 
     var other_vm = VirtualMachine.init(vm.gpa, &.{resolved_file_path}) catch |err| switch (err) {
@@ -136,7 +144,11 @@ fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     };
 
     _ = other_vm.run() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => {
+            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, other_vm.error_info.?.source_loc.line, other_vm.error_info.?.source_loc.column, other_vm.error_info.?.message });
+
+            std.process.exit(1);
+        },
     };
 
     return other_vm.exported_value;

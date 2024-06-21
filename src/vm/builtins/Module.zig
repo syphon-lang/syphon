@@ -5,6 +5,13 @@ const CodeGen = @import("../../compiler/CodeGen.zig");
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
+const NativeModules = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
+    .{ "fs", &(@import("FileSystem.zig").getExports) },
+    .{ "io", &(@import("IO.zig").getExports) },
+    .{ "math", &(@import("Math.zig").getExports) },
+    .{ "process", &(@import("Process.zig").getExports) },
+});
+
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("export", Code.Value.Object.NativeFunction.init(1, &@"export"));
     try vm.globals.put("import", Code.Value.Object.NativeFunction.init(1, &import));
@@ -24,57 +31,10 @@ fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const file_path = arguments[0].object.string.content;
 
     if (NativeModules.get(file_path)) |getNativeModule| {
-        return getNativeModule(vm);
+        return getNativeModule(vm) catch Code.Value{ .none = {} };
     } else {
         return getExportedValue(vm, file_path);
     }
-}
-
-const NativeModules = std.StaticStringMap(*const fn (*VirtualMachine) Code.Value).initComptime(.{
-    .{ "fs", &getFileSystemModule },
-    .{ "io", &getIOModule },
-    .{ "math", &getMathModule },
-    .{ "process", &getProcessModule },
-});
-
-fn getFileSystemModule(vm: *VirtualMachine) Code.Value {
-    const FileSystem = @import("FileSystem.zig");
-
-    const exports = FileSystem.getExports(vm) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
-    };
-
-    return exports;
-}
-
-fn getIOModule(vm: *VirtualMachine) Code.Value {
-    const IO = @import("IO.zig");
-
-    const exports = IO.getExports(vm) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
-    };
-
-    return exports;
-}
-
-fn getMathModule(vm: *VirtualMachine) Code.Value {
-    const Math = @import("Math.zig");
-
-    const exports = Math.getExports(vm) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
-    };
-
-    return exports;
-}
-
-fn getProcessModule(vm: *VirtualMachine) Code.Value {
-    const Process = @import("Process.zig");
-
-    const exports = Process.getExports(vm) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
-    };
-
-    return exports;
 }
 
 fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) Code.Value {

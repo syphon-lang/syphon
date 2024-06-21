@@ -5,7 +5,7 @@ const CodeGen = @import("../../compiler/CodeGen.zig");
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
-const NativeModules = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
+const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
     .{ "fs", &(@import("FileSystem.zig").getExports) },
     .{ "io", &(@import("IO.zig").getExports) },
     .{ "math", &(@import("Math.zig").getExports) },
@@ -30,7 +30,7 @@ fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_path = arguments[0].object.string.content;
 
-    if (NativeModules.get(file_path)) |getNativeModule| {
+    if (NativeModuleGetters.get(file_path)) |getNativeModule| {
         return getNativeModule(vm) catch Code.Value{ .none = {} };
     } else {
         return getExportedValue(vm, file_path);

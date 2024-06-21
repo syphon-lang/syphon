@@ -1,0 +1,56 @@
+fs = import("fs")
+io = import("io")
+process = import("process")
+
+while true {
+    println()
+
+    print("Left: ")
+
+    raw_lhs = fs.read_line(io.stdin)
+
+    if raw_lhs == none {
+        break
+    }
+
+    parsed_lhs = to_float(raw_lhs)
+
+    if parsed_lhs == none {
+        println(raw_lhs, "is not a number")
+
+        continue
+    }
+
+    print("Right: ")
+
+    raw_rhs = fs.read_line(io.stdin)
+
+    if raw_rhs == none {
+        break
+    }
+
+    parsed_rhs = to_float(raw_rhs)
+
+    if parsed_rhs == none {
+        println(raw_rhs, "is not a number")
+
+        continue
+    }
+
+    print("Operator [+, -, /, *, **]: ")
+    operator = fs.read_line(io.stdin)
+
+    if operator == "+" {
+        println(parsed_lhs + parsed_rhs)
+    } else if operator == "-" {
+        println(parsed_lhs - parsed_rhs)
+    } else if operator == "/" {
+        println(parsed_lhs / parsed_rhs)
+    } else if operator == "*" {
+        println(parsed_lhs * parsed_rhs)
+    } else if operator == "**" {
+        println(parsed_lhs ** parsed_rhs)
+    } else {
+        println("Invalid operator")
+    }
+}

@@ -5,6 +5,8 @@ process = import("process")
 secret = to_int(random(0, 10))
 
 while true {
+    println()
+
     print("Guess a number between 0 and 10: ")
 
     raw_input = fs.read_line(io.stdin)
@@ -27,7 +29,6 @@ while true {
         println("Try again with a number bigger than that")
     } else {
         println("You got it! Now the secret will change")
-        println("")
 
         secret = to_int(random(0, 10))
     }

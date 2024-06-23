@@ -2,6 +2,7 @@ const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
 const Code = @import("Code.zig");
+const StringHashMapRecorder = @import("string_hash_map_recorder.zig").StringHashMapRecorder;
 
 const VirtualMachine = @This();
 
@@ -43,63 +44,6 @@ pub const Frame = struct {
     locals: StringHashMapRecorder(usize),
     ip: usize = 0,
 };
-
-pub fn StringHashMapRecorder(comptime V: type) type {
-    return struct {
-        gpa: std.mem.Allocator,
-
-        snapshots: std.ArrayList(Inner),
-
-        const Self = StringHashMapRecorder(V);
-
-        const Inner = std.StringHashMap(V);
-
-        const K = []const u8;
-
-        pub fn init(gpa: std.mem.Allocator) std.mem.Allocator.Error!Self {
-            return Self{
-                .gpa = gpa,
-                .snapshots = try std.ArrayList(Inner).initCapacity(gpa, MAX_FRAMES_COUNT),
-            };
-        }
-
-        pub inline fn newSnapshot(self: *Self) void {
-            self.snapshots.appendAssumeCapacity(Inner.init(self.gpa));
-        }
-
-        pub inline fn destroySnapshot(self: *Self) void {
-            _ = self.snapshots.pop();
-        }
-
-        pub fn get(self: Self, key: K) ?V {
-            var i = self.snapshots.items.len;
-
-            while (i > 0) : (i -= 1) {
-                if (self.snapshots.items[i - 1].get(key)) |value| {
-                    return value;
-                }
-            }
-
-            return null;
-        }
-
-        pub fn getFromLastSnapshot(self: Self, key: K) ?V {
-            if (self.snapshots.items.len == 0) {
-                return null;
-            }
-
-            return self.snapshots.getLast().get(key);
-        }
-
-        pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
-            if (self.snapshots.items.len == 0) {
-                self.newSnapshot();
-            }
-
-            try self.snapshots.items[self.snapshots.items.len - 1].put(key, value);
-        }
-    };
-}
 
 pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
@@ -149,7 +93,7 @@ pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
 
     try self.frames.append(.{
         .function = value.object.function,
-        .locals = try StringHashMapRecorder(usize).init(self.gpa),
+        .locals = try StringHashMapRecorder(usize).initSnapshotsCapacity(self.gpa, MAX_FRAMES_COUNT),
     });
 }
 

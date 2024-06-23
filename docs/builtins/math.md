@@ -43,3 +43,11 @@ Gives you the cosine of an angle
 math.cos(180) # -0.5984600690578581
 math.cos(90) # -0.4480736161291702
 ```
+
+- tan
+
+Gives you the tangent of an angle
+
+```
+math.tan(180) # 1.3386902103511544
+```

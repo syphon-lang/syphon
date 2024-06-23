@@ -13,7 +13,7 @@ stack: std.ArrayList(Code.Value),
 
 globals: std.StringHashMap(Code.Value),
 
-exported_value: Code.Value,
+exported: Code.Value,
 
 start_time: std.time.Instant,
 
@@ -110,7 +110,7 @@ pub fn init(gpa: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachi
         .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT),
         .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE),
         .globals = std.StringHashMap(Code.Value).init(gpa),
-        .exported_value = .{ .none = {} },
+        .exported = .{ .none = {} },
         .start_time = try std.time.Instant.now(),
         .argv = argv,
     };

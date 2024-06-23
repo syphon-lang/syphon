@@ -18,7 +18,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    vm.exported_value = arguments[0];
+    vm.exported = arguments[0];
 
     return Code.Value{ .none = {} };
 }
@@ -33,11 +33,11 @@ fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (NativeModuleGetters.get(file_path)) |getNativeModule| {
         return getNativeModule(vm) catch Code.Value{ .none = {} };
     } else {
-        return getExportedValue(vm, file_path);
+        return getExported(vm, file_path);
     }
 }
 
-fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) Code.Value {
+fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     const source_file_path = vm.argv[0];
 
     const source_dir_path = blk: {
@@ -111,5 +111,5 @@ fn getExportedValue(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         },
     };
 
-    return other_vm.exported_value;
+    return other_vm.exported;
 }

@@ -42,7 +42,7 @@ pub fn next(self: *Lexer) Token {
             .start => switch (current_char) {
                 0 => break,
 
-                ' ', '\r', '\n', '\t', ';' => {},
+                ' ', '\r', '\n', '\t' => {},
 
                 '#' => {
                     self.state = .comment;

@@ -674,7 +674,7 @@ pub const Parser = struct {
         const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.prefix)).expr;
-        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .unary_operation = .{ .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
@@ -716,39 +716,39 @@ pub const Parser = struct {
     }
 
     fn parseBinaryOperationExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.BinaryOperation.BinaryOperator) Error!Node.Expr {
-        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(Precedence.from(operator_token))).expr;
-        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .binary_operation = .{ .lhs = &lhs_on_heap[0], .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
     }
 
     fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.Assignment.AssignmentOperator) Error!Node.Expr {
-        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const equal_sign_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
-        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .operator = operator, .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
     fn parseBracketSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const open_bracket_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
-        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         if (!self.eatToken(.close_bracket)) {
@@ -761,7 +761,7 @@ pub const Parser = struct {
     }
 
     fn parsePeriodSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const period_token = self.nextToken();
@@ -776,14 +776,14 @@ pub const Parser = struct {
 
         const rhs: Node.Expr = .{ .string = .{ .content = self.tokenValue(name_token), .source_loc = self.tokenSourceLoc(name_token) } };
 
-        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(period_token) } };
     }
 
     fn parseCallExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
+        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const open_paren_token = self.nextToken();

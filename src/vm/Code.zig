@@ -35,7 +35,7 @@ pub const Value = union(enum) {
             pub fn init(allocator: std.mem.Allocator, values: std.ArrayList(Value)) std.mem.Allocator.Error!Value {
                 const array: Array = .{ .values = values };
 
-                var array_on_heap = try allocator.alloc(Array, 1);
+                const array_on_heap = try allocator.alloc(Array, 1);
                 array_on_heap[0] = array;
 
                 return Value{ .object = .{ .array = &array_on_heap[0] } };
@@ -61,7 +61,7 @@ pub const Value = union(enum) {
             pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
                 const map: Map = .{ .inner = inner };
 
-                var map_on_heap = try allocator.alloc(Map, 1);
+                const map_on_heap = try allocator.alloc(Map, 1);
                 map_on_heap[0] = map;
 
                 return Value{ .object = .{ .map = &map_on_heap[0] } };
@@ -105,7 +105,7 @@ pub const Value = union(enum) {
             pub fn init(allocator: std.mem.Allocator, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
                 const function: Function = .{ .parameters = parameters, .code = code };
 
-                var function_on_heap = try allocator.alloc(Function, 1);
+                const function_on_heap = try allocator.alloc(Function, 1);
                 function_on_heap[0] = function;
 
                 return Value{ .object = .{ .function = &function_on_heap[0] } };

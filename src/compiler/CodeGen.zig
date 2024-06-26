@@ -334,7 +334,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
         },
     };
 
-    var function_on_heap = try self.allocator.alloc(Code.Value.Object.Function, 1);
+    const function_on_heap = try self.allocator.alloc(Code.Value.Object.Function, 1);
     function_on_heap[0] = function;
 
     try self.code.source_locations.append(ast_function.source_loc);

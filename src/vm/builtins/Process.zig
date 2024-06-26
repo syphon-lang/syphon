@@ -11,12 +11,12 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
     try exports.put("argv", try Code.Value.Object.Array.fromStringSlices(vm.allocator, vm.argv));
-    try exports.put("get_env", Code.Value.Object.NativeFunction.init(0, &get_env));
+    try exports.put("env", getEnv(vm, &.{}));
 
     return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }
 
-fn get_env(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn getEnv(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = arguments;
 
     const env_map = std.process.getEnvMap(vm.allocator) catch |err| switch (err) {

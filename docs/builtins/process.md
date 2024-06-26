@@ -14,12 +14,10 @@ process = import("process")
 
 The arguments provided to `syphon run` command as an array of strings
 
-## Functions
+- env
 
-- get_env
-
-Get the current environment variables map, any change to this map does not change the actual environment variables
+The environment variables map
 
 ```
-process.get_env() # {"HOME": "/home/yhya"}
+process.env # {"HOME": "/home/yhya"}
 ```

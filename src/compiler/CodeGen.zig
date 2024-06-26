@@ -7,7 +7,7 @@ const SourceLoc = ast.SourceLoc;
 
 const CodeGen = @This();
 
-gpa: std.mem.Allocator,
+allocator: std.mem.Allocator,
 
 code: Code,
 
@@ -40,18 +40,18 @@ pub const Context = struct {
     };
 };
 
-pub fn init(gpa: std.mem.Allocator, mode: Context.Mode) CodeGen {
+pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) CodeGen {
     return CodeGen{
-        .gpa = gpa,
+        .allocator = allocator,
         .code = .{
-            .constants = std.ArrayList(Code.Value).init(gpa),
-            .instructions = std.ArrayList(Code.Instruction).init(gpa),
-            .source_locations = std.ArrayList(SourceLoc).init(gpa),
+            .constants = std.ArrayList(Code.Value).init(allocator),
+            .instructions = std.ArrayList(Code.Instruction).init(allocator),
+            .source_locations = std.ArrayList(SourceLoc).init(allocator),
         },
         .context = .{
             .mode = mode,
-            .break_points = std.ArrayList(usize).init(gpa),
-            .continue_points = std.ArrayList(usize).init(gpa),
+            .break_points = std.ArrayList(usize).init(allocator),
+            .continue_points = std.ArrayList(usize).init(allocator),
         },
     };
 }
@@ -109,7 +109,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         jump_point: usize,
     };
 
-    var backtrack_points = std.ArrayList(BacktrackPoint).init(self.gpa);
+    var backtrack_points = std.ArrayList(BacktrackPoint).init(self.allocator);
 
     const was_compiling_conditional = self.context.compiling_conditional;
     self.context.compiling_conditional = true;
@@ -315,7 +315,7 @@ fn compileMapExpr(self: *CodeGen, map: ast.Node.Expr.Map) Error!void {
 }
 
 fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Error!void {
-    var parameters = std.ArrayList([]const u8).init(self.gpa);
+    var parameters = std.ArrayList([]const u8).init(self.allocator);
 
     for (ast_function.parameters) |ast_parameter| {
         try parameters.append(ast_parameter.buffer);
@@ -324,7 +324,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     const function: Code.Value.Object.Function = .{
         .parameters = try parameters.toOwnedSlice(),
         .code = blk: {
-            var gen = init(self.gpa, .function);
+            var gen = init(self.allocator, .function);
 
             try gen.compileNodes(ast_function.body);
 
@@ -334,7 +334,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
         },
     };
 
-    var function_on_heap = try self.gpa.alloc(Code.Value.Object.Function, 1);
+    var function_on_heap = try self.allocator.alloc(Code.Value.Object.Function, 1);
     function_on_heap[0] = function;
 
     try self.code.source_locations.append(ast_function.source_loc);

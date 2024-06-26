@@ -113,7 +113,7 @@ fn println(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const new_line_value: Code.Value = .{ .object = .{ .string = .{ .content = "\n" } } };
 
-    const new_arguments = std.mem.concat(vm.gpa, Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
+    const new_arguments = std.mem.concat(vm.allocator, Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 

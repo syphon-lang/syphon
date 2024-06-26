@@ -4,7 +4,7 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
-    var exports = std.StringHashMap(Code.Value).init(vm.gpa);
+    var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
     try exports.put("pi", .{ .float = std.math.pi });
     try exports.put("e", .{ .float = std.math.e });
@@ -16,7 +16,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     try exports.put("cos", Code.Value.Object.NativeFunction.init(1, &cos));
     try exports.put("tan", Code.Value.Object.NativeFunction.init(1, &tan));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.gpa, exports);
+    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn sqrt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

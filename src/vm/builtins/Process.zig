@@ -8,11 +8,11 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
-    var exports = std.StringHashMap(Code.Value).init(vm.gpa);
+    var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
-    try exports.put("argv", try Code.Value.Object.Array.fromStringSlices(vm.gpa, vm.argv));
+    try exports.put("argv", try Code.Value.Object.Array.fromStringSlices(vm.allocator, vm.argv));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.gpa, exports);
+    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn exit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

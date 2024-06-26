@@ -51,7 +51,7 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         }
     };
 
-    const resolved_file_path = std.fs.path.resolve(vm.gpa, &.{ source_dir_path, file_path }) catch |err| switch (err) {
+    const resolved_file_path = std.fs.path.resolve(vm.allocator, &.{ source_dir_path, file_path }) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -61,7 +61,7 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
 
     defer file.close();
 
-    const file_content = file.reader().readAllAlloc(vm.gpa, std.math.maxInt(u32)) catch |err| switch (err) {
+    const file_content = file.reader().readAllAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -73,7 +73,7 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
 
     file_content_z[file_content.len] = 0;
 
-    var parser = Parser.init(vm.gpa, file_content_z) catch |err| switch (err) {
+    var parser = Parser.init(vm.allocator, file_content_z) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -85,7 +85,7 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         },
     };
 
-    var gen = CodeGen.init(vm.gpa, .script);
+    var gen = CodeGen.init(vm.allocator, .script);
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => {
@@ -95,7 +95,7 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         },
     };
 
-    var other_vm = VirtualMachine.init(vm.gpa, &.{resolved_file_path}) catch |err| switch (err) {
+    var other_vm = VirtualMachine.init(vm.allocator, &.{resolved_file_path}) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 

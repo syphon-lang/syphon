@@ -175,7 +175,7 @@ pub const Node = union(enum) {
 };
 
 pub const Parser = struct {
-    gpa: std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
     buffer: [:0]const u8,
 
@@ -195,8 +195,8 @@ pub const Parser = struct {
         source_loc: SourceLoc,
     };
 
-    pub fn init(gpa: std.mem.Allocator, buffer: [:0]const u8) std.mem.Allocator.Error!Parser {
-        var tokens = std.ArrayList(Token).init(gpa);
+    pub fn init(allocator: std.mem.Allocator, buffer: [:0]const u8) std.mem.Allocator.Error!Parser {
+        var tokens = std.ArrayList(Token).init(allocator);
 
         var lexer = Lexer.init(buffer);
 
@@ -209,7 +209,7 @@ pub const Parser = struct {
         }
 
         return Parser{
-            .gpa = gpa,
+            .allocator = allocator,
             .buffer = buffer,
             .tokens = try tokens.toOwnedSlice(),
             .current_token_index = 0,
@@ -274,7 +274,7 @@ pub const Parser = struct {
     }
 
     pub fn parseRoot(self: *Parser) Error!Root {
-        var body = std.ArrayList(Node).init(self.gpa);
+        var body = std.ArrayList(Node).init(self.allocator);
 
         while (self.peekToken().tag != .eof) {
             try body.append(try self.parseStmt());
@@ -304,7 +304,7 @@ pub const Parser = struct {
     }
 
     fn parseBody(self: *Parser) Error![]Node {
-        var body = std.ArrayList(Node).init(self.gpa);
+        var body = std.ArrayList(Node).init(self.allocator);
 
         if (!self.eatToken(.open_brace)) {
             self.error_info = .{ .message = "expected a '{'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
@@ -326,8 +326,8 @@ pub const Parser = struct {
     }
 
     fn parseConditionalStmt(self: *Parser) Error!Node {
-        var conditions = std.ArrayList(Node.Expr).init(self.gpa);
-        var possiblities = std.ArrayList([]Node).init(self.gpa);
+        var conditions = std.ArrayList(Node.Expr).init(self.allocator);
+        var possiblities = std.ArrayList([]Node).init(self.allocator);
 
         while (self.peekToken().tag == .keyword_if) {
             _ = self.nextToken();
@@ -471,7 +471,7 @@ pub const Parser = struct {
     }
 
     fn parseFunctionParameters(self: *Parser) Error![]Name {
-        var parameters = std.ArrayList(Name).init(self.gpa);
+        var parameters = std.ArrayList(Name).init(self.allocator);
 
         if (!self.eatToken(.open_paren)) {
             self.error_info = .{ .message = "expected a '('", .source_loc = self.tokenSourceLoc(self.peekToken()) };
@@ -506,7 +506,7 @@ pub const Parser = struct {
         const content = self.tokenValue(self.peekToken());
         const source_loc = self.tokenSourceLoc(self.nextToken());
 
-        var unescaped = std.ArrayList(u8).init(self.gpa);
+        var unescaped = std.ArrayList(u8).init(self.allocator);
 
         var unescaping = false;
 
@@ -616,7 +616,7 @@ pub const Parser = struct {
     fn parseArrayExpr(self: *Parser) Error!Node.Expr {
         _ = self.nextToken();
 
-        var values = std.ArrayList(Node.Expr).init(self.gpa);
+        var values = std.ArrayList(Node.Expr).init(self.allocator);
 
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_bracket) {
             try values.append((try self.parseExpr(.lowest)).expr);
@@ -640,8 +640,8 @@ pub const Parser = struct {
     fn parseMapExpr(self: *Parser) Error!Node.Expr {
         _ = self.nextToken();
 
-        var keys = std.ArrayList(Node.Expr).init(self.gpa);
-        var values = std.ArrayList(Node.Expr).init(self.gpa);
+        var keys = std.ArrayList(Node.Expr).init(self.allocator);
+        var values = std.ArrayList(Node.Expr).init(self.allocator);
 
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_brace) {
             try keys.append((try self.parseExpr(.lowest)).expr);
@@ -674,7 +674,7 @@ pub const Parser = struct {
         const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.prefix)).expr;
-        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .unary_operation = .{ .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
@@ -716,39 +716,39 @@ pub const Parser = struct {
     }
 
     fn parseBinaryOperationExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.BinaryOperation.BinaryOperator) Error!Node.Expr {
-        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(Precedence.from(operator_token))).expr;
-        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .binary_operation = .{ .lhs = &lhs_on_heap[0], .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
     }
 
     fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.Assignment.AssignmentOperator) Error!Node.Expr {
-        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const equal_sign_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
-        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .operator = operator, .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
     fn parseBracketSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const open_bracket_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
-        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         if (!self.eatToken(.close_bracket)) {
@@ -761,7 +761,7 @@ pub const Parser = struct {
     }
 
     fn parsePeriodSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const period_token = self.nextToken();
@@ -776,14 +776,14 @@ pub const Parser = struct {
 
         const rhs: Node.Expr = .{ .string = .{ .content = self.tokenValue(name_token), .source_loc = self.tokenSourceLoc(name_token) } };
 
-        var rhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         rhs_on_heap[0] = rhs;
 
         return Node.Expr{ .subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(period_token) } };
     }
 
     fn parseCallExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        var lhs_on_heap = try self.gpa.alloc(Node.Expr, 1);
+        var lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
         lhs_on_heap[0] = lhs;
 
         const open_paren_token = self.nextToken();
@@ -794,7 +794,7 @@ pub const Parser = struct {
     }
 
     fn parseCallArguments(self: *Parser) Error![]Node.Expr {
-        var arguments = std.ArrayList(Node.Expr).init(self.gpa);
+        var arguments = std.ArrayList(Node.Expr).init(self.allocator);
 
         while (self.peekToken().tag != .eof and self.peekToken().tag != .close_paren) {
             try arguments.append((try self.parseExpr(.lowest)).expr);

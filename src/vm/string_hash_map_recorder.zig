@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub fn StringHashMapRecorder(comptime V: type) type {
     return struct {
-        gpa: std.mem.Allocator,
+        allocator: std.mem.Allocator,
 
         snapshots: std.ArrayList(Inner),
 
@@ -12,15 +12,15 @@ pub fn StringHashMapRecorder(comptime V: type) type {
 
         const K = []const u8;
 
-        pub fn initSnapshotsCapacity(gpa: std.mem.Allocator, snapshots_capacity: usize) std.mem.Allocator.Error!Self {
+        pub fn initSnapshotsCapacity(allocator: std.mem.Allocator, snapshots_capacity: usize) std.mem.Allocator.Error!Self {
             return Self{
-                .gpa = gpa,
-                .snapshots = try std.ArrayList(Inner).initCapacity(gpa, snapshots_capacity),
+                .allocator = allocator,
+                .snapshots = try std.ArrayList(Inner).initCapacity(allocator, snapshots_capacity),
             };
         }
 
         pub inline fn newSnapshot(self: *Self) void {
-            self.snapshots.appendAssumeCapacity(Inner.init(self.gpa));
+            self.snapshots.appendAssumeCapacity(Inner.init(self.allocator));
         }
 
         pub inline fn destroySnapshot(self: *Self) void {

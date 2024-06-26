@@ -6,7 +6,7 @@ const VirtualMachine = @import("vm/VirtualMachine.zig");
 
 const Driver = @This();
 
-gpa: std.mem.Allocator,
+allocator: std.mem.Allocator,
 
 cli: CLI,
 
@@ -61,9 +61,9 @@ pub fn errorDescription(e: anyerror) []const u8 {
     };
 }
 
-pub fn init(gpa: std.mem.Allocator) Driver {
+pub fn init(allocator: std.mem.Allocator) Driver {
     return Driver{
-        .gpa = gpa,
+        .allocator = allocator,
         .cli = .{},
     };
 }
@@ -73,7 +73,7 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
 
     while (arg_iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "run")) {
-            var argv = std.ArrayList([]const u8).init(self.gpa);
+            var argv = std.ArrayList([]const u8).init(self.allocator);
 
             while (arg_iterator.next()) |remaining_arg| {
                 argv.append(remaining_arg) catch |err| {
@@ -128,7 +128,7 @@ pub fn run(self: *Driver, arg_iterator: *std.process.ArgIterator) u8 {
     return 0;
 }
 
-fn readAllZ(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
+fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
         std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
 
@@ -136,7 +136,7 @@ fn readAllZ(gpa: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     };
     defer file.close();
 
-    const file_content = file.reader().readAllAlloc(gpa, std.math.maxInt(u32)) catch |err| {
+    const file_content = file.reader().readAllAlloc(allocator, std.math.maxInt(u32)) catch |err| {
         std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
 
         return null;
@@ -156,13 +156,13 @@ fn runRunCommand(self: *Driver) u8 {
 
     const file_path = options.argv[0];
 
-    const file_content = readAllZ(self.gpa, file_path) orelse return 1;
+    const file_content = readAllZ(self.allocator, file_path) orelse return 1;
 
     if (file_content.len == 0) {
         return 0;
     }
 
-    var parser = Parser.init(self.gpa, file_content) catch |err| {
+    var parser = Parser.init(self.allocator, file_content) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;
@@ -176,7 +176,7 @@ fn runRunCommand(self: *Driver) u8 {
         },
     };
 
-    var gen = CodeGen.init(self.gpa, .script);
+    var gen = CodeGen.init(self.allocator, .script);
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => {
@@ -186,7 +186,7 @@ fn runRunCommand(self: *Driver) u8 {
         },
     };
 
-    var vm = VirtualMachine.init(self.gpa, options.argv) catch |err| {
+    var vm = VirtualMachine.init(self.allocator, options.argv) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;

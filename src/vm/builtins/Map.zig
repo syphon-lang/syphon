@@ -15,7 +15,7 @@ fn map_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const map = arguments[0].object.map;
 
-    var keys = std.ArrayList(Code.Value).initCapacity(vm.gpa, map.inner.count()) catch |err| switch (err) {
+    var keys = std.ArrayList(Code.Value).initCapacity(vm.allocator, map.inner.count()) catch |err| switch (err) {
         else => {
             return Code.Value{ .none = {} };
         },
@@ -27,7 +27,7 @@ fn map_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         keys.appendAssumeCapacity(inner_key.*);
     }
 
-    return Code.Value.Object.Array.init(vm.gpa, keys) catch |err| switch (err) {
+    return Code.Value.Object.Array.init(vm.allocator, keys) catch |err| switch (err) {
         else => {
             return Code.Value{ .none = {} };
         },
@@ -41,7 +41,7 @@ fn map_values(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const map = arguments[0].object.map;
 
-    var values = std.ArrayList(Code.Value).initCapacity(vm.gpa, map.inner.count()) catch |err| switch (err) {
+    var values = std.ArrayList(Code.Value).initCapacity(vm.allocator, map.inner.count()) catch |err| switch (err) {
         else => {
             return Code.Value{ .none = {} };
         },
@@ -53,7 +53,7 @@ fn map_values(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         values.appendAssumeCapacity(inner_value.*);
     }
 
-    return Code.Value.Object.Array.init(vm.gpa, values) catch |err| switch (err) {
+    return Code.Value.Object.Array.init(vm.allocator, values) catch |err| switch (err) {
         else => {
             return Code.Value{ .none = {} };
         },

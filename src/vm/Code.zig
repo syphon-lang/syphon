@@ -32,24 +32,24 @@ pub const Value = union(enum) {
         pub const Array = struct {
             values: std.ArrayList(Value),
 
-            pub fn init(gpa: std.mem.Allocator, values: std.ArrayList(Value)) std.mem.Allocator.Error!Value {
+            pub fn init(allocator: std.mem.Allocator, values: std.ArrayList(Value)) std.mem.Allocator.Error!Value {
                 const array: Array = .{ .values = values };
 
-                var array_on_heap = try gpa.alloc(Array, 1);
+                var array_on_heap = try allocator.alloc(Array, 1);
                 array_on_heap[0] = array;
 
                 return Value{ .object = .{ .array = &array_on_heap[0] } };
             }
 
-            pub fn fromStringSlices(gpa: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
-                var values = try std.ArrayList(Value).initCapacity(gpa, from.len);
+            pub fn fromStringSlices(allocator: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
+                var values = try std.ArrayList(Value).initCapacity(allocator, from.len);
 
                 for (from) |content| {
                     const value: Value = .{ .object = .{ .string = .{ .content = content } } };
                     values.appendAssumeCapacity(value);
                 }
 
-                return init(gpa, values);
+                return init(allocator, values);
             }
         };
 
@@ -58,17 +58,17 @@ pub const Value = union(enum) {
 
             inner: Inner,
 
-            pub fn init(gpa: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
+            pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
                 const map: Map = .{ .inner = inner };
 
-                var map_on_heap = try gpa.alloc(Map, 1);
+                var map_on_heap = try allocator.alloc(Map, 1);
                 map_on_heap[0] = map;
 
                 return Value{ .object = .{ .map = &map_on_heap[0] } };
             }
 
-            pub fn fromStringHashMap(gpa: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
-                var inner = Inner.init(gpa);
+            pub fn fromStringHashMap(allocator: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
+                var inner = Inner.init(allocator);
 
                 var from_iterator = from.iterator();
 
@@ -79,7 +79,7 @@ pub const Value = union(enum) {
                     try inner.put(key, value);
                 }
 
-                return init(gpa, inner);
+                return init(allocator, inner);
             }
         };
 
@@ -87,10 +87,10 @@ pub const Value = union(enum) {
             parameters: []const []const u8,
             code: Code,
 
-            pub fn init(gpa: std.mem.Allocator, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
+            pub fn init(allocator: std.mem.Allocator, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
                 const function: Function = .{ .parameters = parameters, .code = code };
 
-                var function_on_heap = try gpa.alloc(Function, 1);
+                var function_on_heap = try allocator.alloc(Function, 1);
                 function_on_heap[0] = function;
 
                 return Value{ .object = .{ .function = &function_on_heap[0] } };

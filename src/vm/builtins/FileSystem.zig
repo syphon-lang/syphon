@@ -5,7 +5,7 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
-    var exports = std.StringHashMap(Code.Value).init(vm.gpa);
+    var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
     try exports.put("open", Code.Value.Object.NativeFunction.init(1, &open));
     try exports.put("delete", Code.Value.Object.NativeFunction.init(1, &delete));
@@ -18,7 +18,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     try exports.put("read_line", Code.Value.Object.NativeFunction.init(1, &readLine));
     try exports.put("read_all", Code.Value.Object.NativeFunction.init(1, &readAll));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.gpa, exports);
+    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -82,7 +82,7 @@ fn close(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn cwd(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = arguments;
 
-    const cwd_file_path = std.fs.cwd().realpathAlloc(vm.gpa, ".") catch |err| switch (err) {
+    const cwd_file_path = std.fs.cwd().realpathAlloc(vm.allocator, ".") catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -160,7 +160,7 @@ fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const buf = vm.gpa.alloc(u8, 1) catch |err| switch (err) {
+    const buf = vm.allocator.alloc(u8, 1) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -182,7 +182,7 @@ fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.gpa, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
+    const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.allocator, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -200,7 +200,7 @@ fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const file_content = file.reader().readAllAlloc(vm.gpa, std.math.maxInt(u32)) catch |err| switch (err) {
+    const file_content = file.reader().readAllAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 

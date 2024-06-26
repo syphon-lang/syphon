@@ -6,7 +6,7 @@ const StringHashMapRecorder = @import("string_hash_map_recorder.zig").StringHash
 
 const VirtualMachine = @This();
 
-gpa: std.mem.Allocator,
+allocator: std.mem.Allocator,
 
 frames: std.ArrayList(Frame),
 
@@ -48,12 +48,12 @@ pub const Frame = struct {
 pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
-pub fn init(gpa: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
+pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
     var vm: VirtualMachine = .{
-        .gpa = gpa,
-        .frames = try std.ArrayList(Frame).initCapacity(gpa, MAX_FRAMES_COUNT),
-        .stack = try std.ArrayList(Code.Value).initCapacity(gpa, MAX_STACK_SIZE),
-        .globals = std.StringHashMap(Code.Value).init(gpa),
+        .allocator = allocator,
+        .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
+        .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
+        .globals = std.StringHashMap(Code.Value).init(allocator),
         .exported = .{ .none = {} },
         .start_time = try std.time.Instant.now(),
         .argv = argv,
@@ -89,11 +89,11 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
-    const value = try Code.Value.Object.Function.init(self.gpa, &.{}, code);
+    const value = try Code.Value.Object.Function.init(self.allocator, &.{}, code);
 
     try self.frames.append(.{
         .function = value.object.function,
-        .locals = try StringHashMapRecorder(usize).initSnapshotsCapacity(self.gpa, MAX_FRAMES_COUNT),
+        .locals = try StringHashMapRecorder(usize).initSnapshotsCapacity(self.allocator, MAX_FRAMES_COUNT),
     });
 }
 
@@ -161,7 +161,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
             } else if (self.globals.get(info.name)) |value| {
                 try self.stack.append(value);
             } else {
-                var error_message_buf = std.ArrayList(u8).init(self.gpa);
+                var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
                 try error_message_buf.writer().print("undefined name '{s}'", .{info.name});
 
@@ -229,7 +229,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                         } else {
                             const Console = @import("./builtins/Console.zig");
 
-                            var error_message_buf = std.ArrayList(u8).init(self.gpa);
+                            var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
                             var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
 
@@ -349,7 +349,7 @@ inline fn jump_if_false(self: *VirtualMachine, info: Code.Instruction.JumpIfFals
 fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     switch (info) {
         .array => {
-            var values = try std.ArrayList(Code.Value).initCapacity(self.gpa, info.array.length);
+            var values = try std.ArrayList(Code.Value).initCapacity(self.allocator, info.array.length);
 
             for (0..info.array.length) |_| {
                 const value = self.stack.pop();
@@ -357,11 +357,11 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
                 values.insertAssumeCapacity(0, value);
             }
 
-            try self.stack.append(try Code.Value.Object.Array.init(self.gpa, values));
+            try self.stack.append(try Code.Value.Object.Array.init(self.allocator, values));
         },
 
         .map => {
-            var inner = Code.Value.Object.Map.Inner.init(self.gpa);
+            var inner = Code.Value.Object.Map.Inner.init(self.allocator);
 
             for (0..info.map.length) |_| {
                 const key = self.stack.pop();
@@ -370,7 +370,7 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
                 try inner.put(key, value);
             }
 
-            try self.stack.append(try Code.Value.Object.Map.init(self.gpa, inner));
+            try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));
         },
     }
 }
@@ -430,7 +430,7 @@ fn add(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
             .string => switch (rhs) {
                 .object => switch (rhs.object) {
                     .string => {
-                        const concatenated_string: Code.Value = .{ .object = .{ .string = .{ .content = try std.mem.concat(self.gpa, u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } };
+                        const concatenated_string: Code.Value = .{ .object = .{ .string = .{ .content = try std.mem.concat(self.allocator, u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } };
 
                         return self.stack.append(concatenated_string);
                     },
@@ -781,7 +781,7 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
                     try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, info.arguments_count, source_loc);
                 }
 
-                var arguments = try std.ArrayList(Code.Value).initCapacity(self.gpa, info.arguments_count);
+                var arguments = try std.ArrayList(Code.Value).initCapacity(self.allocator, info.arguments_count);
 
                 for (0..info.arguments_count) |_| {
                     try arguments.insert(0, self.stack.pop());
@@ -803,7 +803,7 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
 
 inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: SourceLoc) Error!void {
     if (required_count != arguments_count) {
-        var error_message_buf = std.ArrayList(u8).init(self.gpa);
+        var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
         const argument_or_arguments = blk: {
             if (required_count != 1) {

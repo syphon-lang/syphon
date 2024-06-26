@@ -5,7 +5,7 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
-    var exports = std.StringHashMap(Code.Value).init(vm.gpa);
+    var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
     const stdin = std.io.getStdIn();
     const stdout = std.io.getStdOut();
@@ -21,5 +21,5 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
         try exports.put("stderr", .{ .int = @intCast(stderr.handle) });
     }
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.gpa, exports);
+    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }

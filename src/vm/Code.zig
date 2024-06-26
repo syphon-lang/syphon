@@ -81,6 +81,21 @@ pub const Value = union(enum) {
 
                 return init(allocator, inner);
             }
+
+            pub fn fromEnvMap(allocator: std.mem.Allocator, from: std.process.EnvMap) std.mem.Allocator.Error!Value {
+                var inner = Inner.init(allocator);
+
+                var from_iterator = from.iterator();
+
+                while (from_iterator.next()) |from_entry| {
+                    const key: Value = .{ .object = .{ .string = .{ .content = from_entry.key_ptr.* } } };
+                    const value: Value = .{ .object = .{ .string = .{ .content = from_entry.value_ptr.* } } };
+
+                    try inner.put(key, value);
+                }
+
+                return init(allocator, inner);
+            }
         };
 
         pub const Function = struct {

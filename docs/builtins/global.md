@@ -175,9 +175,9 @@ arr = ["a", "b", "c"]
 
 str = "abc"
 
-contains(arr, "a") # true
-contains(str, "a") # true
-contains(4, "a") # none
+contains(arr, "ab") # false
+contains(str, "ab") # true
+contains(4, "ab") # none
 ```
 
 - ord

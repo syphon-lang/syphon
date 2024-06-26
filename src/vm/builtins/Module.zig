@@ -10,6 +10,7 @@ const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.
     .{ "io", &(@import("IO.zig").getExports) },
     .{ "math", &(@import("Math.zig").getExports) },
     .{ "process", &(@import("Process.zig").getExports) },
+    .{ "time", &(@import("Time.zig").getExports) },
 });
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {

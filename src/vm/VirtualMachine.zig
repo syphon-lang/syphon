@@ -16,8 +16,6 @@ globals: std.StringHashMap(Code.Value),
 
 exported: Code.Value,
 
-start_time: std.time.Instant,
-
 argv: []const []const u8,
 
 internal_vms: std.ArrayList(VirtualMachine),
@@ -59,7 +57,6 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
         .globals = std.StringHashMap(Code.Value).init(allocator),
         .exported = .{ .none = {} },
-        .start_time = try std.time.Instant.now(),
         .argv = argv,
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
         .foreign_functions = std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
@@ -78,7 +75,6 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     const Module = @import("./builtins/Module.zig");
     const Process = @import("./builtins/Process.zig");
     const Random = @import("./builtins/Random.zig");
-    const Time = @import("./builtins/Time.zig");
     const String = @import("./builtins/String.zig");
     const Type = @import("./builtins/Type.zig");
 
@@ -89,7 +85,6 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try Module.addGlobals(self);
     try Process.addGlobals(self);
     try Random.addGlobals(self);
-    try Time.addGlobals(self);
     try String.addGlobals(self);
     try Type.addGlobals(self);
 }

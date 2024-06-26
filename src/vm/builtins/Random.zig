@@ -24,7 +24,7 @@ fn random(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const RandGen = std.Random.DefaultPrng;
 
-    var rnd = RandGen.init(@intCast(Time.time(vm, &.{}).int));
+    var rnd = RandGen.init(@intCast(Time.nowMs(vm, &.{}).int));
 
     return Code.Value{ .float = std.math.lerp(min.float, max.float, rnd.random().float(f64)) };
 }

@@ -35,16 +35,6 @@ Hello, World!
 
 ```
 
-- time
-
-Gives you the elapsed time after startup (in nanoseconds)
-
-Usage:
-
-```
-time() # 2170826152
-```
-
 - random
 
 Gives you a random value between two values exclusivly

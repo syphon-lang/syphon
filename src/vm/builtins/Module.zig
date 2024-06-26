@@ -95,21 +95,49 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         },
     };
 
-    var other_vm = VirtualMachine.init(vm.allocator, &.{resolved_file_path}) catch |err| switch (err) {
+    const internal_vm = vm.internal_vms.addOneAssumeCapacity();
+
+    internal_vm.* = VirtualMachine.init(vm.allocator, &.{resolved_file_path}) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
-    other_vm.setCode(gen.code) catch |err| switch (err) {
+    internal_vm.setCode(gen.code) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
-    _ = other_vm.run() catch |err| switch (err) {
+    _ = internal_vm.run() catch |err| switch (err) {
         else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, other_vm.error_info.?.source_loc.line, other_vm.error_info.?.source_loc.column, other_vm.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, internal_vm.error_info.?.source_loc.line, internal_vm.error_info.?.source_loc.column, internal_vm.error_info.?.message });
 
             std.process.exit(1);
         },
     };
 
-    return other_vm.exported;
+    addForeignFunction(vm, internal_vm, internal_vm.exported);
+
+    return internal_vm.exported;
+}
+
+fn addForeignFunction(vm: *VirtualMachine, internal_vm: *VirtualMachine, value: Code.Value) void {
+    switch (value) {
+        .object => switch (value.object) {
+            .function => {
+                vm.foreign_functions.put(value.object.function, internal_vm) catch |err| switch (err) {
+                    else => return,
+                };
+            },
+
+            .map => {
+                var map_value_iterator = value.object.map.inner.valueIterator();
+
+                while (map_value_iterator.next()) |map_value| {
+                    addForeignFunction(vm, internal_vm, map_value.*);
+                }
+            },
+
+            else => {},
+        },
+
+        else => {},
+    }
 }

@@ -20,6 +20,10 @@ start_time: std.time.Instant,
 
 argv: []const []const u8,
 
+internal_vms: std.ArrayList(VirtualMachine),
+
+foreign_functions: std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine),
+
 error_info: ?ErrorInfo = null,
 
 pub const Error = error{
@@ -57,6 +61,8 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .exported = .{ .none = {} },
         .start_time = try std.time.Instant.now(),
         .argv = argv,
+        .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
+        .foreign_functions = std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
     };
 
     try vm.addGlobals();
@@ -755,25 +761,54 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
             .function => {
                 try self.checkArgumentsCount(callable.object.function.parameters.len, info.arguments_count, source_loc);
 
-                frame.locals.newSnapshot();
+                if (self.foreign_functions.get(callable.object.function)) |internal_vm| {
+                    const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
 
-                const stack_start = self.stack.items.len - info.arguments_count;
+                    internal_frame.locals.newSnapshot();
 
-                for (callable.object.function.parameters, 0..) |parameter, i| {
-                    try frame.locals.put(parameter, stack_start + i);
+                    const stack_start = internal_vm.stack.items.len;
+
+                    for (callable.object.function.parameters, 0..) |parameter, i| {
+                        try internal_vm.stack.append(self.stack.pop());
+                        try internal_frame.locals.put(parameter, stack_start + i);
+                    }
+
+                    try internal_vm.frames.append(.{ .function = callable.object.function, .locals = internal_frame.locals });
+
+                    const return_value = internal_vm.run() catch |err| {
+                        self.error_info = internal_vm.error_info;
+
+                        return err;
+                    };
+
+                    internal_vm.stack.shrinkRetainingCapacity(stack_start);
+
+                    internal_frame.locals.destroySnapshot();
+
+                    _ = internal_vm.frames.pop();
+
+                    return self.stack.append(return_value);
+                } else {
+                    frame.locals.newSnapshot();
+
+                    const stack_start = self.stack.items.len - info.arguments_count;
+
+                    for (callable.object.function.parameters, 0..) |parameter, i| {
+                        try frame.locals.put(parameter, stack_start + i);
+                    }
+
+                    try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals });
+
+                    const return_value = try self.run();
+
+                    self.stack.shrinkRetainingCapacity(stack_start);
+
+                    frame.locals.destroySnapshot();
+
+                    _ = self.frames.pop();
+
+                    return self.stack.append(return_value);
                 }
-
-                try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals });
-
-                const return_value = try self.run();
-
-                self.stack.shrinkRetainingCapacity(stack_start);
-
-                frame.locals.destroySnapshot();
-
-                _ = self.frames.pop();
-
-                return self.stack.append(return_value);
             },
 
             .native_function => {

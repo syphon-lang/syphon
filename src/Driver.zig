@@ -56,7 +56,6 @@ pub fn errorDescription(e: anyerror) []const u8 {
         error.SystemResources => "ran out of system resources",
         error.FatalError => "a fatal error occurred",
         error.Unexpected => "an unexpected error occurred",
-        error.Unsupported => "this platform is unsupported",
         else => @errorName(e),
     };
 }

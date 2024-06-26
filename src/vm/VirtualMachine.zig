@@ -33,7 +33,6 @@ pub const Error = error{
     NegativeDenominator,
     IndexOverflow,
     StackOverflow,
-    Unsupported,
 } || std.mem.Allocator.Error;
 
 pub const ErrorInfo = struct {

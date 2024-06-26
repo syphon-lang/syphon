@@ -1,13 +1,13 @@
 benchmarker = import("benchmarker.sy")
 
-fib = fn (n) {
-    if n < 2 {
-        return n
+benchmarker.run(fn () {
+    fib = fn (n) {
+        if n < 2 {
+            return n
+        }
+
+        return fib(n - 1) + fib(n - 2)
     }
 
-    return fib(n - 1) + fib(n - 2)
-}
-
-benchmarker.run(fn () {
     fib(30)
 })

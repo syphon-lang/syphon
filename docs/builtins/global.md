@@ -204,6 +204,14 @@ Evaluates a file and gives you the exported value
 import("some_file.sy") # {"hey": 5}
 ```
 
+- eval
+
+Evaluates a string and gives you the exported value
+
+```
+eval("export({\"hey\": 5})") # {"hey": 5}
+```
+
 - hash
 
 Gives you the number representation of the hashable value

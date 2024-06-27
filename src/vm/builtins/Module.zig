@@ -16,6 +16,7 @@ const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("export", Code.Value.Object.NativeFunction.init(1, &@"export"));
     try vm.globals.put("import", Code.Value.Object.NativeFunction.init(1, &import));
+    try vm.globals.put("eval", Code.Value.Object.NativeFunction.init(1, &eval));
 }
 
 fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -109,6 +110,70 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     _ = internal_vm.run() catch |err| switch (err) {
         else => {
             std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, internal_vm.error_info.?.source_loc.line, internal_vm.error_info.?.source_loc.column, internal_vm.error_info.?.message });
+
+            std.process.exit(1);
+        },
+    };
+
+    addForeignFunction(vm, internal_vm, internal_vm.exported);
+
+    return internal_vm.exported;
+}
+
+fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+        return Code.Value{ .none = {} };
+    }
+
+    if (arguments[0].object.string.content.len == 0) {
+        return Code.Value{ .none = {} };
+    }
+
+    const source_code = vm.allocator.alloc(u8, arguments[0].object.string.content.len) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    @memcpy(source_code, arguments[0].object.string.content);
+
+    const source_code_z = @as([:0]u8, @ptrCast(source_code));
+
+    source_code_z[source_code.len] = 0;
+
+    var parser = Parser.init(vm.allocator, source_code_z) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    const root = parser.parseRoot() catch |err| switch (err) {
+        else => {
+            std.debug.print("{s}:{}:{}: {s}\n", .{ "<eval>", parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
+
+            std.process.exit(1);
+        },
+    };
+
+    var gen = CodeGen.init(vm.allocator, .script);
+
+    gen.compileRoot(root) catch |err| switch (err) {
+        else => {
+            std.debug.print("{s}:{}:{}: {s}\n", .{ "<eval>", gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
+
+            std.process.exit(1);
+        },
+    };
+
+    const internal_vm = vm.internal_vms.addOneAssumeCapacity();
+
+    internal_vm.* = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    internal_vm.setCode(gen.code) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    _ = internal_vm.run() catch |err| switch (err) {
+        else => {
+            std.debug.print("{s}:{}:{}: {s}\n", .{ "<eval>", internal_vm.error_info.?.source_loc.line, internal_vm.error_info.?.source_loc.column, internal_vm.error_info.?.message });
 
             std.process.exit(1);
         },

@@ -83,6 +83,10 @@ fn contains(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                     return Code.Value{ .boolean = false };
                 }
 
+                if (value.object.string.content.len > target.object.string.content.len) {
+                    return Code.Value{ .boolean = false };
+                }
+
                 for (0..target.object.string.content.len) |i| {
                     if (std.mem.startsWith(u8, target.object.string.content[i..], value.object.string.content)) {
                         return Code.Value{ .boolean = true };

@@ -1,0 +1,7 @@
+time = import("time")
+
+start = time.now()
+time.sleep(1)
+end = time.now()
+
+println("Took 1 second:", end - start == 1)

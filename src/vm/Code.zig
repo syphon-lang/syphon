@@ -140,12 +140,10 @@ pub const Value = union(enum) {
         pub fn hash(ctx: HashContext, key: Value) u64 {
             _ = ctx;
 
-            @setRuntimeSafety(false);
-
             return switch (key) {
                 .none => 0,
 
-                .int => @intCast(key.int),
+                .int => @bitCast(key.int),
 
                 .float => @intFromFloat(key.float),
 

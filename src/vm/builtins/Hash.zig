@@ -18,7 +18,5 @@ fn hash(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const hash_context = Code.Value.HashContext{};
 
-    @setRuntimeSafety(false);
-
-    return Code.Value{ .int = @intCast(hash_context.hash(value)) };
+    return Code.Value{ .int = @bitCast(hash_context.hash(value)) };
 }

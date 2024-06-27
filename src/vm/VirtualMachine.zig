@@ -185,16 +185,16 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                         }
 
                         if (index.int < 0) {
-                            index.int += @as(i64, @intCast(target.object.array.values.items.len));
+                            index.int += @as(i64, @bitCast(target.object.array.values.items.len));
                         }
 
-                        if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
+                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
                             self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                             return error.IndexOverflow;
                         }
 
-                        return self.stack.append(target.object.array.values.items[@as(usize, @intCast(index.int))]);
+                        return self.stack.append(target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))]);
                     },
 
                     .string => {
@@ -205,16 +205,16 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                         }
 
                         if (index.int < 0) {
-                            index.int += @as(i64, @intCast(target.object.string.content.len));
+                            index.int += @as(i64, @bitCast(target.object.array.values.items.len));
                         }
 
-                        if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.string.content.len))) {
+                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
                             self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                             return error.IndexOverflow;
                         }
 
-                        return self.stack.append(.{ .object = .{ .string = .{ .content = &.{target.object.string.content[@as(usize, @intCast(index.int))]} } } });
+                        return self.stack.append(.{ .object = .{ .string = .{ .content = &.{target.object.string.content[@as(usize, @intCast(@as(u64, @bitCast(index.int))))]} } } });
                     },
 
                     .map => {
@@ -291,16 +291,16 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
                         }
 
                         if (index.int < 0) {
-                            index.int += @as(i64, @intCast(target.object.array.values.items.len));
+                            index.int += @as(i64, @bitCast(target.object.array.values.items.len));
                         }
 
-                        if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
+                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
                             self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                             return error.IndexOverflow;
                         }
 
-                        target.object.array.values.items[@as(usize, @intCast(index.int))] = value;
+                        target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))] = value;
 
                         return;
                     },

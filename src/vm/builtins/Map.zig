@@ -5,6 +5,7 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put("map_keys", Code.Value.Object.NativeFunction.init(1, &map_keys));
+    try vm.globals.put("map_from_keys", Code.Value.Object.NativeFunction.init(1, &map_from_keys));
     try vm.globals.put("map_values", Code.Value.Object.NativeFunction.init(1, &map_values));
 }
 
@@ -32,6 +33,30 @@ fn map_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             return Code.Value{ .none = {} };
         },
     };
+}
+
+fn map_from_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    if (!(arguments[0] == .object and arguments[0].object == .array)) {
+        return Code.Value{ .none = {} };
+    }
+
+    const keys = arguments[0].object.array;
+
+    var inner = Code.Value.Object.Map.Inner.init(vm.allocator);
+
+    for (keys.values.items) |key| {
+        const value = Code.Value{ .none = {} };
+
+        inner.put(key, value) catch |err| switch (err) {
+            else => return Code.Value{ .none = {} },
+        };
+    }
+
+    const map = Code.Value.Object.Map.init(vm.allocator, inner) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    return map;
 }
 
 fn map_values(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

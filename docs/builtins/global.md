@@ -232,6 +232,16 @@ map = {1: 2, 3: 4}
 println(map_keys(map)) # [1, 3]
 ```
 
+- map_from_keys
+
+Gives you the map with keys you provided and all values are none
+
+```
+map = map_from_keys([1, 3])
+
+println(map) # {1: none, 3: none}
+```
+
 - map_values
 
 Gives you an array of the values stored in the provided map

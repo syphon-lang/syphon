@@ -23,7 +23,7 @@ time.now() # 1719424371
 Gives you the current time since the unix epoch in milliseconds
 
 ```
-time.now() # 1719424371952
+time.now_ms() # 1719424371952
 ```
 
 - sleep

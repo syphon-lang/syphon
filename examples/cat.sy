@@ -20,12 +20,12 @@ concatenate_files = fn () {
     while i < length(process.argv) {
         file_path = process.argv[i]
 
-        if !fs.access(file_path) {
+        file = fs.open(file_path)
+
+        if file == none {
             println(file_path + ": could not open file")
             exit(1)
         }
-
-        file = fs.open(file_path)
 
         while true {
             line = fs.read_line(file)

@@ -8,6 +8,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
     try exports.put("open", Code.Value.Object.NativeFunction.init(1, &open));
+    try exports.put("create", Code.Value.Object.NativeFunction.init(1, &create));
     try exports.put("delete", Code.Value.Object.NativeFunction.init(1, &delete));
     try exports.put("close", Code.Value.Object.NativeFunction.init(1, &close));
     try exports.put("cwd", Code.Value.Object.NativeFunction.init(0, &cwd));
@@ -22,6 +23,26 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 }
 
 fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = vm;
+
+    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+        return Code.Value{ .none = {} };
+    }
+
+    const file_path = arguments[0].object.string.content;
+
+    const file = std.fs.cwd().openFile(file_path, .{ .mode = .read_write }) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    if (builtin.os.tag == .windows) {
+        return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(file.handle))) };
+    } else {
+        return Code.Value{ .int = @intCast(file.handle) };
+    }
+}
+
+fn create(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {

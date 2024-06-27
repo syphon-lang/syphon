@@ -12,11 +12,20 @@ fs = import("fs")
 
 - open
 
-Opens a file to read or write, also creates one if does not exist
+Opens a file to read or write
 
 ```
 fs.open("some_file") # some file descriptor
 fs.open(3) # none
+```
+
+- create
+
+Creates a file to read or write, opens the file without truncating if exists, to truncte the file you have to use write after open
+
+```
+fs.create("some_file") # some file descriptor
+fs.create(3) # none
 ```
 
 - delete

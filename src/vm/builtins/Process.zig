@@ -11,21 +11,14 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
     try exports.put("argv", try Code.Value.Object.Array.fromStringSlices(vm.allocator, vm.argv));
-    try exports.put("env", getEnv(vm, &.{}));
-
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
-}
-
-fn getEnv(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    _ = arguments;
 
     const env_map = std.process.getEnvMap(vm.allocator) catch |err| switch (err) {
-        else => {
-            return Code.Value{ .none = {} };
-        },
+        else => std.process.EnvMap.init(vm.allocator),
     };
 
-    return Code.Value.Object.Map.fromEnvMap(vm.allocator, env_map) catch Code.Value{ .none = {} };
+    try exports.put("env", Code.Value.Object.Map.fromEnvMap(vm.allocator, env_map) catch Code.Value{ .none = {} });
+
+    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn exit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

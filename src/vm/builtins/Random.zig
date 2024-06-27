@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const Time = @import("Time.zig");
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
@@ -8,6 +7,8 @@ const RandGen = std.Random.DefaultPrng;
 threadlocal var rnd = RandGen.init(0);
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
+    const Time = @import("Time.zig");
+
     rnd = RandGen.init(@bitCast(Time.nowMs(vm, &.{}).int));
 
     try vm.globals.put("random", Code.Value.Object.NativeFunction.init(2, &random));

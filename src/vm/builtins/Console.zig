@@ -93,15 +93,11 @@ fn print(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
     _print(std.fs.File.Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
-        else => {
-            std.debug.print("print native function: error occured while trying to print\n", .{});
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     buffered_writer.flush() catch |err| switch (err) {
-        else => {
-            std.debug.print("print native function: error occured while trying to print\n", .{});
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     return Code.Value{ .none = {} };
@@ -118,15 +114,11 @@ fn println(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     };
 
     _print(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch |err| switch (err) {
-        else => {
-            std.debug.print("println native function: error occured while trying to print\n", .{});
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     buffered_writer.flush() catch |err| switch (err) {
-        else => {
-            std.debug.print("println native function: error occured while trying to print\n", .{});
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     return Code.Value{ .none = {} };

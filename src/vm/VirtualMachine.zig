@@ -205,10 +205,10 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                         }
 
                         if (index.int < 0) {
-                            index.int += @as(i64, @bitCast(target.object.array.values.items.len));
+                            index.int += @as(i64, @bitCast(target.object.string.content.len));
                         }
 
-                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
+                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.string.content.len))) {
                             self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                             return error.IndexOverflow;

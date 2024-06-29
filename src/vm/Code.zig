@@ -35,10 +35,10 @@ pub const Value = union(enum) {
             pub fn init(allocator: std.mem.Allocator, values: std.ArrayList(Value)) std.mem.Allocator.Error!Value {
                 const array: Array = .{ .values = values };
 
-                const array_on_heap = try allocator.alloc(Array, 1);
-                array_on_heap[0] = array;
+                const array_on_heap = try allocator.create(Array);
+                array_on_heap.* = array;
 
-                return Value{ .object = .{ .array = &array_on_heap[0] } };
+                return Value{ .object = .{ .array = array_on_heap } };
             }
 
             pub fn fromStringSlices(allocator: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
@@ -61,10 +61,10 @@ pub const Value = union(enum) {
             pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
                 const map: Map = .{ .inner = inner };
 
-                const map_on_heap = try allocator.alloc(Map, 1);
-                map_on_heap[0] = map;
+                const map_on_heap = try allocator.create(Map);
+                map_on_heap.* = map;
 
-                return Value{ .object = .{ .map = &map_on_heap[0] } };
+                return Value{ .object = .{ .map = map_on_heap } };
             }
 
             pub fn fromStringHashMap(allocator: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
@@ -105,10 +105,10 @@ pub const Value = union(enum) {
             pub fn init(allocator: std.mem.Allocator, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
                 const function: Function = .{ .parameters = parameters, .code = code };
 
-                const function_on_heap = try allocator.alloc(Function, 1);
-                function_on_heap[0] = function;
+                const function_on_heap = try allocator.create(Function);
+                function_on_heap.* = function;
 
-                return Value{ .object = .{ .function = &function_on_heap[0] } };
+                return Value{ .object = .{ .function = function_on_heap } };
             }
         };
 

@@ -674,10 +674,10 @@ pub const Parser = struct {
         const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.prefix)).expr;
-        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        rhs_on_heap[0] = rhs;
+        const rhs_on_heap = try self.allocator.create(Node.Expr);
+        rhs_on_heap.* = rhs;
 
-        return Node.Expr{ .unary_operation = .{ .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
+        return Node.Expr{ .unary_operation = .{ .operator = operator, .rhs = rhs_on_heap, .source_loc = self.tokenSourceLoc(operator_token) } };
     }
 
     fn parseBinaryExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
@@ -716,40 +716,40 @@ pub const Parser = struct {
     }
 
     fn parseBinaryOperationExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.BinaryOperation.BinaryOperator) Error!Node.Expr {
-        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        lhs_on_heap[0] = lhs;
+        const lhs_on_heap = try self.allocator.create(Node.Expr);
+        lhs_on_heap.* = lhs;
 
         const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(Precedence.from(operator_token))).expr;
-        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        rhs_on_heap[0] = rhs;
+        const rhs_on_heap = try self.allocator.create(Node.Expr);
+        rhs_on_heap.* = rhs;
 
-        return Node.Expr{ .binary_operation = .{ .lhs = &lhs_on_heap[0], .operator = operator, .rhs = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(operator_token) } };
+        return Node.Expr{ .binary_operation = .{ .lhs = lhs_on_heap, .operator = operator, .rhs = rhs_on_heap, .source_loc = self.tokenSourceLoc(operator_token) } };
     }
 
     fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.Assignment.AssignmentOperator) Error!Node.Expr {
-        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        lhs_on_heap[0] = lhs;
+        const lhs_on_heap = try self.allocator.create(Node.Expr);
+        lhs_on_heap.* = lhs;
 
         const equal_sign_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
-        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        rhs_on_heap[0] = rhs;
+        const rhs_on_heap = try self.allocator.create(Node.Expr);
+        rhs_on_heap.* = rhs;
 
-        return Node.Expr{ .assignment = .{ .target = &lhs_on_heap[0], .operator = operator, .value = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(equal_sign_token) } };
+        return Node.Expr{ .assignment = .{ .target = lhs_on_heap, .operator = operator, .value = rhs_on_heap, .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
     fn parseBracketSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        lhs_on_heap[0] = lhs;
+        const lhs_on_heap = try self.allocator.create(Node.Expr);
+        lhs_on_heap.* = lhs;
 
         const open_bracket_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.lowest)).expr;
-        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        rhs_on_heap[0] = rhs;
+        const rhs_on_heap = try self.allocator.create(Node.Expr);
+        rhs_on_heap.* = rhs;
 
         if (!self.eatToken(.close_bracket)) {
             self.error_info = .{ .message = "expected a ']'", .source_loc = self.tokenSourceLoc(self.peekToken()) };
@@ -757,12 +757,12 @@ pub const Parser = struct {
             return error.UnexpectedToken;
         }
 
-        return Node.Expr{ .subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(open_bracket_token) } };
+        return Node.Expr{ .subscript = .{ .target = lhs_on_heap, .index = rhs_on_heap, .source_loc = self.tokenSourceLoc(open_bracket_token) } };
     }
 
     fn parsePeriodSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        lhs_on_heap[0] = lhs;
+        const lhs_on_heap = try self.allocator.create(Node.Expr);
+        lhs_on_heap.* = lhs;
 
         const period_token = self.nextToken();
 
@@ -775,22 +775,21 @@ pub const Parser = struct {
         const name_token = self.nextToken();
 
         const rhs: Node.Expr = .{ .string = .{ .content = self.tokenValue(name_token), .source_loc = self.tokenSourceLoc(name_token) } };
+        const rhs_on_heap = try self.allocator.create(Node.Expr);
+        rhs_on_heap.* = rhs;
 
-        const rhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        rhs_on_heap[0] = rhs;
-
-        return Node.Expr{ .subscript = .{ .target = &lhs_on_heap[0], .index = &rhs_on_heap[0], .source_loc = self.tokenSourceLoc(period_token) } };
+        return Node.Expr{ .subscript = .{ .target = lhs_on_heap, .index = rhs_on_heap, .source_loc = self.tokenSourceLoc(period_token) } };
     }
 
     fn parseCallExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {
-        const lhs_on_heap = try self.allocator.alloc(Node.Expr, 1);
-        lhs_on_heap[0] = lhs;
+        const lhs_on_heap = try self.allocator.create(Node.Expr);
+        lhs_on_heap.* = lhs;
 
         const open_paren_token = self.nextToken();
 
         const arguments = try self.parseCallArguments();
 
-        return Node.Expr{ .call = .{ .callable = &lhs_on_heap[0], .arguments = arguments, .source_loc = self.tokenSourceLoc(open_paren_token) } };
+        return Node.Expr{ .call = .{ .callable = lhs_on_heap, .arguments = arguments, .source_loc = self.tokenSourceLoc(open_paren_token) } };
     }
 
     fn parseCallArguments(self: *Parser) Error![]Node.Expr {

@@ -334,11 +334,11 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
         },
     };
 
-    const function_on_heap = try self.allocator.alloc(Code.Value.Object.Function, 1);
-    function_on_heap[0] = function;
+    const function_on_heap = try self.allocator.create(Code.Value.Object.Function);
+    function_on_heap.* = function;
 
     try self.code.source_locations.append(ast_function.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .function = &function_on_heap[0] } }) } });
+    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } }) } });
 }
 
 fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Error!void {

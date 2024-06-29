@@ -51,3 +51,11 @@ Gives you the tangent of an angle
 ```
 math.tan(180) # 1.3386902103511544
 ```
+
+- abs
+
+Gives you the absolute value of a number
+
+```
+math.abs(-10) # 10.0
+```

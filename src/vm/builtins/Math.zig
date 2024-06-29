@@ -15,6 +15,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     try exports.put("sin", Code.Value.Object.NativeFunction.init(1, &sin));
     try exports.put("cos", Code.Value.Object.NativeFunction.init(1, &cos));
     try exports.put("tan", Code.Value.Object.NativeFunction.init(1, &tan));
+    try exports.put("abs", Code.Value.Object.NativeFunction.init(1, &abs));
 
     return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }
@@ -49,4 +50,12 @@ fn tan(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const value = Type.toFloat(vm, arguments);
 
     return Code.Value{ .float = @tan(value.float) };
+}
+
+fn abs(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    const Type = @import("Type.zig");
+
+    const value = Type.toFloat(vm, arguments);
+
+    return Code.Value{ .float = @abs(value.float) };
 }

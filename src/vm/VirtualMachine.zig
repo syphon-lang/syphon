@@ -214,7 +214,12 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
                             return error.IndexOverflow;
                         }
 
-                        return self.stack.append(.{ .object = .{ .string = .{ .content = &.{target.object.string.content[@as(usize, @intCast(@as(u64, @bitCast(index.int))))]} } } });
+                        const index_casted: usize = @intCast(@as(u64, @bitCast(index.int)));
+
+                        const subscript_on_heap = try self.allocator.alloc(u8, 1);
+                        @memcpy(subscript_on_heap, target.object.string.content[index_casted .. index_casted + 1]);
+
+                        return self.stack.append(.{ .object = .{ .string = .{ .content = subscript_on_heap } } });
                     },
 
                     .map => {

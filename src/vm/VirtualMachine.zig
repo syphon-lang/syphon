@@ -760,11 +760,16 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
 
                     internal_frame.locals.newSnapshot();
 
-                    const stack_start = internal_vm.stack.items.len;
+                    const internal_stack_start = internal_vm.stack.items.len;
+
+                    const stack_start = self.stack.items.len - info.arguments_count;
+
+                    try internal_vm.stack.appendSlice(self.stack.items[stack_start..]);
+
+                    self.stack.shrinkRetainingCapacity(stack_start);
 
                     for (callable.object.function.parameters, 0..) |parameter, i| {
-                        try internal_vm.stack.append(self.stack.pop());
-                        try internal_frame.locals.put(parameter, stack_start + i);
+                        try internal_frame.locals.put(parameter, internal_stack_start + i);
                     }
 
                     try internal_vm.frames.append(.{ .function = callable.object.function, .locals = internal_frame.locals });
@@ -775,7 +780,7 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
                         return err;
                     };
 
-                    internal_vm.stack.shrinkRetainingCapacity(stack_start);
+                    internal_vm.stack.shrinkRetainingCapacity(internal_stack_start);
 
                     internal_frame.locals.destroySnapshot();
 
@@ -810,9 +815,11 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
                     try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, info.arguments_count, source_loc);
                 }
 
-                const return_value = callable.object.native_function.call(self, self.stack.items[self.stack.items.len - info.arguments_count ..]);
+                const stack_start = self.stack.items.len - info.arguments_count;
 
-                self.stack.shrinkRetainingCapacity(self.stack.items.len - info.arguments_count);
+                const return_value = callable.object.native_function.call(self, self.stack.items[stack_start..]);
+
+                self.stack.shrinkRetainingCapacity(stack_start);
 
                 return self.stack.append(return_value);
             },

@@ -6,6 +6,7 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
+    .{ "dll", &(@import("DLL.zig").getExports) },
     .{ "fs", &(@import("FileSystem.zig").getExports) },
     .{ "io", &(@import("InputOutput.zig").getExports) },
     .{ "math", &(@import("Math.zig").getExports) },
@@ -129,17 +130,11 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const source_code = vm.allocator.alloc(u8, arguments[0].object.string.content.len) catch |err| switch (err) {
+    const source_code = vm.allocator.dupeZ(u8, arguments[0].object.string.content) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
-    @memcpy(source_code, arguments[0].object.string.content);
-
-    const source_code_z = @as([:0]u8, @ptrCast(source_code));
-
-    source_code_z[source_code.len] = 0;
-
-    var parser = Parser.init(vm.allocator, source_code_z) catch |err| switch (err) {
+    var parser = Parser.init(vm.allocator, source_code) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 
@@ -188,7 +183,7 @@ fn addForeignFunction(vm: *VirtualMachine, internal_vm: *VirtualMachine, value: 
     switch (value) {
         .object => switch (value.object) {
             .function => {
-                vm.foreign_functions.put(value.object.function, internal_vm) catch |err| switch (err) {
+                vm.internal_functions.put(value.object.function, internal_vm) catch |err| switch (err) {
                     else => return,
                 };
             },

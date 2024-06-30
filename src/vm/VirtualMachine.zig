@@ -20,7 +20,7 @@ argv: []const []const u8,
 
 internal_vms: std.ArrayList(VirtualMachine),
 
-foreign_functions: std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine),
+internal_functions: std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine),
 
 error_info: ?ErrorInfo = null,
 
@@ -58,7 +58,7 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .exported = .{ .none = {} },
         .argv = argv,
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
-        .foreign_functions = std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
+        .internal_functions = std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
     };
 
     try vm.addGlobals();
@@ -760,7 +760,7 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
             .function => {
                 try self.checkArgumentsCount(callable.object.function.parameters.len, info.arguments_count, source_loc);
 
-                if (self.foreign_functions.get(callable.object.function)) |internal_vm| {
+                if (self.internal_functions.get(callable.object.function)) |internal_vm| {
                     const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
 
                     internal_frame.locals.newSnapshot();

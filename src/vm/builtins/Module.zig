@@ -6,7 +6,6 @@ const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
 
 const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
-    .{ "dll", &(@import("DLL.zig").getExports) },
     .{ "fs", &(@import("FileSystem.zig").getExports) },
     .{ "io", &(@import("InputOutput.zig").getExports) },
     .{ "math", &(@import("Math.zig").getExports) },

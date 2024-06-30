@@ -810,13 +810,9 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
                     try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, info.arguments_count, source_loc);
                 }
 
-                var arguments = try std.ArrayList(Code.Value).initCapacity(self.allocator, info.arguments_count);
+                const return_value = callable.object.native_function.call(self, self.stack.items[self.stack.items.len - info.arguments_count ..]);
 
-                for (0..info.arguments_count) |_| {
-                    try arguments.insert(0, self.stack.pop());
-                }
-
-                const return_value = callable.object.native_function.call(self, arguments.items);
+                self.stack.shrinkRetainingCapacity(self.stack.items.len - info.arguments_count);
 
                 return self.stack.append(return_value);
             },

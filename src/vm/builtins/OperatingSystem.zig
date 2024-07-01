@@ -18,12 +18,13 @@ fn getArchName(arch: std.Target.Cpu.Arch) []const u8 {
         .arm, .armeb, .thumb, .thumbeb => "aarch",
         .aarch64, .aarch64_be, .aarch64_32 => "aarch64",
         .bpfel, .bpfeb => "bpf",
-        .mips, .mipsel => "mips",
-        .mips64, .mips64el => "mips64",
-        .powerpc, .powerpcle => "powerpc",
-        .powerpc64, .powerpc64le => "powerpc64",
+        .mipsel => "mips",
+        .mips64el => "mips64",
+        .powerpcle => "powerpc",
+        .powerpc64le => "powerpc64",
         .amdgcn => "amdgpu",
-        .sparc, .sparcel => "sparc",
+        .sparcel => "sparc",
+        .tcele => "tce",
         else => @tagName(arch),
     };
 }

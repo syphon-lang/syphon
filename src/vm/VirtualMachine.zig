@@ -8,6 +8,8 @@ const VirtualMachine = @This();
 
 allocator: std.mem.Allocator,
 
+mutex: std.Thread.Mutex = .{},
+
 frames: std.ArrayList(Frame),
 
 stack: std.ArrayList(Code.Value),
@@ -59,6 +61,8 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
         .internal_functions = std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
     };
+
+    vm.mutex.lock();
 
     try vm.addGlobals();
 

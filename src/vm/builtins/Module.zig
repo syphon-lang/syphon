@@ -11,6 +11,7 @@ const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.
     .{ "math", &(@import("Math.zig").getExports) },
     .{ "os", &(@import("OperatingSystem.zig").getExports) },
     .{ "process", &(@import("Process.zig").getExports) },
+    .{ "shell", &(@import("Shell.zig").getExports) },
     .{ "threading", &(@import("Threading.zig").getExports) },
     .{ "time", &(@import("Time.zig").getExports) },
 });

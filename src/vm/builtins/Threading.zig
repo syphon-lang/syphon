@@ -33,7 +33,10 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    thread.detach();
+    vm.mutex.unlock();
+    defer vm.mutex.lock();
+
+    std.Thread.yield() catch {};
 
     const thread_on_heap = vm.allocator.create(std.Thread) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
@@ -45,6 +48,9 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn callThreadFunction(vm: *VirtualMachine, function: *Code.Value.Object.Function, arguments: []const Code.Value) void {
+    vm.mutex.lock();
+    defer vm.mutex.unlock();
+
     const frame = &vm.frames.items[vm.frames.items.len - 1];
 
     vm.stack.appendSlice(arguments) catch |err| switch (err) {
@@ -57,13 +63,16 @@ fn callThreadFunction(vm: *VirtualMachine, function: *Code.Value.Object.Function
 }
 
 fn join(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    _ = vm;
-
     if (arguments[0] != .int) {
         return Code.Value{ .none = {} };
     }
 
     const thread: *std.Thread = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(arguments[0].int)))));
+
+    vm.mutex.unlock();
+    defer vm.mutex.lock();
+
+    std.Thread.yield() catch {};
 
     thread.join();
 

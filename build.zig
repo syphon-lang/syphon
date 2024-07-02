@@ -5,6 +5,9 @@ pub fn build(b: *std.Build) void {
 
     const optimize = b.standardOptimizeOption(.{});
 
+    const bdwgc = b.dependency("bdwgc", .{ .target = target, .optimize = optimize, .BUILD_SHARED_LIBS = false });
+    const bdwgc_artifact = bdwgc.artifact("gc");
+
     const exe = b.addExecutable(.{
         .name = "syphon",
         .root_source_file = b.path("src/main.zig"),
@@ -12,11 +15,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const bdwgc = b.dependency("bdwgc", .{ .target = target, .optimize = optimize, .BUILD_SHARED_LIBS = false });
-
     exe.addIncludePath(bdwgc.path("include"));
-
-    const bdwgc_artifact = bdwgc.artifact("gc");
     exe.linkLibrary(bdwgc_artifact);
 
     b.installArtifact(exe);
@@ -32,6 +31,16 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
+    const exe_check = b.addExecutable(.{
+        .name = "syphon",
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    exe_check.addIncludePath(bdwgc.path("include"));
+    exe_check.linkLibrary(bdwgc_artifact);
+
     const check_step = b.step("check", "Checks if the app can compile");
-    check_step.dependOn(&exe.step);
+    check_step.dependOn(&exe_check.step);
 }

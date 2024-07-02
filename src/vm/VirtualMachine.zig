@@ -14,7 +14,7 @@ stack: std.ArrayList(Code.Value),
 
 globals: std.StringHashMap(Code.Value),
 
-exported: Code.Value,
+exported: Code.Value = .{ .none = {} },
 
 argv: []const []const u8,
 
@@ -55,7 +55,6 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
         .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
         .globals = std.StringHashMap(Code.Value).init(allocator),
-        .exported = .{ .none = {} },
         .argv = argv,
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
         .internal_functions = std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
@@ -111,32 +110,32 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
         }
 
         switch (instruction) {
-            .load => try self.load(instruction.load, source_loc, frame),
+            .load => try self.executeLoad(instruction.load, source_loc, frame),
 
-            .store => try self.store(instruction.store, source_loc, frame),
+            .store => try self.executeStore(instruction.store, source_loc, frame),
 
-            .jump => jump(instruction.jump, frame),
-            .back => back(instruction.back, frame),
+            .jump => executeJump(instruction.jump, frame),
+            .back => executeBack(instruction.back, frame),
 
-            .jump_if_false => self.jump_if_false(instruction.jump_if_false, frame),
+            .jump_if_false => self.executeJumpIfFalse(instruction.jump_if_false, frame),
 
-            .make => try self.make(instruction.make),
+            .make => try self.executeMake(instruction.make),
 
-            .neg => try self.neg(source_loc),
-            .not => try self.not(),
+            .neg => try self.executeNeg(source_loc),
+            .not => try self.executeNot(),
 
-            .add => try self.add(source_loc),
-            .subtract => try self.subtract(source_loc),
-            .divide => try self.divide(source_loc),
-            .multiply => try self.multiply(source_loc),
-            .exponent => try self.exponent(source_loc),
-            .modulo => try self.modulo(source_loc),
-            .not_equals => try self.not_equals(),
-            .equals => try self.equals(),
-            .less_than => try self.less_than(source_loc),
-            .greater_than => try self.greater_than(source_loc),
+            .add => try self.executeAdd(source_loc),
+            .subtract => try self.executeSubtract(source_loc),
+            .divide => try self.executeDivide(source_loc),
+            .multiply => try self.executeMultiply(source_loc),
+            .exponent => try self.executeExponent(source_loc),
+            .modulo => try self.executeModulo(source_loc),
+            .not_equals => try self.executeNotEquals(),
+            .equals => try self.executeEquals(),
+            .less_than => try self.executeLessThan(source_loc),
+            .greater_than => try self.executeGreaterThan(source_loc),
 
-            .call => try self.call(instruction.call, source_loc, frame),
+            .call => try self.executeCall(instruction.call, source_loc, frame),
 
             .pop => {
                 _ = self.stack.pop();
@@ -149,7 +148,7 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
     }
 }
 
-fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLoc, frame: *Frame) Error!void {
+fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLoc, frame: *Frame) Error!void {
     switch (info) {
         .constant => {
             try self.stack.append(frame.function.code.constants.items[info.constant]);
@@ -265,7 +264,7 @@ fn load(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLo
     }
 }
 
-fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: SourceLoc, frame: *Frame) Error!void {
+fn executeStore(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: SourceLoc, frame: *Frame) Error!void {
     const value = self.stack.pop();
 
     switch (info) {
@@ -335,15 +334,15 @@ fn store(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: Source
     }
 }
 
-inline fn jump(info: Code.Instruction.Jump, frame: *Frame) void {
+inline fn executeJump(info: Code.Instruction.Jump, frame: *Frame) void {
     frame.ip += info.offset;
 }
 
-inline fn back(info: Code.Instruction.Back, frame: *Frame) void {
+inline fn executeBack(info: Code.Instruction.Back, frame: *Frame) void {
     frame.ip -= info.offset;
 }
 
-inline fn jump_if_false(self: *VirtualMachine, info: Code.Instruction.JumpIfFalse, frame: *Frame) void {
+inline fn executeJumpIfFalse(self: *VirtualMachine, info: Code.Instruction.JumpIfFalse, frame: *Frame) void {
     const value = self.stack.pop();
 
     if (!value.is_truthy()) {
@@ -351,7 +350,7 @@ inline fn jump_if_false(self: *VirtualMachine, info: Code.Instruction.JumpIfFals
     }
 }
 
-fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
+fn executeMake(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     switch (info) {
         .array => {
             var values = try std.ArrayList(Code.Value).initCapacity(self.allocator, info.array.length);
@@ -380,7 +379,7 @@ fn make(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     }
 }
 
-fn neg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
 
     switch (rhs) {
@@ -396,13 +395,13 @@ fn neg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-inline fn not(self: *VirtualMachine) Error!void {
+inline fn executeNot(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
 
     try self.stack.append(.{ .boolean = !rhs.is_truthy() });
 }
 
-fn add(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -457,7 +456,7 @@ fn add(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn subtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -494,7 +493,7 @@ fn subtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn divide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -553,7 +552,7 @@ fn divide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn multiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -590,7 +589,7 @@ fn multiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn exponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -627,7 +626,7 @@ fn exponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn modulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -664,21 +663,21 @@ fn modulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-inline fn not_equals(self: *VirtualMachine) Error!void {
+inline fn executeNotEquals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
     return self.stack.append(.{ .boolean = !lhs.eql(rhs, false) });
 }
 
-inline fn equals(self: *VirtualMachine) Error!void {
+inline fn executeEquals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
     return self.stack.append(.{ .boolean = lhs.eql(rhs, false) });
 }
 
-fn less_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -715,7 +714,7 @@ fn less_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn greater_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -752,7 +751,7 @@ fn greater_than(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLoc, frame: *Frame) Error!void {
+fn executeCall(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLoc, frame: *Frame) Error!void {
     const callable = self.stack.pop();
 
     if (callable == .object) {
@@ -760,59 +759,9 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
             .function => {
                 try self.checkArgumentsCount(callable.object.function.parameters.len, info.arguments_count, source_loc);
 
-                if (self.internal_functions.get(callable.object.function)) |internal_vm| {
-                    const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
+                const return_value = try self.callUserFunction(callable.object.function, frame);
 
-                    internal_frame.locals.newSnapshot();
-
-                    const internal_stack_start = internal_vm.stack.items.len;
-
-                    const stack_start = self.stack.items.len - info.arguments_count;
-
-                    try internal_vm.stack.appendSlice(self.stack.items[stack_start..]);
-
-                    self.stack.shrinkRetainingCapacity(stack_start);
-
-                    for (callable.object.function.parameters, 0..) |parameter, i| {
-                        try internal_frame.locals.put(parameter, internal_stack_start + i);
-                    }
-
-                    try internal_vm.frames.append(.{ .function = callable.object.function, .locals = internal_frame.locals });
-
-                    const return_value = internal_vm.run() catch |err| {
-                        self.error_info = internal_vm.error_info;
-
-                        return err;
-                    };
-
-                    internal_vm.stack.shrinkRetainingCapacity(internal_stack_start);
-
-                    internal_frame.locals.destroySnapshot();
-
-                    _ = internal_vm.frames.pop();
-
-                    return self.stack.append(return_value);
-                } else {
-                    frame.locals.newSnapshot();
-
-                    const stack_start = self.stack.items.len - info.arguments_count;
-
-                    for (callable.object.function.parameters, 0..) |parameter, i| {
-                        try frame.locals.put(parameter, stack_start + i);
-                    }
-
-                    try self.frames.append(.{ .function = callable.object.function, .locals = frame.locals });
-
-                    const return_value = try self.run();
-
-                    self.stack.shrinkRetainingCapacity(stack_start);
-
-                    frame.locals.destroySnapshot();
-
-                    _ = self.frames.pop();
-
-                    return self.stack.append(return_value);
-                }
+                return self.stack.append(return_value);
             },
 
             .native_function => {
@@ -820,11 +769,7 @@ fn call(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLo
                     try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, info.arguments_count, source_loc);
                 }
 
-                const stack_start = self.stack.items.len - info.arguments_count;
-
-                const return_value = callable.object.native_function.call(self, self.stack.items[stack_start..]);
-
-                self.stack.shrinkRetainingCapacity(stack_start);
+                const return_value = self.callNativeFunction(callable.object.native_function, info.arguments_count);
 
                 return self.stack.append(return_value);
             },
@@ -856,4 +801,70 @@ inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, argu
 
         return error.UnexpectedValue;
     }
+}
+
+pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Function, frame: *Frame) Error!Code.Value {
+    if (self.internal_functions.get(function)) |internal_vm| {
+        const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
+
+        internal_frame.locals.newSnapshot();
+
+        const internal_stack_start = internal_vm.stack.items.len;
+
+        const stack_start = self.stack.items.len - function.parameters.len;
+
+        try internal_vm.stack.appendSlice(self.stack.items[stack_start..]);
+
+        self.stack.shrinkRetainingCapacity(stack_start);
+
+        for (function.parameters, 0..) |parameter, i| {
+            try internal_frame.locals.put(parameter, internal_stack_start + i);
+        }
+
+        try internal_vm.frames.append(.{ .function = function, .locals = internal_frame.locals });
+
+        const return_value = internal_vm.run() catch |err| {
+            self.error_info = internal_vm.error_info;
+
+            return err;
+        };
+
+        internal_vm.stack.shrinkRetainingCapacity(internal_stack_start);
+
+        internal_frame.locals.destroySnapshot();
+
+        _ = internal_vm.frames.pop();
+
+        return return_value;
+    } else {
+        frame.locals.newSnapshot();
+
+        const stack_start = self.stack.items.len - function.parameters.len;
+
+        for (function.parameters, 0..) |parameter, i| {
+            try frame.locals.put(parameter, stack_start + i);
+        }
+
+        try self.frames.append(.{ .function = function, .locals = frame.locals });
+
+        const return_value = try self.run();
+
+        self.stack.shrinkRetainingCapacity(stack_start);
+
+        frame.locals.destroySnapshot();
+
+        _ = self.frames.pop();
+
+        return return_value;
+    }
+}
+
+fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Code.Value {
+    const stack_start = self.stack.items.len - arguments_count;
+
+    const return_value = native_function.call(self, self.stack.items[stack_start..]);
+
+    self.stack.shrinkRetainingCapacity(stack_start);
+
+    return return_value;
 }

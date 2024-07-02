@@ -6,9 +6,9 @@ A general-purpose programming language for scripting and all sort of stuff
 
 We only have a [markdown files](docs) to explain the language in detatil, Looking forward to make a website explaining it even deeper
 
-## Installing
+## Installation
 
-### Building from source
+### Build from source
 
 You need the latest version of Zig tools (Recommeneded to get the dev version from the master branch)
 
@@ -34,7 +34,7 @@ zig build -Doptimize=ReleaseSafe
 zig build
 ```
 
-## Troubleshooting
+## Troubleshoot
 
 ### GC Warning: Could not open /proc/stat
 

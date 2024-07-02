@@ -791,15 +791,7 @@ inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, argu
     if (required_count != arguments_count) {
         var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
-        const argument_or_arguments = blk: {
-            if (required_count != 1) {
-                break :blk "arguments";
-            } else {
-                break :blk "argument";
-            }
-        };
-
-        try error_message_buf.writer().print("expected {} {s} got {}", .{ required_count, argument_or_arguments, arguments_count });
+        try error_message_buf.writer().print("expected {} {s} got {}", .{ required_count, if (required_count != 1) "arguments" else "argument", arguments_count });
 
         self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
 

@@ -311,7 +311,7 @@ fn compileMapExpr(self: *CodeGen, map: ast.Node.Expr.Map) Error!void {
     }
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .make = .{ .map = .{ .length = map.keys.len } } });
+    try self.code.instructions.append(.{ .make = .{ .map = .{ .length = @intCast(map.keys.len) } } });
 }
 
 fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Error!void {

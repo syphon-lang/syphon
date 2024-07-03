@@ -304,7 +304,7 @@ pub const Instruction = union(enum) {
         };
 
         pub const Map = struct {
-            length: usize,
+            length: u32,
         };
     };
 

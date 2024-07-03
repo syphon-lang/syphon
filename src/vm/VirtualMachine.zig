@@ -367,12 +367,13 @@ fn executeMake(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
 
         .map => {
             var inner = Code.Value.Object.Map.Inner.init(self.allocator);
+            try inner.ensureTotalCapacity(info.map.length);
 
             for (0..info.map.length) |_| {
                 const key = self.stack.pop();
                 const value = self.stack.pop();
 
-                try inner.put(key, value);
+                inner.putAssumeCapacity(key, value);
             }
 
             try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));

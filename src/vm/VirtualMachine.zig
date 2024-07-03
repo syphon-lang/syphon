@@ -219,10 +219,7 @@ fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: S
 
                         const index_casted: usize = @intCast(@as(u64, @bitCast(index.int)));
 
-                        const subscript_on_heap = try self.allocator.alloc(u8, 1);
-                        @memcpy(subscript_on_heap, target.object.string.content[index_casted .. index_casted + 1]);
-
-                        return self.stack.append(.{ .object = .{ .string = .{ .content = subscript_on_heap } } });
+                        return self.stack.append(.{ .object = .{ .string = .{ .content = target.object.string.content[index_casted .. index_casted + 1] } } });
                     },
 
                     .map => {

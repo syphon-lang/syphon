@@ -180,6 +180,15 @@ contains(str, "ab") # true
 contains(4, "ab") # none
 ```
 
+- string_split
+
+Splits the string into multiple strings by the sequence you provided, if the sequence is empty it will split each character instead
+
+```
+string_split("Hello world", " ") # ["Hello", "world"]
+string_split("world", "") # ["w", "o", "r", "l", "d"]
+```
+
 - ord
 
 Gives you the unicode representation of a one character

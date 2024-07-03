@@ -152,7 +152,7 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
     }
 }
 
-fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLoc, frame: *Frame) Error!void {
+inline fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLoc, frame: *Frame) Error!void {
     switch (info) {
         .constant => {
             try self.stack.append(frame.function.code.constants.items[info.constant]);
@@ -265,7 +265,7 @@ fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: S
     }
 }
 
-fn executeStore(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: SourceLoc, frame: *Frame) Error!void {
+inline fn executeStore(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: SourceLoc, frame: *Frame) Error!void {
     const value = self.stack.pop();
 
     switch (info) {
@@ -351,7 +351,7 @@ inline fn executeJumpIfFalse(self: *VirtualMachine, info: Code.Instruction.JumpI
     }
 }
 
-fn executeMake(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
+inline fn executeMake(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     switch (info) {
         .array => {
             var values = try std.ArrayList(Code.Value).initCapacity(self.allocator, info.array.length);
@@ -381,7 +381,7 @@ fn executeMake(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
     }
 }
 
-fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
 
     switch (rhs) {
@@ -403,7 +403,7 @@ inline fn executeNot(self: *VirtualMachine) Error!void {
     try self.stack.append(.{ .boolean = !rhs.is_truthy() });
 }
 
-fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -458,7 +458,7 @@ fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -495,7 +495,7 @@ fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const Type = @import("builtins/Type.zig");
 
     const rhs = Type.toFloat(self, &.{self.stack.pop()});
@@ -513,7 +513,7 @@ fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return self.stack.append(.{ .float = lhs.float / rhs.float });
 }
 
-fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -550,7 +550,7 @@ fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const Type = @import("builtins/Type.zig");
 
     const rhs = Type.toFloat(self, &.{self.stack.pop()});
@@ -564,7 +564,7 @@ fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return self.stack.append(.{ .float = std.math.pow(f64, lhs.float, rhs.float) });
 }
 
-fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -615,7 +615,7 @@ inline fn executeEquals(self: *VirtualMachine) Error!void {
     return self.stack.append(.{ .boolean = lhs.eql(rhs, false) });
 }
 
-fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -652,7 +652,7 @@ fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+inline fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -689,7 +689,7 @@ fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeCall(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLoc, frame: *Frame) Error!void {
+inline fn executeCall(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLoc, frame: *Frame) Error!void {
     const callable = self.stack.pop();
 
     if (callable == .object) {
@@ -733,7 +733,7 @@ inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, argu
     }
 }
 
-pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Function, frame: *Frame) Error!Code.Value {
+pub inline fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Function, frame: *Frame) Error!Code.Value {
     if (self.internal_functions.get(function)) |internal_vm| {
         const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
 
@@ -789,7 +789,7 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
     }
 }
 
-fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Code.Value {
+inline fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Code.Value {
     const stack_start = self.stack.items.len - arguments_count;
 
     const return_value = native_function.call(self, self.stack.items[stack_start..]);

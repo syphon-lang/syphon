@@ -496,62 +496,21 @@ fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
 }
 
 fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
-    const rhs = self.stack.pop();
-    const lhs = self.stack.pop();
+    const Type = @import("builtins/Type.zig");
 
-    switch (rhs) {
-        .int => {
-            if (rhs.int == 0) {
-                return error.DivisionByZero;
-            }
-        },
+    const rhs = Type.toFloat(self, &.{self.stack.pop()});
+    const lhs = Type.toFloat(self, &.{self.stack.pop()});
 
-        .float => {
-            if (rhs.float == 0) {
-                return error.DivisionByZero;
-            }
-        },
-
-        .boolean => {
-            if (rhs.boolean == false) {
-                return error.DivisionByZero;
-            }
-        },
-
-        else => {},
+    if (!(lhs == .float and rhs == .float)) {
+        self.error_info = .{ .message = "bad operand for '/' binary operator", .source_loc = source_loc };
+        return error.BadOperand;
     }
 
-    switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs.int)) / @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs.int)) / rhs.float }),
-            .boolean => return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs.int)) / @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) }),
-
-            else => {},
-        },
-
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .float = lhs.float / @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .float = lhs.float / rhs.float }),
-            .boolean => return self.stack.append(.{ .float = lhs.float / @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) }),
-
-            else => {},
-        },
-
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) / @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) / rhs.float }),
-            .boolean => return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) / @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) }),
-
-            else => {},
-        },
-
-        else => {},
+    if (rhs.float == 0) {
+        return error.DivisionByZero;
     }
 
-    self.error_info = .{ .message = "bad operand for '/' binary operator", .source_loc = source_loc };
-
-    return error.BadOperand;
+    return self.stack.append(.{ .float = lhs.float / rhs.float });
 }
 
 fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
@@ -592,40 +551,17 @@ fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
 }
 
 fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
-    const rhs = self.stack.pop();
-    const lhs = self.stack.pop();
+    const Type = @import("builtins/Type.zig");
 
-    switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(lhs.int)), @as(f64, @floatFromInt(rhs.int))) }),
-            .float => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(lhs.int)), rhs.float) }),
-            .boolean => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(lhs.int)), @as(f64, @floatFromInt(@intFromBool(rhs.boolean)))) }),
+    const rhs = Type.toFloat(self, &.{self.stack.pop()});
+    const lhs = Type.toFloat(self, &.{self.stack.pop()});
 
-            else => {},
-        },
-
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .float = std.math.pow(f64, lhs.float, @as(f64, @floatFromInt(rhs.int))) }),
-            .float => return self.stack.append(.{ .float = std.math.pow(f64, lhs.float, rhs.float) }),
-            .boolean => return self.stack.append(.{ .float = std.math.pow(f64, lhs.float, @as(f64, @floatFromInt(@intFromBool(rhs.boolean)))) }),
-
-            else => {},
-        },
-
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(@intFromBool(lhs.boolean))), @as(f64, @floatFromInt(rhs.int))) }),
-            .float => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(@intFromBool(lhs.boolean))), rhs.float) }),
-            .boolean => return self.stack.append(.{ .float = std.math.pow(f64, @as(f64, @floatFromInt(@intFromBool(lhs.boolean))), @as(f64, @floatFromInt(@intFromBool(rhs.boolean)))) }),
-
-            else => {},
-        },
-
-        else => {},
+    if (!(lhs == .float and rhs == .float)) {
+        self.error_info = .{ .message = "bad operand for '**' binary operator", .source_loc = source_loc };
+        return error.BadOperand;
     }
 
-    self.error_info = .{ .message = "bad operand for '**' binary operator", .source_loc = source_loc };
-
-    return error.BadOperand;
+    return self.stack.append(.{ .float = std.math.pow(f64, lhs.float, rhs.float) });
 }
 
 fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {

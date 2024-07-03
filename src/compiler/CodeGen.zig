@@ -33,6 +33,7 @@ pub const Context = struct {
     compiling_loop: bool = false,
     break_points: std.ArrayList(usize),
     continue_points: std.ArrayList(usize),
+    unused_expression: bool = false,
 
     pub const Mode = enum {
         script,
@@ -80,10 +81,9 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
     switch (node) {
         .stmt => try self.compileStmt(node.stmt),
         .expr => {
+            self.context.unused_expression = true;
             try self.compileExpr(node.expr);
-
-            try self.code.source_locations.append(.{});
-            try self.code.instructions.append(.{ .pop = {} });
+            self.context.unused_expression = false;
         },
     }
 }
@@ -235,33 +235,41 @@ fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void
 
 fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
     switch (expr) {
-        .none => try self.compileNoneExpr(expr.none),
-
-        .identifier => try self.compileIdentifierExpr(expr.identifier),
-
-        .string => try self.compileStringExpr(expr.string),
-
-        .int => try self.compileIntExpr(expr.int),
-
-        .float => try self.compileFloatExpr(expr.float),
-
-        .boolean => try self.compileBooleanExpr(expr.boolean),
-
-        .array => try self.compileArrayExpr(expr.array),
-
-        .map => try self.compileMapExpr(expr.map),
-
-        .function => try self.compileFunctionExpr(expr.function),
-
-        .subscript => try self.compileSubscriptExpr(expr.subscript),
-
-        .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
-
-        .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
-
         .assignment => try self.compileAssignmentExpr(expr.assignment),
 
         .call => try self.compileCallExpr(expr.call),
+
+        else => {},
+    }
+
+    if (!self.context.unused_expression) {
+        switch (expr) {
+            .none => try self.compileNoneExpr(expr.none),
+
+            .identifier => try self.compileIdentifierExpr(expr.identifier),
+
+            .string => try self.compileStringExpr(expr.string),
+
+            .int => try self.compileIntExpr(expr.int),
+
+            .float => try self.compileFloatExpr(expr.float),
+
+            .boolean => try self.compileBooleanExpr(expr.boolean),
+
+            .array => try self.compileArrayExpr(expr.array),
+
+            .map => try self.compileMapExpr(expr.map),
+
+            .function => try self.compileFunctionExpr(expr.function),
+
+            .subscript => try self.compileSubscriptExpr(expr.subscript),
+
+            .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
+
+            .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
+
+            else => {},
+        }
     }
 }
 
@@ -423,6 +431,9 @@ fn compileBinaryOperationExpr(self: *CodeGen, binary_operation: ast.Node.Expr.Bi
 }
 
 fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
+    const was_unused_expression = self.context.unused_expression;
+    self.context.unused_expression = false;
+
     if (assignment.target.* == .subscript) {
         try self.compileExpr(assignment.target.subscript.target.*);
         try self.compileExpr(assignment.target.subscript.index.*);
@@ -454,7 +465,11 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
         return error.BadOperand;
     }
 
-    try self.compileExpr(assignment.target.*);
+    self.context.unused_expression = was_unused_expression;
+
+    if (!self.context.unused_expression) {
+        try self.compileExpr(assignment.target.*);
+    }
 }
 
 inline fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
@@ -494,6 +509,9 @@ inline fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Ass
 }
 
 fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
+    const was_unused_expression = self.context.unused_expression;
+    self.context.unused_expression = false;
+
     for (call.arguments) |argument| {
         try self.compileExpr(argument);
     }
@@ -502,4 +520,11 @@ fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
 
     try self.code.source_locations.append(call.source_loc);
     try self.code.instructions.append(.{ .call = .{ .arguments_count = call.arguments.len } });
+
+    self.context.unused_expression = was_unused_expression;
+
+    if (self.context.unused_expression) {
+        try self.code.source_locations.append(call.source_loc);
+        try self.code.instructions.append(.{ .pop = {} });
+    }
 }

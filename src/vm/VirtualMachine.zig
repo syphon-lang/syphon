@@ -104,14 +104,14 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
     const frame = &self.frames.items[self.frames.items.len - 1];
 
     while (true) {
+        if (self.stack.items.len >= MAX_STACK_SIZE or self.frames.items.len >= MAX_FRAMES_COUNT) {
+            return error.StackOverflow;
+        }
+
         const instruction = frame.function.code.instructions.items[frame.ip];
         const source_loc = frame.function.code.source_locations.items[frame.ip];
 
         frame.ip += 1;
-
-        if (self.stack.items.len >= MAX_STACK_SIZE or self.frames.items.len >= MAX_FRAMES_COUNT) {
-            return error.StackOverflow;
-        }
 
         switch (instruction) {
             .load => try self.executeLoad(instruction.load, source_loc, frame),

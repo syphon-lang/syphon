@@ -3,7 +3,7 @@ benchmarker = import("benchmarker.sy")
 benchmarker.run(fn () {
     i = 0
 
-    while i < 10 ** 5 {
+    while i < 10 ** 6 {
         i += 1
     }
 })

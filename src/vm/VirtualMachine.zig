@@ -51,11 +51,16 @@ pub const Frame = struct {
 pub const MAX_FRAMES_COUNT = 128;
 pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 
+var FRAMES_BUFFER: [MAX_FRAMES_COUNT * @sizeOf(Frame)]u8 = undefined;
+var STACK_BUFFER: [MAX_STACK_SIZE * @sizeOf(Code.Value)]u8 = undefined;
+var frame_allocator = std.heap.FixedBufferAllocator.init(&FRAMES_BUFFER);
+var stack_allocator = std.heap.FixedBufferAllocator.init(&STACK_BUFFER);
+
 pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
     var vm: VirtualMachine = .{
         .allocator = allocator,
-        .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
-        .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
+        .frames = std.ArrayList(Frame).init(frame_allocator.allocator()),
+        .stack = std.ArrayList(Code.Value).init(stack_allocator.allocator()),
         .globals = std.StringHashMap(Code.Value).init(allocator),
         .argv = argv,
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
@@ -104,7 +109,7 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
     const frame = &self.frames.items[self.frames.items.len - 1];
 
     while (true) {
-        if (self.stack.items.len >= MAX_STACK_SIZE or self.frames.items.len >= MAX_FRAMES_COUNT) {
+        if (self.stack.items.len >= MAX_STACK_SIZE - 1 or self.frames.items.len >= MAX_FRAMES_COUNT - 1) {
             return error.StackOverflow;
         }
 

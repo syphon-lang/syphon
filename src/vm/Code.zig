@@ -269,6 +269,7 @@ pub const Instruction = union(enum) {
     less_than: void,
     greater_than: void,
     call: Call,
+    duplicate: void,
     pop: void,
     @"return": void,
 

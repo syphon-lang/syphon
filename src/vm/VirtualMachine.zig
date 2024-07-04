@@ -146,6 +146,10 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
 
             .call => try self.executeCall(instruction.call, source_loc, frame),
 
+            .duplicate => {
+                try self.stack.append(self.stack.getLast());
+            },
+
             .pop => {
                 _ = self.stack.pop();
             },

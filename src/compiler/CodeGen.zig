@@ -235,6 +235,10 @@ fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void
 
 fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
     switch (expr) {
+        .identifier => try self.compileIdentifierExpr(expr.identifier),
+
+        .subscript => try self.compileSubscriptExpr(expr.subscript),
+
         .assignment => try self.compileAssignmentExpr(expr.assignment),
 
         .call => try self.compileCallExpr(expr.call),
@@ -245,8 +249,6 @@ fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
     if (!self.context.unused_expression) {
         switch (expr) {
             .none => try self.compileNoneExpr(expr.none),
-
-            .identifier => try self.compileIdentifierExpr(expr.identifier),
 
             .string => try self.compileStringExpr(expr.string),
 
@@ -262,15 +264,13 @@ fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
 
             .function => try self.compileFunctionExpr(expr.function),
 
-            .subscript => try self.compileSubscriptExpr(expr.subscript),
-
             .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
 
             .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
 
             else => {},
         }
-    }
+    } else {}
 }
 
 fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
@@ -281,6 +281,11 @@ fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
 fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) Error!void {
     try self.code.source_locations.append(identifier.name.source_loc);
     try self.code.instructions.append(.{ .load = .{ .name = identifier.name.buffer } });
+
+    if (self.context.unused_expression) {
+        try self.code.source_locations.append(identifier.name.source_loc);
+        try self.code.instructions.append(.{ .pop = {} });
+    }
 }
 
 fn compileStringExpr(self: *CodeGen, string: ast.Node.Expr.String) Error!void {
@@ -355,6 +360,11 @@ fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Erro
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .load = .{ .subscript = {} } });
+
+    if (self.context.unused_expression) {
+        try self.code.source_locations.append(subscript.source_loc);
+        try self.code.instructions.append(.{ .pop = {} });
+    }
 }
 
 fn compileUnaryOperationExpr(self: *CodeGen, unary_operation: ast.Node.Expr.UnaryOperation) Error!void {
@@ -468,7 +478,8 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
     self.context.unused_expression = was_unused_expression;
 
     if (!self.context.unused_expression) {
-        try self.compileExpr(assignment.target.*);
+        try self.code.source_locations.append(assignment.source_loc);
+        try self.code.instructions.append(.{ .duplicate = {} });
     }
 }
 

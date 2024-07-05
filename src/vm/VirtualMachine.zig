@@ -119,16 +119,14 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
         frame.ip += 1;
 
         switch (instruction) {
-            .load => try self.executeLoad(instruction.load, source_loc, frame),
-
-            .store => try self.executeStore(instruction.store, source_loc, frame),
-
             .jump => executeJump(instruction.jump, frame),
             .back => executeBack(instruction.back, frame),
-
             .jump_if_false => self.executeJumpIfFalse(instruction.jump_if_false, frame),
 
-            .make => try self.executeMake(instruction.make),
+            .load => try self.executeLoad(instruction.load, source_loc, frame),
+            .store => try self.executeStore(instruction.store, source_loc, frame),
+
+            .call => try self.executeCall(instruction.call, source_loc, frame),
 
             .neg => try self.executeNeg(source_loc),
             .not => try self.executeNot(),
@@ -144,7 +142,7 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
             .less_than => try self.executeLessThan(source_loc),
             .greater_than => try self.executeGreaterThan(source_loc),
 
-            .call => try self.executeCall(instruction.call, source_loc, frame),
+            .make => try self.executeMake(instruction.make),
 
             .duplicate => {
                 try self.stack.append(self.stack.getLast());
@@ -164,23 +162,25 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
 inline fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLoc, frame: *Frame) Error!void {
     switch (info) {
         .constant => {
-            try self.stack.append(frame.function.code.constants.items[info.constant]);
+            return self.stack.append(frame.function.code.constants.items[info.constant]);
         },
 
         .name => {
             if (frame.locals.get(info.name)) |stack_index| {
-                try self.stack.append(self.stack.items[stack_index]);
-            } else if (self.globals.get(info.name)) |value| {
-                try self.stack.append(value);
-            } else {
-                var error_message_buf = std.ArrayList(u8).init(self.allocator);
-
-                try error_message_buf.writer().print("undefined name '{s}'", .{info.name});
-
-                self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
-
-                return error.UndefinedName;
+                return self.stack.append(self.stack.items[stack_index]);
             }
+
+            if (self.globals.get(info.name)) |global_value| {
+                return self.stack.append(global_value);
+            }
+
+            var error_message_buf = std.ArrayList(u8).init(self.allocator);
+
+            try error_message_buf.writer().print("undefined name '{s}'", .{info.name});
+
+            self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+
+            return error.UndefinedName;
         },
 
         .subscript => {
@@ -240,25 +240,25 @@ inline fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source
 
                         if (target.object.map.inner.get(index)) |value| {
                             return self.stack.append(value);
-                        } else {
-                            const Console = @import("./builtins/Console.zig");
-
-                            var error_message_buf = std.ArrayList(u8).init(self.allocator);
-
-                            var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
-
-                            _ = try buffered_writer.write("undefined key '");
-
-                            try Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
-
-                            _ = try buffered_writer.write("' in map");
-
-                            try buffered_writer.flush();
-
-                            self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
-
-                            return error.UndefinedKey;
                         }
+
+                        const Console = @import("./builtins/Console.zig");
+
+                        var error_message_buf = std.ArrayList(u8).init(self.allocator);
+
+                        var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
+
+                        _ = try buffered_writer.write("undefined key '");
+
+                        try Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
+
+                        _ = try buffered_writer.write("' in map");
+
+                        try buffered_writer.flush();
+
+                        self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+
+                        return error.UndefinedKey;
                     },
 
                     else => {},
@@ -286,6 +286,7 @@ inline fn executeStore(self: *VirtualMachine, info: Code.Instruction.Store, sour
             }
 
             const stack_index = self.stack.items.len;
+
             try self.stack.append(value);
 
             try frame.locals.put(info.name, stack_index);

@@ -150,13 +150,7 @@ pub const Value = union(enum) {
                 .boolean => @intFromBool(key.boolean),
 
                 .object => switch (key.object) {
-                    .string => blk: {
-                        var hasher = std.hash.Wyhash.init(0);
-
-                        hasher.update(key.object.string.content);
-
-                        break :blk hasher.final();
-                    },
+                    .string => std.hash.Wyhash.hash(0, key.object.string.content),
 
                     else => unreachable,
                 },

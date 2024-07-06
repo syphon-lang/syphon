@@ -124,9 +124,7 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
             .back => frame.ip -= instruction.back,
 
             .jump_if_false => {
-                if (!self.stack.pop().is_truthy()) {
-                    frame.ip += instruction.jump;
-                }
+                if (!self.stack.pop().is_truthy()) frame.ip += instruction.jump;
             },
 
             .load_constant => try self.stack.append(frame.function.code.constants.items[instruction.load_constant]),
@@ -718,18 +716,18 @@ fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_c
 }
 
 pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Function, frame: *Frame) Error!Code.Value {
+    const stack_start = self.stack.items.len - function.parameters.len;
+
     if (self.internal_functions.get(function)) |internal_vm| {
-        const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
-
-        internal_frame.locals.newSnapshot();
-
         const internal_stack_start = internal_vm.stack.items.len;
-
-        const stack_start = self.stack.items.len - function.parameters.len;
 
         try internal_vm.stack.appendSlice(self.stack.items[stack_start..]);
 
         self.stack.shrinkRetainingCapacity(stack_start);
+
+        const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
+
+        internal_frame.locals.newSnapshot();
 
         for (function.parameters, 0..) |parameter, i| {
             try internal_frame.locals.put(parameter, internal_stack_start + i);
@@ -750,27 +748,25 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
         _ = internal_vm.frames.pop();
 
         return return_value;
-    } else {
-        frame.locals.newSnapshot();
-
-        const stack_start = self.stack.items.len - function.parameters.len;
-
-        for (function.parameters, 0..) |parameter, i| {
-            try frame.locals.put(parameter, stack_start + i);
-        }
-
-        try self.frames.append(.{ .function = function, .locals = frame.locals });
-
-        const return_value = try self.run();
-
-        self.stack.shrinkRetainingCapacity(stack_start);
-
-        frame.locals.destroySnapshot();
-
-        _ = self.frames.pop();
-
-        return return_value;
     }
+
+    frame.locals.newSnapshot();
+
+    for (function.parameters, 0..) |parameter, i| {
+        try frame.locals.put(parameter, stack_start + i);
+    }
+
+    try self.frames.append(.{ .function = function, .locals = frame.locals });
+
+    const return_value = try self.run();
+
+    self.stack.shrinkRetainingCapacity(stack_start);
+
+    frame.locals.destroySnapshot();
+
+    _ = self.frames.pop();
+
+    return return_value;
 }
 
 fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Code.Value {

@@ -244,12 +244,17 @@ pub const Value = union(enum) {
 };
 
 pub const Instruction = union(enum) {
-    load: Load,
-    store: Store,
-    jump: Jump,
-    jump_if_false: JumpIfFalse,
-    back: Back,
-    make: Make,
+    jump: usize,
+    back: usize,
+    jump_if_false: usize,
+    load_constant: usize,
+    load_name: []const u8,
+    load_subscript: void,
+    store_name: []const u8,
+    store_subscript: void,
+    make_array: usize,
+    make_map: u32,
+    call: usize,
     neg: void,
     not: void,
     add: void,
@@ -262,50 +267,9 @@ pub const Instruction = union(enum) {
     equals: void,
     less_than: void,
     greater_than: void,
-    call: Call,
     duplicate: void,
     pop: void,
     @"return": void,
-
-    pub const Load = union(enum) {
-        constant: usize,
-        name: []const u8,
-        subscript: void,
-    };
-
-    pub const Store = union(enum) {
-        name: []const u8,
-        subscript: void,
-    };
-
-    pub const Jump = struct {
-        offset: usize,
-    };
-
-    pub const JumpIfFalse = struct {
-        offset: usize,
-    };
-
-    pub const Back = struct {
-        offset: usize,
-    };
-
-    pub const Make = union(enum) {
-        array: Array,
-        map: Map,
-
-        pub const Array = struct {
-            length: usize,
-        };
-
-        pub const Map = struct {
-            length: u32,
-        };
-    };
-
-    pub const Call = struct {
-        arguments_count: usize,
-    };
 };
 
 pub fn addConstant(self: *Code, value: Value) std.mem.Allocator.Error!usize {

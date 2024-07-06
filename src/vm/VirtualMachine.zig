@@ -119,12 +119,25 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
         frame.ip += 1;
 
         switch (instruction) {
-            .jump => executeJump(instruction.jump, frame),
-            .back => executeBack(instruction.back, frame),
-            .jump_if_false => self.executeJumpIfFalse(instruction.jump_if_false, frame),
+            .jump => frame.ip += instruction.jump,
 
-            .load => try self.executeLoad(instruction.load, source_loc, frame),
-            .store => try self.executeStore(instruction.store, source_loc, frame),
+            .back => frame.ip -= instruction.back,
+
+            .jump_if_false => {
+                if (!self.stack.pop().is_truthy()) {
+                    frame.ip += instruction.jump;
+                }
+            },
+
+            .load_constant => try self.stack.append(frame.function.code.constants.items[instruction.load_constant]),
+            .load_name => try self.executeLoadName(instruction.load_name, source_loc, frame),
+            .load_subscript => try self.executeLoadSubscript(source_loc),
+
+            .store_name => try self.executeStoreName(instruction.store_name, frame),
+            .store_subscript => try self.executeStoreSubscript(source_loc),
+
+            .make_array => try self.executeMakeArray(instruction.make_array),
+            .make_map => try self.executeMakeMap(instruction.make_map),
 
             .call => try self.executeCall(instruction.call, source_loc, frame),
 
@@ -142,253 +155,214 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
             .less_than => try self.executeLessThan(source_loc),
             .greater_than => try self.executeGreaterThan(source_loc),
 
-            .make => try self.executeMake(instruction.make),
+            .duplicate => try self.stack.append(self.stack.getLast()),
 
-            .duplicate => {
-                try self.stack.append(self.stack.getLast());
-            },
+            .pop => _ = self.stack.pop(),
 
-            .pop => {
-                _ = self.stack.pop();
-            },
-
-            .@"return" => {
-                return self.stack.pop();
-            },
+            .@"return" => return self.stack.pop(),
         }
     }
 }
 
-inline fn executeLoad(self: *VirtualMachine, info: Code.Instruction.Load, source_loc: SourceLoc, frame: *Frame) Error!void {
-    switch (info) {
-        .constant => {
-            return self.stack.append(frame.function.code.constants.items[info.constant]);
-        },
-
-        .name => {
-            if (frame.locals.get(info.name)) |stack_index| {
-                return self.stack.append(self.stack.items[stack_index]);
-            }
-
-            if (self.globals.get(info.name)) |global_value| {
-                return self.stack.append(global_value);
-            }
-
-            var error_message_buf = std.ArrayList(u8).init(self.allocator);
-
-            try error_message_buf.writer().print("undefined name '{s}'", .{info.name});
-
-            self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
-
-            return error.UndefinedName;
-        },
-
-        .subscript => {
-            var index = self.stack.pop();
-            const target = self.stack.pop();
-
-            switch (target) {
-                .object => switch (target.object) {
-                    .array => {
-                        if (index != .int) {
-                            self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
-
-                            return error.UnexpectedValue;
-                        }
-
-                        if (index.int < 0) {
-                            index.int += @as(i64, @bitCast(target.object.array.values.items.len));
-                        }
-
-                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
-                            self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
-
-                            return error.IndexOverflow;
-                        }
-
-                        return self.stack.append(target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))]);
-                    },
-
-                    .string => {
-                        if (index != .int) {
-                            self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
-
-                            return error.UnexpectedValue;
-                        }
-
-                        if (index.int < 0) {
-                            index.int += @as(i64, @bitCast(target.object.string.content.len));
-                        }
-
-                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.string.content.len))) {
-                            self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
-
-                            return error.IndexOverflow;
-                        }
-
-                        const index_casted: usize = @intCast(@as(u64, @bitCast(index.int)));
-
-                        return self.stack.append(.{ .object = .{ .string = .{ .content = target.object.string.content[index_casted .. index_casted + 1] } } });
-                    },
-
-                    .map => {
-                        if (!Code.Value.HashContext.hashable(index)) {
-                            self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
-
-                            return error.UnexpectedValue;
-                        }
-
-                        if (target.object.map.inner.get(index)) |value| {
-                            return self.stack.append(value);
-                        }
-
-                        const Console = @import("./builtins/Console.zig");
-
-                        var error_message_buf = std.ArrayList(u8).init(self.allocator);
-
-                        var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
-
-                        _ = try buffered_writer.write("undefined key '");
-
-                        try Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
-
-                        _ = try buffered_writer.write("' in map");
-
-                        try buffered_writer.flush();
-
-                        self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
-
-                        return error.UndefinedKey;
-                    },
-
-                    else => {},
-                },
-
-                else => {},
-            }
-
-            self.error_info = .{ .message = "target is not array nor string nor map", .source_loc = source_loc };
-
-            return error.UnexpectedValue;
-        },
+inline fn executeLoadName(self: *VirtualMachine, name: []const u8, source_loc: SourceLoc, frame: *Frame) Error!void {
+    if (frame.locals.get(name)) |stack_index| {
+        return self.stack.append(self.stack.items[stack_index]);
     }
+
+    if (self.globals.get(name)) |global_value| {
+        return self.stack.append(global_value);
+    }
+
+    var error_message_buf = std.ArrayList(u8).init(self.allocator);
+
+    try error_message_buf.writer().print("undefined name '{s}'", .{name});
+
+    self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+
+    return error.UndefinedName;
 }
 
-inline fn executeStore(self: *VirtualMachine, info: Code.Instruction.Store, source_loc: SourceLoc, frame: *Frame) Error!void {
+inline fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+    var index = self.stack.pop();
+    const target = self.stack.pop();
+
+    switch (target) {
+        .object => switch (target.object) {
+            .array => {
+                if (index != .int) {
+                    self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
+
+                    return error.UnexpectedValue;
+                }
+
+                if (index.int < 0) {
+                    index.int += @as(i64, @bitCast(target.object.array.values.items.len));
+                }
+
+                if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
+                    self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+
+                    return error.IndexOverflow;
+                }
+
+                return self.stack.append(target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))]);
+            },
+
+            .string => {
+                if (index != .int) {
+                    self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
+
+                    return error.UnexpectedValue;
+                }
+
+                if (index.int < 0) {
+                    index.int += @as(i64, @bitCast(target.object.string.content.len));
+                }
+
+                if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.string.content.len))) {
+                    self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+
+                    return error.IndexOverflow;
+                }
+
+                const index_casted: usize = @intCast(@as(u64, @bitCast(index.int)));
+
+                return self.stack.append(.{ .object = .{ .string = .{ .content = target.object.string.content[index_casted .. index_casted + 1] } } });
+            },
+
+            .map => {
+                if (!Code.Value.HashContext.hashable(index)) {
+                    self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
+
+                    return error.UnexpectedValue;
+                }
+
+                if (target.object.map.inner.get(index)) |value| {
+                    return self.stack.append(value);
+                }
+
+                const Console = @import("./builtins/Console.zig");
+
+                var error_message_buf = std.ArrayList(u8).init(self.allocator);
+
+                var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
+
+                _ = try buffered_writer.write("undefined key '");
+
+                try Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
+
+                _ = try buffered_writer.write("' in map");
+
+                try buffered_writer.flush();
+
+                self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+
+                return error.UndefinedKey;
+            },
+
+            else => {},
+        },
+
+        else => {},
+    }
+
+    self.error_info = .{ .message = "target is not array nor string nor map", .source_loc = source_loc };
+
+    return error.UnexpectedValue;
+}
+
+inline fn executeStoreName(self: *VirtualMachine, name: []const u8, frame: *Frame) Error!void {
     const value = self.stack.pop();
 
-    switch (info) {
-        .name => {
-            if (frame.locals.getFromLastSnapshot(info.name)) |stack_index| {
-                self.stack.items[stack_index] = value;
+    if (frame.locals.getFromLastSnapshot(name)) |stack_index| {
+        self.stack.items[stack_index] = value;
+
+        return;
+    }
+
+    const stack_index = self.stack.items.len;
+
+    try self.stack.append(value);
+
+    try frame.locals.put(name, stack_index);
+}
+
+inline fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+    const value = self.stack.pop();
+    var index = self.stack.pop();
+    const target = self.stack.pop();
+
+    switch (target) {
+        .object => switch (target.object) {
+            .array => {
+                if (index != .int) {
+                    self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
+
+                    return error.UnexpectedValue;
+                }
+
+                if (index.int < 0) {
+                    index.int += @as(i64, @bitCast(target.object.array.values.items.len));
+                }
+
+                if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
+                    self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+
+                    return error.IndexOverflow;
+                }
+
+                target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))] = value;
 
                 return;
-            }
+            },
 
-            const stack_index = self.stack.items.len;
+            .map => {
+                if (!Code.Value.HashContext.hashable(index)) {
+                    self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
-            try self.stack.append(value);
+                    return error.UnexpectedValue;
+                }
 
-            try frame.locals.put(info.name, stack_index);
+                try target.object.map.inner.put(index, value);
+
+                return;
+            },
+
+            else => {},
         },
 
-        .subscript => {
-            var index = self.stack.pop();
-            const target = self.stack.pop();
-
-            switch (target) {
-                .object => switch (target.object) {
-                    .array => {
-                        if (index != .int) {
-                            self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
-
-                            return error.UnexpectedValue;
-                        }
-
-                        if (index.int < 0) {
-                            index.int += @as(i64, @bitCast(target.object.array.values.items.len));
-                        }
-
-                        if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
-                            self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
-
-                            return error.IndexOverflow;
-                        }
-
-                        target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))] = value;
-
-                        return;
-                    },
-
-                    .map => {
-                        if (!Code.Value.HashContext.hashable(index)) {
-                            self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
-
-                            return error.UnexpectedValue;
-                        }
-
-                        try target.object.map.inner.put(index, value);
-
-                        return;
-                    },
-
-                    else => {},
-                },
-
-                else => {},
-            }
-
-            self.error_info = .{ .message = "target is array nor map", .source_loc = source_loc };
-
-            return error.UnexpectedValue;
-        },
+        else => {},
     }
+
+    self.error_info = .{ .message = "target is array nor map", .source_loc = source_loc };
+
+    return error.UnexpectedValue;
 }
 
-inline fn executeJump(info: Code.Instruction.Jump, frame: *Frame) void {
-    frame.ip += info.offset;
-}
+inline fn executeMakeArray(self: *VirtualMachine, length: usize) Error!void {
+    var values = try std.ArrayList(Code.Value).initCapacity(self.allocator, length);
 
-inline fn executeBack(info: Code.Instruction.Back, frame: *Frame) void {
-    frame.ip -= info.offset;
-}
+    for (0..length) |_| {
+        const value = self.stack.pop();
 
-inline fn executeJumpIfFalse(self: *VirtualMachine, info: Code.Instruction.JumpIfFalse, frame: *Frame) void {
-    const value = self.stack.pop();
-
-    if (!value.is_truthy()) {
-        frame.ip += info.offset;
+        values.insertAssumeCapacity(0, value);
     }
+
+    try self.stack.append(try Code.Value.Object.Array.init(self.allocator, values));
 }
 
-inline fn executeMake(self: *VirtualMachine, info: Code.Instruction.Make) Error!void {
-    switch (info) {
-        .array => {
-            var values = try std.ArrayList(Code.Value).initCapacity(self.allocator, info.array.length);
+inline fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
+    var inner = Code.Value.Object.Map.Inner.init(self.allocator);
+    try inner.ensureTotalCapacity(length);
 
-            for (0..info.array.length) |_| {
-                const value = self.stack.pop();
+    for (0..length) |_| {
+        const key = self.stack.pop();
+        const value = self.stack.pop();
 
-                values.insertAssumeCapacity(0, value);
-            }
-
-            try self.stack.append(try Code.Value.Object.Array.init(self.allocator, values));
-        },
-
-        .map => {
-            var inner = Code.Value.Object.Map.Inner.init(self.allocator);
-            try inner.ensureTotalCapacity(info.map.length);
-
-            for (0..info.map.length) |_| {
-                const key = self.stack.pop();
-                const value = self.stack.pop();
-
-                inner.putAssumeCapacity(key, value);
-            }
-
-            try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));
-        },
+        inner.putAssumeCapacity(key, value);
     }
+
+    try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));
 }
 
 inline fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
@@ -699,13 +673,13 @@ inline fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error
     return error.BadOperand;
 }
 
-inline fn executeCall(self: *VirtualMachine, info: Code.Instruction.Call, source_loc: SourceLoc, frame: *Frame) Error!void {
+inline fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: SourceLoc, frame: *Frame) Error!void {
     const callable = self.stack.pop();
 
     if (callable == .object) {
         switch (callable.object) {
             .function => {
-                try self.checkArgumentsCount(callable.object.function.parameters.len, info.arguments_count, source_loc);
+                try self.checkArgumentsCount(callable.object.function.parameters.len, arguments_count, source_loc);
 
                 const return_value = try self.callUserFunction(callable.object.function, frame);
 
@@ -714,10 +688,10 @@ inline fn executeCall(self: *VirtualMachine, info: Code.Instruction.Call, source
 
             .native_function => {
                 if (callable.object.native_function.required_arguments_count != null) {
-                    try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, info.arguments_count, source_loc);
+                    try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, arguments_count, source_loc);
                 }
 
-                const return_value = self.callNativeFunction(callable.object.native_function, info.arguments_count);
+                const return_value = self.callNativeFunction(callable.object.native_function, arguments_count);
 
                 return self.stack.append(return_value);
             },

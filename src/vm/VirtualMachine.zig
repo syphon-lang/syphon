@@ -1,8 +1,9 @@
 const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
+const AutoHashMapRecorder = @import("auto_hash_map_recorder.zig").AutoHashMapRecorder;
 const Code = @import("Code.zig");
-const StringHashMapRecorder = @import("string_hash_map_recorder.zig").StringHashMapRecorder;
+const Atom = @import("Atom.zig");
 
 const VirtualMachine = @This();
 
@@ -14,10 +15,10 @@ exported: Code.Value = .{ .none = {} },
 
 frames: std.ArrayList(Frame),
 stack: std.ArrayList(Code.Value),
-globals: std.StringHashMap(Code.Value),
+globals: std.AutoHashMap(Atom, Code.Value),
 
 internal_vms: std.ArrayList(VirtualMachine),
-internal_functions: std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine),
+internal_functions: std.AutoHashMap(*Code.Value.Object.Function, *VirtualMachine),
 is_internal: bool = false,
 
 argv: []const []const u8,
@@ -42,7 +43,7 @@ pub const ErrorInfo = struct {
 
 pub const Frame = struct {
     function: *Code.Value.Object.Function,
-    locals: StringHashMapRecorder(usize),
+    locals: AutoHashMapRecorder(Atom, usize),
     ip: usize = 0,
     stack_start: usize = 0,
 };
@@ -60,9 +61,9 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .allocator = allocator,
         .frames = std.ArrayList(Frame).init(frame_allocator.allocator()),
         .stack = std.ArrayList(Code.Value).init(stack_allocator.allocator()),
-        .globals = std.StringHashMap(Code.Value).init(allocator),
+        .globals = std.AutoHashMap(Atom, Code.Value).init(allocator),
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
-        .internal_functions = std.AutoArrayHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
+        .internal_functions = std.AutoHashMap(*Code.Value.Object.Function, *VirtualMachine).init(allocator),
         .argv = argv,
     };
 
@@ -100,7 +101,7 @@ pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
 
     try self.frames.append(.{
         .function = value.object.function,
-        .locals = try StringHashMapRecorder(usize).initSnapshotsCapacity(self.allocator, MAX_FRAMES_COUNT),
+        .locals = try AutoHashMapRecorder(Atom, usize).initSnapshotsCapacity(self.allocator, MAX_FRAMES_COUNT),
     });
 }
 
@@ -124,11 +125,11 @@ pub fn run(self: *VirtualMachine) Error!void {
                 if (!self.stack.pop().is_truthy()) frame.ip += instruction.jump_if_false;
             },
 
+            .load_atom => try self.executeLoadAtom(instruction.load_atom, source_loc, frame),
             .load_constant => try self.stack.append(frame.function.code.constants.items[instruction.load_constant]),
-            .load_name => try self.executeLoadName(instruction.load_name, source_loc, frame),
             .load_subscript => try self.executeLoadSubscript(source_loc),
 
-            .store_name => try self.executeStoreName(instruction.store_name, frame),
+            .store_atom => try self.executeStoreAtom(instruction.store_atom, frame),
             .store_subscript => try self.executeStoreSubscript(source_loc),
 
             .make_array => try self.executeMakeArray(instruction.make_array),
@@ -167,18 +168,18 @@ pub fn run(self: *VirtualMachine) Error!void {
     }
 }
 
-fn executeLoadName(self: *VirtualMachine, name: []const u8, source_loc: SourceLoc, frame: *Frame) Error!void {
-    if (frame.locals.get(name)) |stack_index| {
+fn executeLoadAtom(self: *VirtualMachine, atom: Atom, source_loc: SourceLoc, frame: *Frame) Error!void {
+    if (frame.locals.get(atom)) |stack_index| {
         return self.stack.append(self.stack.items[stack_index]);
     }
 
-    if (self.globals.get(name)) |global_value| {
+    if (self.globals.get(atom)) |global_value| {
         return self.stack.append(global_value);
     }
 
     var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
-    try error_message_buf.writer().print("undefined name '{s}'", .{name});
+    try error_message_buf.writer().print("undefined name '{s}'", .{atom.to_name()});
 
     self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
 
@@ -274,10 +275,10 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
     return error.UnexpectedValue;
 }
 
-fn executeStoreName(self: *VirtualMachine, name: []const u8, frame: *Frame) Error!void {
+fn executeStoreAtom(self: *VirtualMachine, atom: Atom, frame: *Frame) Error!void {
     const value = self.stack.pop();
 
-    if (frame.locals.getFromLastSnapshot(name)) |stack_index| {
+    if (frame.locals.getFromLastSnapshot(atom)) |stack_index| {
         self.stack.items[stack_index] = value;
 
         return;
@@ -287,7 +288,7 @@ fn executeStoreName(self: *VirtualMachine, name: []const u8, frame: *Frame) Erro
 
     try self.stack.append(value);
 
-    try frame.locals.put(name, stack_index);
+    try frame.locals.put(atom, stack_index);
 }
 
 fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
@@ -425,7 +426,7 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
         internal_frame.locals.newSnapshot();
 
         for (function.parameters, 0..) |parameter, i| {
-            try internal_frame.locals.put(parameter, internal_stack_start + i);
+            try internal_frame.locals.put(try Atom.new(parameter), internal_stack_start + i);
         }
 
         try internal_vm.frames.append(.{ .function = function, .locals = internal_frame.locals, .stack_start = internal_stack_start });
@@ -443,7 +444,7 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
         frame.locals.newSnapshot();
 
         for (function.parameters, 0..) |parameter, i| {
-            try frame.locals.put(parameter, stack_start + i);
+            try frame.locals.put(try Atom.new(parameter), stack_start + i);
         }
 
         try self.frames.append(.{ .function = function, .locals = frame.locals, .stack_start = stack_start });

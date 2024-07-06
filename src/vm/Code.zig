@@ -2,6 +2,7 @@ const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
 const VirtualMachine = @import("VirtualMachine.zig");
+const Atom = @import("Atom.zig");
 
 const Code = @This();
 
@@ -248,9 +249,9 @@ pub const Instruction = union(enum) {
     back: usize,
     jump_if_false: usize,
     load_constant: usize,
-    load_name: []const u8,
+    load_atom: Atom,
     load_subscript: void,
-    store_name: []const u8,
+    store_atom: Atom,
     store_subscript: void,
     make_array: usize,
     make_map: u32,

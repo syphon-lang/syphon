@@ -3,6 +3,7 @@ const std = @import("std");
 const Parser = @import("compiler/ast.zig").Parser;
 const CodeGen = @import("compiler/CodeGen.zig");
 const VirtualMachine = @import("vm/VirtualMachine.zig");
+const Atom = @import("vm/Atom.zig");
 
 const Driver = @This();
 
@@ -174,6 +175,8 @@ fn runRunCommand(self: *Driver) u8 {
             return 1;
         },
     };
+
+    Atom.init(self.allocator);
 
     var gen = CodeGen.init(self.allocator, .script);
 

@@ -2,13 +2,14 @@ const std = @import("std");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("array_push", Code.Value.Object.NativeFunction.init(2, &array_push));
-    try vm.globals.put("array_pop", Code.Value.Object.NativeFunction.init(1, &array_pop));
-    try vm.globals.put("array_reverse", Code.Value.Object.NativeFunction.init(1, &array_reverse));
-    try vm.globals.put("length", Code.Value.Object.NativeFunction.init(1, &length));
-    try vm.globals.put("contains", Code.Value.Object.NativeFunction.init(2, &contains));
+    try vm.globals.put(try Atom.new("array_push"), Code.Value.Object.NativeFunction.init(2, &array_push));
+    try vm.globals.put(try Atom.new("array_pop"), Code.Value.Object.NativeFunction.init(1, &array_pop));
+    try vm.globals.put(try Atom.new("array_reverse"), Code.Value.Object.NativeFunction.init(1, &array_reverse));
+    try vm.globals.put(try Atom.new("length"), Code.Value.Object.NativeFunction.init(1, &length));
+    try vm.globals.put(try Atom.new("contains"), Code.Value.Object.NativeFunction.init(2, &contains));
 }
 
 fn array_push(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

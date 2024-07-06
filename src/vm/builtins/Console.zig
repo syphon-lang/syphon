@@ -2,10 +2,11 @@ const std = @import("std");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("print", Code.Value.Object.NativeFunction.init(null, &print));
-    try vm.globals.put("println", Code.Value.Object.NativeFunction.init(null, &println));
+    try vm.globals.put(try Atom.new("print"), Code.Value.Object.NativeFunction.init(null, &print));
+    try vm.globals.put(try Atom.new("println"), Code.Value.Object.NativeFunction.init(null, &println));
 }
 
 pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B), arguments: []const Code.Value, debug: bool) !void {

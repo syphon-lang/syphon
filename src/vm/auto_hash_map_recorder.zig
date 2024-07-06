@@ -1,16 +1,14 @@
 const std = @import("std");
 
-pub fn StringHashMapRecorder(comptime V: type) type {
+pub fn AutoHashMapRecorder(comptime K: type, comptime V: type) type {
     return struct {
+        const Self = @This();
+
+        const Inner = std.AutoHashMap(K, V);
+
         allocator: std.mem.Allocator,
 
         snapshots: std.ArrayList(Inner),
-
-        const Self = StringHashMapRecorder(V);
-
-        const Inner = std.StringHashMap(V);
-
-        const K = []const u8;
 
         pub fn initSnapshotsCapacity(allocator: std.mem.Allocator, snapshots_capacity: usize) std.mem.Allocator.Error!Self {
             return Self{

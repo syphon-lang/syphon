@@ -1,9 +1,10 @@
 const std = @import("std");
 
-const Code = @import("../vm/Code.zig");
-const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
+const Code = @import("../vm/Code.zig");
+const VirtualMachine = @import("../vm/VirtualMachine.zig");
+const Atom = @import("../vm/Atom.zig");
 
 const CodeGen = @This();
 
@@ -280,7 +281,7 @@ fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
 
 fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) Error!void {
     try self.code.source_locations.append(identifier.name.source_loc);
-    try self.code.instructions.append(.{ .load_name = identifier.name.buffer });
+    try self.code.instructions.append(.{ .load_atom = try Atom.new(identifier.name.buffer) });
 
     if (self.context.unused_expression) {
         try self.code.source_locations.append(identifier.name.source_loc);
@@ -705,7 +706,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
         try handleAssignmentOperator(self, assignment);
 
         try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.{ .store_name = assignment.target.identifier.name.buffer });
+        try self.code.instructions.append(.{ .store_atom = try Atom.new(assignment.target.identifier.name.buffer) });
     } else {
         self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = assignment.source_loc };
 

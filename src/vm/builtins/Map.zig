@@ -2,11 +2,12 @@ const std = @import("std");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("map_keys", Code.Value.Object.NativeFunction.init(1, &map_keys));
-    try vm.globals.put("map_from_keys", Code.Value.Object.NativeFunction.init(1, &map_from_keys));
-    try vm.globals.put("map_values", Code.Value.Object.NativeFunction.init(1, &map_values));
+    try vm.globals.put(try Atom.new("map_keys"), Code.Value.Object.NativeFunction.init(1, &map_keys));
+    try vm.globals.put(try Atom.new("map_from_keys"), Code.Value.Object.NativeFunction.init(1, &map_from_keys));
+    try vm.globals.put(try Atom.new("map_values"), Code.Value.Object.NativeFunction.init(1, &map_values));
 }
 
 fn map_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

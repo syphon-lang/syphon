@@ -4,6 +4,7 @@ const Parser = @import("../../compiler/ast.zig").Parser;
 const CodeGen = @import("../../compiler/CodeGen.zig");
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
     .{ "fs", &(@import("FileSystem.zig").getExports) },
@@ -17,9 +18,9 @@ const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.
 });
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("export", Code.Value.Object.NativeFunction.init(1, &@"export"));
-    try vm.globals.put("import", Code.Value.Object.NativeFunction.init(1, &import));
-    try vm.globals.put("eval", Code.Value.Object.NativeFunction.init(1, &eval));
+    try vm.globals.put(try Atom.new("export"), Code.Value.Object.NativeFunction.init(1, &@"export"));
+    try vm.globals.put(try Atom.new("import"), Code.Value.Object.NativeFunction.init(1, &import));
+    try vm.globals.put(try Atom.new("eval"), Code.Value.Object.NativeFunction.init(1, &eval));
 }
 
 fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

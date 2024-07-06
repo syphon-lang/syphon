@@ -197,7 +197,7 @@ fn runRunCommand(self: *Driver) u8 {
         return 1;
     };
 
-    _ = vm.run() catch |err| switch (err) {
+    vm.run() catch |err| switch (err) {
         error.DivisionByZero => {
             const last_frame = vm.frames.getLast();
 

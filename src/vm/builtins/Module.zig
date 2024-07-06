@@ -83,21 +83,13 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
-        else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
-
-            std.process.exit(1);
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     var gen = CodeGen.init(vm.allocator, .script);
 
     gen.compileRoot(root) catch |err| switch (err) {
-        else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
-
-            std.process.exit(1);
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     const internal_vm = vm.internal_vms.addOneAssumeCapacity();
@@ -110,12 +102,8 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    _ = internal_vm.run() catch |err| switch (err) {
-        else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ resolved_file_path, internal_vm.error_info.?.source_loc.line, internal_vm.error_info.?.source_loc.column, internal_vm.error_info.?.message });
-
-            std.process.exit(1);
-        },
+    internal_vm.run() catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
     };
 
     addForeignFunction(vm, internal_vm, internal_vm.exported);
@@ -141,21 +129,13 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
-        else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ "<eval>", parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
-
-            std.process.exit(1);
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     var gen = CodeGen.init(vm.allocator, .script);
 
     gen.compileRoot(root) catch |err| switch (err) {
-        else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ "<eval>", gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
-
-            std.process.exit(1);
-        },
+        else => return Code.Value{ .none = {} },
     };
 
     const internal_vm = vm.internal_vms.addOneAssumeCapacity();
@@ -168,12 +148,8 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    _ = internal_vm.run() catch |err| switch (err) {
-        else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ "<eval>", internal_vm.error_info.?.source_loc.line, internal_vm.error_info.?.source_loc.column, internal_vm.error_info.?.message });
-
-            std.process.exit(1);
-        },
+    internal_vm.run() catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
     };
 
     addForeignFunction(vm, internal_vm, internal_vm.exported);

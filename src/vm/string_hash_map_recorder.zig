@@ -19,11 +19,11 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             };
         }
 
-        pub inline fn newSnapshot(self: *Self) void {
+        pub fn newSnapshot(self: *Self) void {
             self.snapshots.appendAssumeCapacity(Inner.init(self.allocator));
         }
 
-        pub inline fn destroySnapshot(self: *Self) void {
+        pub fn destroySnapshot(self: *Self) void {
             _ = self.snapshots.pop();
         }
 
@@ -39,7 +39,7 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             return null;
         }
 
-        pub inline fn getFromLastSnapshot(self: Self, key: K) ?V {
+        pub fn getFromLastSnapshot(self: Self, key: K) ?V {
             if (self.snapshots.items.len == 0) {
                 return null;
             }
@@ -47,7 +47,7 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             return self.snapshots.getLast().get(key);
         }
 
-        pub inline fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
+        pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
             if (self.snapshots.items.len == 0) {
                 self.newSnapshot();
             }

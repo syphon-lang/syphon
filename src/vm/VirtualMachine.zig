@@ -164,7 +164,7 @@ pub fn run(self: *VirtualMachine) Error!Code.Value {
     }
 }
 
-inline fn executeLoadName(self: *VirtualMachine, name: []const u8, source_loc: SourceLoc, frame: *Frame) Error!void {
+fn executeLoadName(self: *VirtualMachine, name: []const u8, source_loc: SourceLoc, frame: *Frame) Error!void {
     if (frame.locals.get(name)) |stack_index| {
         return self.stack.append(self.stack.items[stack_index]);
     }
@@ -182,7 +182,7 @@ inline fn executeLoadName(self: *VirtualMachine, name: []const u8, source_loc: S
     return error.UndefinedName;
 }
 
-inline fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     var index = self.stack.pop();
     const target = self.stack.pop();
 
@@ -271,7 +271,7 @@ inline fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Err
     return error.UnexpectedValue;
 }
 
-inline fn executeStoreName(self: *VirtualMachine, name: []const u8, frame: *Frame) Error!void {
+fn executeStoreName(self: *VirtualMachine, name: []const u8, frame: *Frame) Error!void {
     const value = self.stack.pop();
 
     if (frame.locals.getFromLastSnapshot(name)) |stack_index| {
@@ -287,7 +287,7 @@ inline fn executeStoreName(self: *VirtualMachine, name: []const u8, frame: *Fram
     try frame.locals.put(name, stack_index);
 }
 
-inline fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const value = self.stack.pop();
     var index = self.stack.pop();
     const target = self.stack.pop();
@@ -339,7 +339,7 @@ inline fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Er
     return error.UnexpectedValue;
 }
 
-inline fn executeMakeArray(self: *VirtualMachine, length: usize) Error!void {
+fn executeMakeArray(self: *VirtualMachine, length: usize) Error!void {
     var values = try std.ArrayList(Code.Value).initCapacity(self.allocator, length);
 
     for (0..length) |_| {
@@ -351,7 +351,7 @@ inline fn executeMakeArray(self: *VirtualMachine, length: usize) Error!void {
     try self.stack.append(try Code.Value.Object.Array.init(self.allocator, values));
 }
 
-inline fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
+fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
     var inner = Code.Value.Object.Map.Inner.init(self.allocator);
     try inner.ensureTotalCapacity(length);
 
@@ -365,7 +365,7 @@ inline fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
     try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));
 }
 
-inline fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
 
     switch (rhs) {
@@ -381,13 +381,13 @@ inline fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-inline fn executeNot(self: *VirtualMachine) Error!void {
+fn executeNot(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
 
     try self.stack.append(.{ .boolean = !rhs.is_truthy() });
 }
 
-inline fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -442,7 +442,7 @@ inline fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-inline fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -479,7 +479,7 @@ inline fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!vo
     return error.BadOperand;
 }
 
-inline fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const Type = @import("builtins/Type.zig");
 
     const rhs = Type.toFloat(self, &.{self.stack.pop()});
@@ -497,7 +497,7 @@ inline fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void
     return self.stack.append(.{ .float = lhs.float / rhs.float });
 }
 
-inline fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -534,7 +534,7 @@ inline fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!vo
     return error.BadOperand;
 }
 
-inline fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const Type = @import("builtins/Type.zig");
 
     const rhs = Type.toFloat(self, &.{self.stack.pop()});
@@ -548,7 +548,7 @@ inline fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!vo
     return self.stack.append(.{ .float = std.math.pow(f64, lhs.float, rhs.float) });
 }
 
-inline fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -585,21 +585,21 @@ inline fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void
     return error.BadOperand;
 }
 
-inline fn executeNotEquals(self: *VirtualMachine) Error!void {
+fn executeNotEquals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
     return self.stack.append(.{ .boolean = !lhs.eql(rhs, false) });
 }
 
-inline fn executeEquals(self: *VirtualMachine) Error!void {
+fn executeEquals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
     return self.stack.append(.{ .boolean = lhs.eql(rhs, false) });
 }
 
-inline fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -636,7 +636,7 @@ inline fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!vo
     return error.BadOperand;
 }
 
-inline fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -673,7 +673,7 @@ inline fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error
     return error.BadOperand;
 }
 
-inline fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: SourceLoc, frame: *Frame) Error!void {
+fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: SourceLoc, frame: *Frame) Error!void {
     const callable = self.stack.pop();
 
     if (callable == .object) {
@@ -705,7 +705,7 @@ inline fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc:
     return error.BadOperand;
 }
 
-inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: SourceLoc) Error!void {
+fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: SourceLoc) Error!void {
     if (required_count != arguments_count) {
         var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
@@ -717,7 +717,7 @@ inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, argu
     }
 }
 
-pub inline fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Function, frame: *Frame) Error!Code.Value {
+pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Function, frame: *Frame) Error!Code.Value {
     if (self.internal_functions.get(function)) |internal_vm| {
         const internal_frame = &internal_vm.frames.items[internal_vm.frames.items.len - 1];
 
@@ -773,7 +773,7 @@ pub inline fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Obje
     }
 }
 
-inline fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Code.Value {
+fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Code.Value {
     const stack_start = self.stack.items.len - arguments_count;
 
     const return_value = native_function.call(self, self.stack.items[stack_start..]);

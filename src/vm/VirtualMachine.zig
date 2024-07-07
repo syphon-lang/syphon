@@ -426,7 +426,7 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
         internal_frame.locals.newSnapshot();
 
         for (function.parameters, 0..) |parameter, i| {
-            try internal_frame.locals.put(try Atom.new(parameter), internal_stack_start + i);
+            try internal_frame.locals.put(parameter, internal_stack_start + i);
         }
 
         try internal_vm.frames.append(.{ .function = function, .locals = internal_frame.locals, .stack_start = internal_stack_start });
@@ -444,7 +444,7 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
         frame.locals.newSnapshot();
 
         for (function.parameters, 0..) |parameter, i| {
-            try frame.locals.put(try Atom.new(parameter), stack_start + i);
+            try frame.locals.put(parameter, stack_start + i);
         }
 
         try self.frames.append(.{ .function = function, .locals = frame.locals, .stack_start = stack_start });

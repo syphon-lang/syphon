@@ -100,10 +100,10 @@ pub const Value = union(enum) {
         };
 
         pub const Function = struct {
-            parameters: []const []const u8,
+            parameters: []const Atom,
             code: Code,
 
-            pub fn init(allocator: std.mem.Allocator, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
+            pub fn init(allocator: std.mem.Allocator, parameters: []const Atom, code: Code) std.mem.Allocator.Error!Value {
                 const function: Function = .{ .parameters = parameters, .code = code };
 
                 const function_on_heap = try allocator.create(Function);

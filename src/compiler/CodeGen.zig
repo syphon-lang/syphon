@@ -329,10 +329,10 @@ fn compileMapExpr(self: *CodeGen, map: ast.Node.Expr.Map) Error!void {
 }
 
 fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Error!void {
-    var parameters = std.ArrayList([]const u8).init(self.allocator);
+    var parameters = std.ArrayList(Atom).init(self.allocator);
 
     for (ast_function.parameters) |ast_parameter| {
-        try parameters.append(ast_parameter.buffer);
+        try parameters.append(try Atom.new(ast_parameter.buffer));
     }
 
     const function: Code.Value.Object.Function = .{

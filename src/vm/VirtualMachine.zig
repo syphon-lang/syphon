@@ -49,11 +49,11 @@ pub const Frame = struct {
 };
 
 pub const MAX_FRAMES_COUNT = 128;
-pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
-
 var FRAMES_BUFFER: [MAX_FRAMES_COUNT * @sizeOf(Frame)]u8 = undefined;
-var STACK_BUFFER: [MAX_STACK_SIZE * @sizeOf(Code.Value)]u8 = undefined;
 var frame_allocator = std.heap.FixedBufferAllocator.init(&FRAMES_BUFFER);
+
+pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
+var STACK_BUFFER: [MAX_STACK_SIZE * @sizeOf(Code.Value)]u8 = undefined;
 var stack_allocator = std.heap.FixedBufferAllocator.init(&STACK_BUFFER);
 
 pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
@@ -137,6 +137,7 @@ pub fn run(self: *VirtualMachine) Error!void {
 
             .call => {
                 try self.executeCall(instruction.call, source_loc, frame);
+
                 frame = &self.frames.items[self.frames.items.len - 1];
             },
 
@@ -170,20 +171,18 @@ pub fn run(self: *VirtualMachine) Error!void {
 
 fn executeLoadAtom(self: *VirtualMachine, atom: Atom, source_loc: SourceLoc, frame: *Frame) Error!void {
     if (frame.locals.get(atom)) |stack_index| {
-        return self.stack.append(self.stack.items[stack_index]);
+        try self.stack.append(self.stack.items[stack_index]);
+    } else if (self.globals.get(atom)) |global_value| {
+        try self.stack.append(global_value);
+    } else {
+        var error_message_buf = std.ArrayList(u8).init(self.allocator);
+
+        try error_message_buf.writer().print("undefined name '{s}'", .{atom.toName()});
+
+        self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+
+        return error.UndefinedName;
     }
-
-    if (self.globals.get(atom)) |global_value| {
-        return self.stack.append(global_value);
-    }
-
-    var error_message_buf = std.ArrayList(u8).init(self.allocator);
-
-    try error_message_buf.writer().print("undefined name '{s}'", .{atom.toName()});
-
-    self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
-
-    return error.UndefinedName;
 }
 
 fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
@@ -280,15 +279,13 @@ fn executeStoreAtom(self: *VirtualMachine, atom: Atom, frame: *Frame) Error!void
 
     if (frame.locals.getFromLastSnapshot(atom)) |stack_index| {
         self.stack.items[stack_index] = value;
+    } else {
+        const stack_index = self.stack.items.len;
 
-        return;
+        try self.stack.append(value);
+
+        try frame.locals.put(atom, stack_index);
     }
-
-    const stack_index = self.stack.items.len;
-
-    try self.stack.append(value);
-
-    try frame.locals.put(atom, stack_index);
 }
 
 fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
@@ -360,8 +357,8 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
     try inner.ensureTotalCapacity(length);
 
     for (0..length) |_| {
-        const key = self.stack.pop();
         const value = self.stack.pop();
+        const key = self.stack.pop();
 
         inner.putAssumeCapacity(key, value);
     }
@@ -614,7 +611,7 @@ fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
         return error.DivisionByZero;
     }
 
-    return self.stack.append(.{ .float = lhs.float / rhs.float });
+    try self.stack.append(.{ .float = lhs.float / rhs.float });
 }
 
 fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
@@ -665,7 +662,7 @@ fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
         return error.BadOperand;
     }
 
-    return self.stack.append(.{ .float = std.math.pow(f64, lhs.float, rhs.float) });
+    try self.stack.append(.{ .float = std.math.pow(f64, lhs.float, rhs.float) });
 }
 
 fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
@@ -709,14 +706,14 @@ fn executeNotEquals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
-    return self.stack.append(.{ .boolean = !lhs.eql(rhs, false) });
+    try self.stack.append(.{ .boolean = !lhs.eql(rhs, false) });
 }
 
 fn executeEquals(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
-    return self.stack.append(.{ .boolean = lhs.eql(rhs, false) });
+    try self.stack.append(.{ .boolean = lhs.eql(rhs, false) });
 }
 
 fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {

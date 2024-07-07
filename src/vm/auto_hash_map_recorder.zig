@@ -25,6 +25,19 @@ pub fn AutoHashMapRecorder(comptime K: type, comptime V: type) type {
             _ = self.snapshots.pop();
         }
 
+        pub fn ensureUnusedCapacity(self: *Self, additional_count: Inner.Size) std.mem.Allocator.Error!void {
+            std.debug.assert(self.snapshots.items.len > 0);
+            try self.snapshots.items[self.snapshots.items.len - 1].ensureUnusedCapacity(additional_count);
+        }
+
+        pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
+            if (self.snapshots.items.len == 0) {
+                self.newSnapshot();
+            }
+
+            try self.snapshots.items[self.snapshots.items.len - 1].put(key, value);
+        }
+
         pub fn get(self: Self, key: K) ?V {
             var i = self.snapshots.items.len;
 
@@ -43,14 +56,6 @@ pub fn AutoHashMapRecorder(comptime K: type, comptime V: type) type {
             }
 
             return self.snapshots.getLast().get(key);
-        }
-
-        pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
-            if (self.snapshots.items.len == 0) {
-                self.newSnapshot();
-            }
-
-            try self.snapshots.items[self.snapshots.items.len - 1].put(key, value);
         }
     };
 }

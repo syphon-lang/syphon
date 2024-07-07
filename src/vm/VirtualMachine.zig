@@ -425,6 +425,8 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
 
         internal_frame.locals.newSnapshot();
 
+        try internal_frame.locals.ensureUnusedCapacity(@intCast(function.parameters.len));
+
         for (function.parameters, 0..) |parameter, i| {
             try internal_frame.locals.put(parameter, internal_stack_start + i);
         }
@@ -442,6 +444,8 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
         try self.stack.append(return_value);
     } else {
         frame.locals.newSnapshot();
+
+        try frame.locals.ensureUnusedCapacity(@intCast(function.parameters.len));
 
         for (function.parameters, 0..) |parameter, i| {
             try frame.locals.put(parameter, stack_start + i);

@@ -11,12 +11,8 @@ pub fn init(allocator: std.mem.Allocator) void {
 }
 
 pub fn new(name: []const u8) std.mem.Allocator.Error!Atom {
-    var atom_iterator = atoms.iterator();
-
-    while (atom_iterator.next()) |entry| {
-        if (std.mem.eql(u8, name, entry.key_ptr.*)) {
-            return entry.value_ptr.*;
-        }
+    if (atoms.get(name)) |atom| {
+        return atom;
     }
 
     const atom: Atom = .{ .value = atoms.count() };

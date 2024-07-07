@@ -179,7 +179,7 @@ fn executeLoadAtom(self: *VirtualMachine, atom: Atom, source_loc: SourceLoc, fra
 
     var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
-    try error_message_buf.writer().print("undefined name '{s}'", .{atom.to_name()});
+    try error_message_buf.writer().print("undefined name '{s}'", .{atom.toName()});
 
     self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
 

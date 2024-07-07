@@ -26,7 +26,7 @@ pub fn new(name: []const u8) std.mem.Allocator.Error!Atom {
     return atom;
 }
 
-pub fn to_name(self: Atom) []const u8 {
+pub fn toName(self: Atom) []const u8 {
     var atom_iterator = atoms.iterator();
 
     while (atom_iterator.next()) |entry| {

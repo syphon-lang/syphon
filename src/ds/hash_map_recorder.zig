@@ -1,16 +1,14 @@
 const std = @import("std");
 
-pub fn StringHashMapRecorder(comptime V: type) type {
+pub fn AutoHashMapRecorder(comptime K: type, comptime V: type) type {
     return struct {
+        const Self = @This();
+
+        const Inner = std.AutoHashMap(K, V);
+
         allocator: std.mem.Allocator,
 
         snapshots: std.ArrayList(Inner),
-
-        const Self = StringHashMapRecorder(V);
-
-        const Inner = std.StringHashMap(V);
-
-        const K = []const u8;
 
         pub fn initSnapshotsCapacity(allocator: std.mem.Allocator, snapshots_capacity: usize) std.mem.Allocator.Error!Self {
             return Self{
@@ -19,12 +17,25 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             };
         }
 
-        pub inline fn newSnapshot(self: *Self) void {
+        pub fn newSnapshot(self: *Self) void {
             self.snapshots.appendAssumeCapacity(Inner.init(self.allocator));
         }
 
-        pub inline fn destroySnapshot(self: *Self) void {
+        pub fn destroySnapshot(self: *Self) void {
             _ = self.snapshots.pop();
+        }
+
+        pub fn ensureUnusedCapacity(self: *Self, additional_count: Inner.Size) std.mem.Allocator.Error!void {
+            std.debug.assert(self.snapshots.items.len > 0);
+            try self.snapshots.items[self.snapshots.items.len - 1].ensureUnusedCapacity(additional_count);
+        }
+
+        pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
+            if (self.snapshots.items.len == 0) {
+                self.newSnapshot();
+            }
+
+            try self.snapshots.items[self.snapshots.items.len - 1].put(key, value);
         }
 
         pub fn get(self: Self, key: K) ?V {
@@ -45,14 +56,6 @@ pub fn StringHashMapRecorder(comptime V: type) type {
             }
 
             return self.snapshots.getLast().get(key);
-        }
-
-        pub fn put(self: *Self, key: K, value: V) std.mem.Allocator.Error!void {
-            if (self.snapshots.items.len == 0) {
-                self.newSnapshot();
-            }
-
-            try self.snapshots.items[self.snapshots.items.len - 1].put(key, value);
         }
     };
 }

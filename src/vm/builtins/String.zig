@@ -2,11 +2,12 @@ const std = @import("std");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("string_split", Code.Value.Object.NativeFunction.init(2, &stringSplit));
-    try vm.globals.put("ord", Code.Value.Object.NativeFunction.init(1, &ord));
-    try vm.globals.put("chr", Code.Value.Object.NativeFunction.init(1, &chr));
+    try vm.globals.put(try Atom.new("string_split"), Code.Value.Object.NativeFunction.init(2, &stringSplit));
+    try vm.globals.put(try Atom.new("ord"), Code.Value.Object.NativeFunction.init(1, &ord));
+    try vm.globals.put(try Atom.new("chr"), Code.Value.Object.NativeFunction.init(1, &chr));
 }
 
 fn stringSplit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

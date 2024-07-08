@@ -2,6 +2,7 @@ const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
 const VirtualMachine = @import("VirtualMachine.zig");
+const Atom = @import("Atom.zig");
 
 const Code = @This();
 
@@ -99,10 +100,10 @@ pub const Value = union(enum) {
         };
 
         pub const Function = struct {
-            parameters: []const []const u8,
+            parameters: []const Atom,
             code: Code,
 
-            pub fn init(allocator: std.mem.Allocator, parameters: []const []const u8, code: Code) std.mem.Allocator.Error!Value {
+            pub fn init(allocator: std.mem.Allocator, parameters: []const Atom, code: Code) std.mem.Allocator.Error!Value {
                 const function: Function = .{ .parameters = parameters, .code = code };
 
                 const function_on_heap = try allocator.create(Function);
@@ -150,13 +151,7 @@ pub const Value = union(enum) {
                 .boolean => @intFromBool(key.boolean),
 
                 .object => switch (key.object) {
-                    .string => blk: {
-                        var hasher = std.hash.Wyhash.init(0);
-
-                        hasher.update(key.object.string.content);
-
-                        break :blk hasher.final();
-                    },
+                    .string => std.hash.Wyhash.hash(0, key.object.string.content),
 
                     else => unreachable,
                 },
@@ -250,12 +245,17 @@ pub const Value = union(enum) {
 };
 
 pub const Instruction = union(enum) {
-    load: Load,
-    store: Store,
-    jump: Jump,
-    jump_if_false: JumpIfFalse,
-    back: Back,
-    make: Make,
+    jump: usize,
+    back: usize,
+    jump_if_false: usize,
+    load_constant: usize,
+    load_atom: Atom,
+    load_subscript: void,
+    store_atom: Atom,
+    store_subscript: void,
+    make_array: usize,
+    make_map: u32,
+    call: usize,
     neg: void,
     not: void,
     add: void,
@@ -268,49 +268,9 @@ pub const Instruction = union(enum) {
     equals: void,
     less_than: void,
     greater_than: void,
-    call: Call,
+    duplicate: void,
     pop: void,
     @"return": void,
-
-    pub const Load = union(enum) {
-        constant: usize,
-        name: []const u8,
-        subscript: void,
-    };
-
-    pub const Store = union(enum) {
-        name: []const u8,
-        subscript: void,
-    };
-
-    pub const Jump = struct {
-        offset: usize,
-    };
-
-    pub const JumpIfFalse = struct {
-        offset: usize,
-    };
-
-    pub const Back = struct {
-        offset: usize,
-    };
-
-    pub const Make = union(enum) {
-        array: Array,
-        map: Map,
-
-        pub const Array = struct {
-            length: usize,
-        };
-
-        pub const Map = struct {
-            length: usize,
-        };
-    };
-
-    pub const Call = struct {
-        arguments_count: usize,
-    };
 };
 
 pub fn addConstant(self: *Code, value: Value) std.mem.Allocator.Error!usize {

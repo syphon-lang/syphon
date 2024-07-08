@@ -2,9 +2,10 @@ const std = @import("std");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("hash", Code.Value.Object.NativeFunction.init(1, &hash));
+    try vm.globals.put(try Atom.new("hash"), Code.Value.Object.NativeFunction.init(1, &hash));
 }
 
 fn hash(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

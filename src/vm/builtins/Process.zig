@@ -2,9 +2,10 @@ const std = @import("std");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("exit", Code.Value.Object.NativeFunction.init(1, &exit));
+    try vm.globals.put(try Atom.new("exit"), Code.Value.Object.NativeFunction.init(1, &exit));
 }
 
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {

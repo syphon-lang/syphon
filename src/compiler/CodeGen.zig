@@ -1,15 +1,19 @@
 const std = @import("std");
 
-const Code = @import("../vm/Code.zig");
-const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
+const AutoHashMapRecorder = @import("../ds/hash_map_recorder.zig").AutoHashMapRecorder;
+const Code = @import("../vm/Code.zig");
+const VirtualMachine = @import("../vm/VirtualMachine.zig");
+const Atom = @import("../vm/Atom.zig");
 
 const CodeGen = @This();
 
 allocator: std.mem.Allocator,
 
 code: Code,
+
+locals: AutoHashMapRecorder(Atom, void),
 
 context: Context,
 
@@ -33,6 +37,7 @@ pub const Context = struct {
     compiling_loop: bool = false,
     break_points: std.ArrayList(usize),
     continue_points: std.ArrayList(usize),
+    unused_expression: bool = false,
 
     pub const Mode = enum {
         script,
@@ -40,7 +45,7 @@ pub const Context = struct {
     };
 };
 
-pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) CodeGen {
+pub fn init(allocator: std.mem.Allocator, mode: Context.Mode, maybe_locals: ?AutoHashMapRecorder(Atom, void)) std.mem.Allocator.Error!CodeGen {
     return CodeGen{
         .allocator = allocator,
         .code = .{
@@ -48,6 +53,7 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) CodeGen {
             .instructions = std.ArrayList(Code.Instruction).init(allocator),
             .source_locations = std.ArrayList(SourceLoc).init(allocator),
         },
+        .locals = if (maybe_locals) |locals| locals else try AutoHashMapRecorder(Atom, void).initSnapshotsCapacity(allocator, 128),
         .context = .{
             .mode = mode,
             .break_points = std.ArrayList(usize).init(allocator),
@@ -64,7 +70,7 @@ pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
 
 fn endCode(self: *CodeGen) Error!void {
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .none = {} }) });
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .@"return" = {} });
@@ -80,10 +86,9 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
     switch (node) {
         .stmt => try self.compileStmt(node.stmt),
         .expr => {
+            self.context.unused_expression = true;
             try self.compileExpr(node.expr);
-
-            try self.code.source_locations.append(.{});
-            try self.code.instructions.append(.{ .pop = {} });
+            self.context.unused_expression = false;
         },
     }
 }
@@ -120,13 +125,13 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
 
         const jump_if_false_point = self.code.instructions.items.len;
         try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .jump_if_false = .{ .offset = 0 } });
+        try self.code.instructions.append(.{ .jump_if_false = 0 });
 
         try self.compileNodes(conditional.possiblities[i]);
 
         const jump_point = self.code.instructions.items.len;
         try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .jump = .{ .offset = 0 } });
+        try self.code.instructions.append(.{ .jump = 0 });
 
         try backtrack_points.append(.{ .condition_point = condition_point, .jump_if_false_point = jump_if_false_point, .jump_point = jump_point });
     }
@@ -153,9 +158,9 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
             }
         };
 
-        self.code.instructions.items[current_backtrack_point.jump_if_false_point] = .{ .jump_if_false = .{ .offset = next_backtrack_point.condition_point - current_backtrack_point.jump_if_false_point - 1 } };
+        self.code.instructions.items[current_backtrack_point.jump_if_false_point] = .{ .jump_if_false = next_backtrack_point.condition_point - current_backtrack_point.jump_if_false_point - 1 };
 
-        self.code.instructions.items[current_backtrack_point.jump_point] = .{ .jump = .{ .offset = after_fallback_point - current_backtrack_point.jump_point - 1 } };
+        self.code.instructions.items[current_backtrack_point.jump_point] = .{ .jump = after_fallback_point - current_backtrack_point.jump_point - 1 };
     }
 }
 
@@ -165,7 +170,7 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     const jump_if_false_point = self.code.instructions.items.len;
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .jump_if_false = .{ .offset = 0 } });
+    try self.code.instructions.append(.{ .jump_if_false = 0 });
 
     const was_compiling_loop = self.context.compiling_loop;
     self.context.compiling_loop = true;
@@ -178,17 +183,17 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     self.context.compiling_loop = was_compiling_loop;
 
-    self.code.instructions.items[jump_if_false_point] = .{ .jump_if_false = .{ .offset = self.code.instructions.items.len - jump_if_false_point } };
+    self.code.instructions.items[jump_if_false_point] = .{ .jump_if_false = self.code.instructions.items.len - jump_if_false_point };
 
     for (self.context.break_points.items[previous_break_points_len..]) |break_point| {
-        self.code.instructions.items[break_point] = .{ .jump = .{ .offset = self.code.instructions.items.len - break_point } };
+        self.code.instructions.items[break_point] = .{ .jump = self.code.instructions.items.len - break_point };
     }
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .back = .{ .offset = self.code.instructions.items.len - condition_point + 1 } });
+    try self.code.instructions.append(.{ .back = self.code.instructions.items.len - condition_point + 1 });
 
     for (self.context.continue_points.items[previous_continue_points_len..]) |continue_point| {
-        self.code.instructions.items[continue_point] = .{ .back = .{ .offset = continue_point - condition_point + 1 } };
+        self.code.instructions.items[continue_point] = .{ .back = continue_point - condition_point + 1 };
     }
 
     self.context.break_points.shrinkRetainingCapacity(previous_break_points_len);
@@ -205,7 +210,7 @@ fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {
 
     try self.context.break_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"break".source_loc);
-    try self.code.instructions.append(.{ .jump = .{ .offset = 0 } });
+    try self.code.instructions.append(.{ .jump = 0 });
 }
 
 fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Error!void {
@@ -217,7 +222,7 @@ fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Erro
 
     try self.context.continue_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"continue".source_loc);
-    try self.code.instructions.append(.{ .back = .{ .offset = 0 } });
+    try self.code.instructions.append(.{ .back = 0 });
 }
 
 fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void {
@@ -235,64 +240,77 @@ fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void
 
 fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
     switch (expr) {
-        .none => try self.compileNoneExpr(expr.none),
-
         .identifier => try self.compileIdentifierExpr(expr.identifier),
 
-        .string => try self.compileStringExpr(expr.string),
-
-        .int => try self.compileIntExpr(expr.int),
-
-        .float => try self.compileFloatExpr(expr.float),
-
-        .boolean => try self.compileBooleanExpr(expr.boolean),
-
-        .array => try self.compileArrayExpr(expr.array),
-
-        .map => try self.compileMapExpr(expr.map),
-
-        .function => try self.compileFunctionExpr(expr.function),
-
         .subscript => try self.compileSubscriptExpr(expr.subscript),
-
-        .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
-
-        .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
 
         .assignment => try self.compileAssignmentExpr(expr.assignment),
 
         .call => try self.compileCallExpr(expr.call),
+
+        else => {},
     }
+
+    if (!self.context.unused_expression) {
+        switch (expr) {
+            .none => try self.compileNoneExpr(expr.none),
+
+            .string => try self.compileStringExpr(expr.string),
+
+            .int => try self.compileIntExpr(expr.int),
+
+            .float => try self.compileFloatExpr(expr.float),
+
+            .boolean => try self.compileBooleanExpr(expr.boolean),
+
+            .array => try self.compileArrayExpr(expr.array),
+
+            .map => try self.compileMapExpr(expr.map),
+
+            .function => try self.compileFunctionExpr(expr.function),
+
+            .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
+
+            .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
+
+            else => {},
+        }
+    } else {}
 }
 
 fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
     try self.code.source_locations.append(none.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .none = {} }) } });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .none = {} }) });
 }
 
 fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) Error!void {
     try self.code.source_locations.append(identifier.name.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .name = identifier.name.buffer } });
+    try self.code.instructions.append(.{ .load_atom = try Atom.new(identifier.name.buffer) });
+
+    if (self.context.unused_expression) {
+        try self.code.source_locations.append(identifier.name.source_loc);
+        try self.code.instructions.append(.{ .pop = {} });
+    }
 }
 
 fn compileStringExpr(self: *CodeGen, string: ast.Node.Expr.String) Error!void {
     try self.code.source_locations.append(string.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .string = .{ .content = string.content } } }) } });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .object = .{ .string = .{ .content = string.content } } }) });
 }
 
 fn compileIntExpr(self: *CodeGen, int: ast.Node.Expr.Int) Error!void {
     try self.code.source_locations.append(int.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .int = int.value }) } });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = int.value }) });
 }
 
 fn compileFloatExpr(self: *CodeGen, float: ast.Node.Expr.Float) Error!void {
     try self.code.source_locations.append(float.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .float = float.value }) } });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = float.value }) });
 }
 
 fn compileBooleanExpr(self: *CodeGen, boolean: ast.Node.Expr.Boolean) Error!void {
     try self.code.source_locations.append(boolean.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .boolean = boolean.value }) } });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = boolean.value }) });
 }
 
 fn compileArrayExpr(self: *CodeGen, array: ast.Node.Expr.Array) Error!void {
@@ -301,34 +319,44 @@ fn compileArrayExpr(self: *CodeGen, array: ast.Node.Expr.Array) Error!void {
     }
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .make = .{ .array = .{ .length = array.values.len } } });
+    try self.code.instructions.append(.{ .make_array = array.values.len });
 }
 
 fn compileMapExpr(self: *CodeGen, map: ast.Node.Expr.Map) Error!void {
     for (0..map.keys.len) |i| {
-        try self.compileExpr(map.values[i]);
         try self.compileExpr(map.keys[i]);
+        try self.compileExpr(map.values[i]);
     }
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .make = .{ .map = .{ .length = map.keys.len } } });
+    try self.code.instructions.append(.{ .make_map = @intCast(map.keys.len) });
 }
 
 fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Error!void {
-    var parameters = std.ArrayList([]const u8).init(self.allocator);
+    var parameters = std.ArrayList(Atom).init(self.allocator);
 
     for (ast_function.parameters) |ast_parameter| {
-        try parameters.append(ast_parameter.buffer);
+        try parameters.append(try Atom.new(ast_parameter.buffer));
     }
 
     const function: Code.Value.Object.Function = .{
         .parameters = try parameters.toOwnedSlice(),
         .code = blk: {
-            var gen = init(self.allocator, .function);
+            self.locals.newSnapshot();
+
+            try self.locals.ensureUnusedCapacity(@intCast(parameters.items.len));
+
+            for (parameters.items) |parameter| {
+                try self.locals.put(parameter, {});
+            }
+
+            var gen = try init(self.allocator, .function, self.locals);
 
             try gen.compileNodes(ast_function.body);
 
             try gen.endCode();
+
+            self.locals.destroySnapshot();
 
             break :blk gen.code;
         },
@@ -338,7 +366,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     function_on_heap.* = function;
 
     try self.code.source_locations.append(ast_function.source_loc);
-    try self.code.instructions.append(.{ .load = .{ .constant = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } }) } });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } }) });
 }
 
 fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Error!void {
@@ -346,87 +374,329 @@ fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Erro
     try self.compileExpr(subscript.index.*);
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .load = .{ .subscript = {} } });
-}
+    try self.code.instructions.append(.{ .load_subscript = {} });
 
-fn compileUnaryOperationExpr(self: *CodeGen, unary_operation: ast.Node.Expr.UnaryOperation) Error!void {
-    try self.compileExpr(unary_operation.rhs.*);
-
-    switch (unary_operation.operator) {
-        .minus => {
-            try self.code.source_locations.append(unary_operation.source_loc);
-            try self.code.instructions.append(.{ .neg = {} });
-        },
-
-        .bang => {
-            try self.code.source_locations.append(unary_operation.source_loc);
-            try self.code.instructions.append(.{ .not = {} });
-        },
+    if (self.context.unused_expression) {
+        try self.code.source_locations.append(subscript.source_loc);
+        try self.code.instructions.append(.{ .pop = {} });
     }
 }
 
-fn compileBinaryOperationExpr(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!void {
-    try self.compileExpr(binary_operation.lhs.*);
-    try self.compileExpr(binary_operation.rhs.*);
+fn knownAtCompileTime(expr: ast.Node.Expr) bool {
+    return switch (expr) {
+        .identifier => false,
+        .subscript => false,
+        .assignment => false,
+        .call => false,
 
+        .binary_operation => knownAtCompileTime(expr.binary_operation.lhs.*) and knownAtCompileTime(expr.binary_operation.rhs.*),
+        .unary_operation => knownAtCompileTime(expr.unary_operation.rhs.*),
+
+        else => true,
+    };
+}
+
+fn optimizeUnaryOperation(self: *CodeGen, unary_operation: ast.Node.Expr.UnaryOperation) Error!bool {
+    if (!knownAtCompileTime(unary_operation.rhs.*)) return false;
+
+    switch (unary_operation.operator) {
+        .minus => return self.optimizeNeg(unary_operation),
+        .bang => return self.optimizeNot(unary_operation),
+    }
+}
+
+fn optimizeNeg(self: *CodeGen, unary_operation: ast.Node.Expr.UnaryOperation) Error!bool {
+    // TODO: Optimize for other cases
+    switch (unary_operation.rhs.*) {
+        .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -unary_operation.rhs.int.value }) }),
+
+        .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = -unary_operation.rhs.float.value }) }),
+
+        .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -@as(i64, @intCast(@intFromBool(unary_operation.rhs.boolean.value))) }) }),
+
+        else => return false,
+    }
+
+    try self.code.source_locations.append(unary_operation.source_loc);
+
+    return true;
+}
+
+fn optimizeNot(self: *CodeGen, unary_operation: ast.Node.Expr.UnaryOperation) Error!bool {
+    // TODO: Optimize for other cases
+    switch (unary_operation.rhs.*) {
+        .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = unary_operation.rhs.int.value == 0 }) }),
+
+        .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = unary_operation.rhs.float.value == 0 }) }),
+
+        .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = !unary_operation.rhs.boolean.value }) }),
+
+        else => return false,
+    }
+
+    try self.code.source_locations.append(unary_operation.source_loc);
+
+    return true;
+}
+
+fn compileUnaryOperationExpr(self: *CodeGen, unary_operation: ast.Node.Expr.UnaryOperation) Error!void {
+    const optimized = try self.optimizeUnaryOperation(unary_operation);
+
+    if (!optimized) {
+        try self.compileExpr(unary_operation.rhs.*);
+
+        switch (unary_operation.operator) {
+            .minus => {
+                try self.code.source_locations.append(unary_operation.source_loc);
+                try self.code.instructions.append(.{ .neg = {} });
+            },
+
+            .bang => {
+                try self.code.source_locations.append(unary_operation.source_loc);
+                try self.code.instructions.append(.{ .not = {} });
+            },
+        }
+    }
+}
+
+fn optimizeBinaryOperation(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!bool {
+    if (!knownAtCompileTime(binary_operation.lhs.*) or !knownAtCompileTime(binary_operation.rhs.*)) return false;
+
+    // TODO: Optimize for other cases
     switch (binary_operation.operator) {
-        .plus => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .add = {} });
+        .plus => return self.optimizeAdd(binary_operation),
+        .minus => return self.optimizeSubtract(binary_operation),
+        .forward_slash => return self.optimizeDivide(binary_operation),
+        .star => return self.optimizeMultiply(binary_operation),
+        .double_star => return self.optimizeExponent(binary_operation),
+
+        else => return false,
+    }
+}
+
+fn optimizeAdd(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!bool {
+    // TODO: Optimize for other cases
+    switch (binary_operation.lhs.*) {
+        .int => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value + binary_operation.rhs.int.value }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) + binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value + @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+
+            else => return false,
         },
 
-        .minus => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .subtract = {} });
+        .float => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(binary_operation.rhs.int.value)) }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) + binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.rhs.boolean.value)))) }) }),
+
+            else => return false,
         },
 
-        .forward_slash => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .divide = {} });
+        .boolean => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) + binary_operation.rhs.int.value }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.lhs.boolean.value)))) + binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) + @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+
+            else => return false,
         },
 
-        .star => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .multiply = {} });
+        else => return false,
+    }
+
+    try self.code.source_locations.append(binary_operation.source_loc);
+
+    return true;
+}
+
+fn optimizeSubtract(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!bool {
+    // TODO: Optimize for other cases
+    switch (binary_operation.lhs.*) {
+        .int => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value - binary_operation.rhs.int.value }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) - binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value - @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+
+            else => return false,
         },
 
-        .double_star => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .exponent = {} });
+        .float => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value - @as(f64, @floatFromInt(binary_operation.rhs.int.value)) }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) - binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value - @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.rhs.boolean.value)))) }) }),
+
+            else => return false,
         },
 
-        .percent => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .modulo = {} });
+        .boolean => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) - binary_operation.rhs.int.value }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.lhs.boolean.value)))) - binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) - @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+
+            else => return false,
         },
 
-        .bang_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .not_equals = {} });
+        else => return false,
+    }
+
+    try self.code.source_locations.append(binary_operation.source_loc);
+
+    return true;
+}
+
+fn castExprToFloat(expr: ast.Node.Expr) error{CastingFailed}!f64 {
+    return switch (expr) {
+        .int => @floatFromInt(expr.int.value),
+
+        .float => expr.float.value,
+
+        .boolean => @floatFromInt(@intFromBool(expr.boolean.value)),
+
+        else => error.CastingFailed,
+    };
+}
+
+fn optimizeDivide(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!bool {
+    // TODO: Optimize for other cases
+    const lhs_casted = castExprToFloat(binary_operation.lhs.*) catch return false;
+    const rhs_casted = castExprToFloat(binary_operation.rhs.*) catch return false;
+
+    try self.code.source_locations.append(binary_operation.source_loc);
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs_casted / rhs_casted }) });
+
+    return true;
+}
+
+fn optimizeMultiply(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!bool {
+    // TODO: Optimize for other cases
+    switch (binary_operation.lhs.*) {
+        .int => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value * binary_operation.rhs.int.value }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) * binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value * @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+
+            else => return false,
         },
 
-        .double_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .equals = {} });
+        .float => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value * @as(f64, @floatFromInt(binary_operation.rhs.int.value)) }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) * binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value * @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.rhs.boolean.value)))) }) }),
+
+            else => return false,
         },
 
-        .less_than => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .less_than = {} });
+        .boolean => switch (binary_operation.rhs.*) {
+            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) * binary_operation.rhs.int.value }) }),
+
+            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.lhs.boolean.value)))) * binary_operation.rhs.float.value }) }),
+
+            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) * @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+
+            else => return false,
         },
 
-        .greater_than => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.{ .greater_than = {} });
-        },
+        else => return false,
+    }
+
+    try self.code.source_locations.append(binary_operation.source_loc);
+
+    return true;
+}
+
+fn optimizeExponent(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!bool {
+    // TODO: Optimize for other cases
+    const lhs_casted = castExprToFloat(binary_operation.lhs.*) catch return false;
+    const rhs_casted = castExprToFloat(binary_operation.rhs.*) catch return false;
+
+    try self.code.source_locations.append(binary_operation.source_loc);
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = std.math.pow(f64, lhs_casted, rhs_casted) }) });
+
+    return true;
+}
+
+fn compileBinaryOperationExpr(self: *CodeGen, binary_operation: ast.Node.Expr.BinaryOperation) Error!void {
+    const optimized = try self.optimizeBinaryOperation(binary_operation);
+
+    if (!optimized) {
+        try self.compileExpr(binary_operation.lhs.*);
+        try self.compileExpr(binary_operation.rhs.*);
+
+        switch (binary_operation.operator) {
+            .plus => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .add = {} });
+            },
+
+            .minus => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .subtract = {} });
+            },
+
+            .forward_slash => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .divide = {} });
+            },
+
+            .star => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .multiply = {} });
+            },
+
+            .double_star => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .exponent = {} });
+            },
+
+            .percent => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .modulo = {} });
+            },
+
+            .bang_equal_sign => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .not_equals = {} });
+            },
+
+            .double_equal_sign => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .equals = {} });
+            },
+
+            .less_than => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .less_than = {} });
+            },
+
+            .greater_than => {
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.{ .greater_than = {} });
+            },
+        }
     }
 }
 
 fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
-    if (assignment.target.* == .subscript) {
-        try self.compileExpr(assignment.target.subscript.target.*);
-        try self.compileExpr(assignment.target.subscript.index.*);
+    const was_unused_expression = self.context.unused_expression;
+    self.context.unused_expression = false;
 
+    if (assignment.target.* == .subscript) {
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
         }
@@ -435,8 +705,24 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         try handleAssignmentOperator(self, assignment);
 
+        if (!was_unused_expression) {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .duplicate = {} });
+        }
+
+        try self.compileExpr(assignment.target.subscript.index.*);
+        try self.compileExpr(assignment.target.subscript.target.*);
+
+        self.context.unused_expression = was_unused_expression;
+
         try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.{ .store = .{ .subscript = {} } });
+        try self.code.instructions.append(.{ .store_subscript = {} });
+
+        self.context.unused_expression = was_unused_expression;
+
+        if (!self.context.unused_expression) {
+            try self.compileExpr(assignment.value.*);
+        }
     } else if (assignment.target.* == .identifier) {
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
@@ -446,18 +732,39 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         try handleAssignmentOperator(self, assignment);
 
-        try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.{ .store = .{ .name = assignment.target.identifier.name.buffer } });
+        const atom = try Atom.new(assignment.target.identifier.name.buffer);
+
+        if (self.locals.get(atom) != null) {
+            self.context.unused_expression = was_unused_expression;
+
+            if (!self.context.unused_expression) {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .duplicate = {} });
+            }
+
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .store_atom = atom });
+        } else {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .store_atom = atom });
+
+            try self.locals.put(atom, {});
+
+            self.context.unused_expression = was_unused_expression;
+
+            if (!self.context.unused_expression) {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .duplicate = {} });
+            }
+        }
     } else {
         self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = assignment.source_loc };
 
         return error.BadOperand;
     }
-
-    try self.compileExpr(assignment.target.*);
 }
 
-inline fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
+fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
     switch (assignment.operator) {
         .none => {},
 
@@ -494,6 +801,9 @@ inline fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Ass
 }
 
 fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
+    const was_unused_expression = self.context.unused_expression;
+    self.context.unused_expression = false;
+
     for (call.arguments) |argument| {
         try self.compileExpr(argument);
     }
@@ -501,5 +811,12 @@ fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
     try self.compileExpr(call.callable.*);
 
     try self.code.source_locations.append(call.source_loc);
-    try self.code.instructions.append(.{ .call = .{ .arguments_count = call.arguments.len } });
+    try self.code.instructions.append(.{ .call = call.arguments.len });
+
+    self.context.unused_expression = was_unused_expression;
+
+    if (self.context.unused_expression) {
+        try self.code.source_locations.append(call.source_loc);
+        try self.code.instructions.append(.{ .pop = {} });
+    }
 }

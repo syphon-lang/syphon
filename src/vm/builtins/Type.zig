@@ -2,12 +2,13 @@ const std = @import("std");
 
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
+const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put("typeof", Code.Value.Object.NativeFunction.init(1, &typeof));
-    try vm.globals.put("to_int", Code.Value.Object.NativeFunction.init(1, &toInt));
-    try vm.globals.put("to_float", Code.Value.Object.NativeFunction.init(1, &toFloat));
-    try vm.globals.put("to_string", Code.Value.Object.NativeFunction.init(1, &toString));
+    try vm.globals.put(try Atom.new("typeof"), Code.Value.Object.NativeFunction.init(1, &typeof));
+    try vm.globals.put(try Atom.new("to_int"), Code.Value.Object.NativeFunction.init(1, &toInt));
+    try vm.globals.put(try Atom.new("to_float"), Code.Value.Object.NativeFunction.init(1, &toFloat));
+    try vm.globals.put(try Atom.new("to_string"), Code.Value.Object.NativeFunction.init(1, &toString));
 }
 
 fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

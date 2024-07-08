@@ -57,7 +57,11 @@ fn callThreadFunction(vm: *VirtualMachine, function: *Code.Value.Object.Function
         else => return,
     };
 
-    _ = vm.callUserFunction(function, frame) catch |err| switch (err) {
+    vm.callUserFunction(function, frame) catch |err| switch (err) {
+        else => return,
+    };
+
+    vm.run() catch |err| switch (err) {
         else => return,
     };
 }

@@ -3,6 +3,7 @@ const std = @import("std");
 const Parser = @import("compiler/ast.zig").Parser;
 const CodeGen = @import("compiler/CodeGen.zig");
 const VirtualMachine = @import("vm/VirtualMachine.zig");
+const Atom = @import("vm/Atom.zig");
 
 const Driver = @This();
 
@@ -175,7 +176,13 @@ fn runRunCommand(self: *Driver) u8 {
         },
     };
 
-    var gen = CodeGen.init(self.allocator, .script);
+    Atom.init(self.allocator);
+
+    var gen = CodeGen.init(self.allocator, .script, null) catch |err| {
+        std.debug.print("{s}\n", .{errorDescription(err)});
+
+        return 1;
+    };
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => {
@@ -197,7 +204,7 @@ fn runRunCommand(self: *Driver) u8 {
         return 1;
     };
 
-    _ = vm.run() catch |err| switch (err) {
+    vm.run() catch |err| switch (err) {
         error.DivisionByZero => {
             const last_frame = vm.frames.getLast();
 

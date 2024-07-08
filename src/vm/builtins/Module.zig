@@ -87,7 +87,9 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    var gen = CodeGen.init(vm.allocator, .script);
+    var gen = CodeGen.init(vm.allocator, .script, null) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
@@ -133,7 +135,9 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    var gen = CodeGen.init(vm.allocator, .script);
+    var gen = CodeGen.init(vm.allocator, .script, null) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },

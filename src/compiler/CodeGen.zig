@@ -2,6 +2,7 @@ const std = @import("std");
 
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
+const AutoHashMapRecorder = @import("../ds/hash_map_recorder.zig").AutoHashMapRecorder;
 const Code = @import("../vm/Code.zig");
 const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const Atom = @import("../vm/Atom.zig");
@@ -11,6 +12,8 @@ const CodeGen = @This();
 allocator: std.mem.Allocator,
 
 code: Code,
+
+locals: AutoHashMapRecorder(Atom, void),
 
 context: Context,
 
@@ -42,7 +45,7 @@ pub const Context = struct {
     };
 };
 
-pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) CodeGen {
+pub fn init(allocator: std.mem.Allocator, mode: Context.Mode, maybe_locals: ?AutoHashMapRecorder(Atom, void)) std.mem.Allocator.Error!CodeGen {
     return CodeGen{
         .allocator = allocator,
         .code = .{
@@ -50,6 +53,7 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) CodeGen {
             .instructions = std.ArrayList(Code.Instruction).init(allocator),
             .source_locations = std.ArrayList(SourceLoc).init(allocator),
         },
+        .locals = if (maybe_locals) |locals| locals else try AutoHashMapRecorder(Atom, void).initSnapshotsCapacity(allocator, 128),
         .context = .{
             .mode = mode,
             .break_points = std.ArrayList(usize).init(allocator),
@@ -338,11 +342,21 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     const function: Code.Value.Object.Function = .{
         .parameters = try parameters.toOwnedSlice(),
         .code = blk: {
-            var gen = init(self.allocator, .function);
+            self.locals.newSnapshot();
+
+            try self.locals.ensureUnusedCapacity(@intCast(parameters.items.len));
+
+            for (parameters.items) |parameter| {
+                try self.locals.put(parameter, {});
+            }
+
+            var gen = try init(self.allocator, .function, self.locals);
 
             try gen.compileNodes(ast_function.body);
 
             try gen.endCode();
+
+            self.locals.destroySnapshot();
 
             break :blk gen.code;
         },
@@ -683,9 +697,6 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
     self.context.unused_expression = false;
 
     if (assignment.target.* == .subscript) {
-        try self.compileExpr(assignment.target.subscript.target.*);
-        try self.compileExpr(assignment.target.subscript.index.*);
-
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
         }
@@ -694,8 +705,24 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         try handleAssignmentOperator(self, assignment);
 
+        if (!was_unused_expression) {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .duplicate = {} });
+        }
+
+        try self.compileExpr(assignment.target.subscript.index.*);
+        try self.compileExpr(assignment.target.subscript.target.*);
+
+        self.context.unused_expression = was_unused_expression;
+
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.{ .store_subscript = {} });
+
+        self.context.unused_expression = was_unused_expression;
+
+        if (!self.context.unused_expression) {
+            try self.compileExpr(assignment.value.*);
+        }
     } else if (assignment.target.* == .identifier) {
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
@@ -705,19 +732,35 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         try handleAssignmentOperator(self, assignment);
 
-        try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.{ .store_atom = try Atom.new(assignment.target.identifier.name.buffer) });
+        const atom = try Atom.new(assignment.target.identifier.name.buffer);
+
+        if (self.locals.get(atom) != null) {
+            self.context.unused_expression = was_unused_expression;
+
+            if (!self.context.unused_expression) {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .duplicate = {} });
+            }
+
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .store_atom = atom });
+        } else {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .store_atom = atom });
+
+            try self.locals.put(atom, {});
+
+            self.context.unused_expression = was_unused_expression;
+
+            if (!self.context.unused_expression) {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .duplicate = {} });
+            }
+        }
     } else {
         self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = assignment.source_loc };
 
         return error.BadOperand;
-    }
-
-    self.context.unused_expression = was_unused_expression;
-
-    if (!self.context.unused_expression) {
-        try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.{ .duplicate = {} });
     }
 }
 

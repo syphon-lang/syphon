@@ -178,7 +178,11 @@ fn runRunCommand(self: *Driver) u8 {
 
     Atom.init(self.allocator);
 
-    var gen = CodeGen.init(self.allocator, .script);
+    var gen = CodeGen.init(self.allocator, .script, null) catch |err| {
+        std.debug.print("{s}\n", .{errorDescription(err)});
+
+        return 1;
+    };
 
     gen.compileRoot(root) catch |err| switch (err) {
         else => {

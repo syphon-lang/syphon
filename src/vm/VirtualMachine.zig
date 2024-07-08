@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
-const AutoHashMapRecorder = @import("auto_hash_map_recorder.zig").AutoHashMapRecorder;
+const AutoHashMapRecorder = @import("../ds/hash_map_recorder.zig").AutoHashMapRecorder;
 const Code = @import("Code.zig");
 const Atom = @import("Atom.zig");
 
@@ -289,9 +289,9 @@ fn executeStoreAtom(self: *VirtualMachine, atom: Atom, frame: *Frame) Error!void
 }
 
 fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
-    const value = self.stack.pop();
-    var index = self.stack.pop();
     const target = self.stack.pop();
+    var index = self.stack.pop();
+    const value = self.stack.pop();
 
     switch (target) {
         .object => switch (target.object) {
@@ -335,7 +335,7 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!voi
         else => {},
     }
 
-    self.error_info = .{ .message = "target is array nor map", .source_loc = source_loc };
+    self.error_info = .{ .message = "target is not array nor map", .source_loc = source_loc };
 
     return error.UnexpectedValue;
 }

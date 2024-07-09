@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_options = @import("build_options");
 
 const Parser = @import("compiler/ast.zig").Parser;
 const CodeGen = @import("compiler/CodeGen.zig");
@@ -16,6 +17,7 @@ const CLI = struct {
 
     const Command = union(enum) {
         run: Run,
+        version: void,
 
         const Run = struct {
             argv: []const []const u8,
@@ -29,6 +31,7 @@ const usage =
     \\
     \\Commands:
     \\  run <file_path>     -- run certain file
+    \\  version             -- print version
     \\
     \\
 ;
@@ -98,6 +101,8 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
             };
 
             self.cli.command = .{ .run = .{ .argv = owned_argv } };
+        } else if (std.mem.eql(u8, arg, "version")) {
+            self.cli.command = .{ .version = {} };
         } else {
             std.debug.print(usage, .{program});
 
@@ -123,6 +128,7 @@ pub fn run(self: *Driver, arg_iterator: *std.process.ArgIterator) u8 {
 
     switch (self.cli.command.?) {
         .run => return self.runRunCommand(),
+        .version => return runVersionCommand(),
     }
 
     return 0;
@@ -241,6 +247,14 @@ fn runRunCommand(self: *Driver) u8 {
             return 1;
         },
     };
+
+    return 0;
+}
+
+fn runVersionCommand() u8 {
+    const stdout = std.io.getStdOut();
+
+    stdout.writer().print("Syphon {s}\n", .{build_options.version}) catch return 1;
 
     return 0;
 }

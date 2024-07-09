@@ -15,6 +15,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const exe_options = b.addOptions();
+
+    exe_options.addOption([]const u8, "version", "0.1.0");
+
+    exe.root_module.addOptions("build_options", exe_options);
+
     exe.addIncludePath(bdwgc.path("include"));
     exe.linkLibrary(bdwgc_artifact);
 
@@ -37,6 +43,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    exe_check.root_module.addOptions("build_options", exe_options);
 
     exe_check.addIncludePath(bdwgc.path("include"));
     exe_check.linkLibrary(bdwgc_artifact);

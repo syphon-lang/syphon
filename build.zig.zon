@@ -3,8 +3,8 @@
     .version = "0.0.0",
     .dependencies = .{
         .bdwgc = .{
-            .url = "git+https://github.com/ivmai/bdwgc?ref=master#8915b63d987f6034fa53d42c3a2d8a2b978f0614",
-            .hash = "12208fd4478bfb6937965941c9148f22aed41fe5f0c362a324cdd494ff5037178717",
+            .url = "git+https://github.com/ivmai/bdwgc?ref=master#09fc015b78756cd114488fabe9be3d57ba53f444",
+            .hash = "1220520d8b272f63f98a07b6522db39917eb421a5af59ef4eca06df58efbb7c7da21",
         },
     },
     .paths = .{""},

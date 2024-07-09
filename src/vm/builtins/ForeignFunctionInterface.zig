@@ -176,11 +176,6 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const dll_function_is_variadic = dll_function_prototype.object.map.getWithString("variadic") orelse return Code.Value{ .none = {} };
-    if (dll_function_is_variadic != .boolean) {
-        return Code.Value{ .none = {} };
-    }
-
     const dll_function_arguments = arguments[1].object.array;
 
     var ffi_cif: ffi.ffi_cif = undefined;
@@ -201,232 +196,219 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         };
     }
 
-    if (dll_function_is_variadic.boolean) {
-        if (dll_function_arguments.values.items.len < ffi_parameter_types.items.len) {
-            return Code.Value{ .none = {} };
+    if (dll_function_arguments.values.items.len != ffi_parameter_types.items.len) {
+        return Code.Value{ .none = {} };
+    }
+
+    for (dll_function_arguments.values.items, 0..) |dll_function_argument, i| {
+        switch (dll_function_parameter_types.object.array.values.items[i].int) {
+            ffi.FFI_TYPE_VOID => return Code.Value{ .none = {} },
+
+            ffi.FFI_TYPE_UINT8 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: u8 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(u8)) catch unreachable);
+
+                const value_on_heap = vm.allocator.create(u8) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_UINT16 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: u16 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(u16)) catch unreachable);
+
+                const value_on_heap = vm.allocator.create(u16) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_UINT32 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: u32 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(u16)) catch unreachable);
+
+                const value_on_heap = vm.allocator.create(u32) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_UINT64 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: u64 = @bitCast(dll_function_argument.int);
+
+                const value_on_heap = vm.allocator.create(u64) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_SINT8 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: i8 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(i8)) catch unreachable);
+
+                const value_on_heap = vm.allocator.create(i8) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_SINT16 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: i16 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(i16)) catch unreachable);
+
+                const value_on_heap = vm.allocator.create(i16) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_SINT32 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: i32 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(i32)) catch unreachable);
+
+                const value_on_heap = vm.allocator.create(i32) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_SINT64 => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value = dll_function_argument.int;
+
+                const value_on_heap = vm.allocator.create(i64) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_FLOAT => {
+                if (dll_function_argument != .float) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: f32 = @floatCast(std.math.mod(f64, dll_function_argument.float, @floatCast(std.math.floatMax(f32))) catch unreachable);
+
+                const value_on_heap = vm.allocator.create(f32) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_DOUBLE => {
+                if (dll_function_argument != .float) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value = dll_function_argument.float;
+
+                const value_on_heap = vm.allocator.create(f64) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(value_on_heap) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            ffi.FFI_TYPE_POINTER => {
+                if (dll_function_argument != .int) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const value: *anyopaque = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(dll_function_argument.int)))));
+
+                const value_on_heap = vm.allocator.create(*anyopaque) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+
+                value_on_heap.* = value;
+
+                ffi_arguments.append(@ptrCast(value_on_heap)) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
+            },
+
+            else => unreachable,
         }
+    }
 
-        for (dll_function_arguments.values.items, 0..) |dll_function_argument, i| {
-            _ = dll_function_argument;
-            _ = i;
-        }
-
-        @panic("TODO");
-    } else {
-        if (dll_function_arguments.values.items.len != ffi_parameter_types.items.len) {
-            return Code.Value{ .none = {} };
-        }
-
-        for (dll_function_arguments.values.items, 0..) |dll_function_argument, i| {
-            switch (dll_function_parameter_types.object.array.values.items[i].int) {
-                ffi.FFI_TYPE_VOID => return Code.Value{ .none = {} },
-
-                ffi.FFI_TYPE_UINT8 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: u8 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(u8)) catch unreachable);
-
-                    const value_on_heap = vm.allocator.create(u8) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_UINT16 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: u16 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(u16)) catch unreachable);
-
-                    const value_on_heap = vm.allocator.create(u16) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_UINT32 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: u32 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(u16)) catch unreachable);
-
-                    const value_on_heap = vm.allocator.create(u32) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_UINT64 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: u64 = @bitCast(dll_function_argument.int);
-
-                    const value_on_heap = vm.allocator.create(u64) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_SINT8 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: i8 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(i8)) catch unreachable);
-
-                    const value_on_heap = vm.allocator.create(i8) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_SINT16 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: i16 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(i16)) catch unreachable);
-
-                    const value_on_heap = vm.allocator.create(i16) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_SINT32 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: i32 = @intCast(std.math.mod(i64, dll_function_argument.int, std.math.maxInt(i32)) catch unreachable);
-
-                    const value_on_heap = vm.allocator.create(i32) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_SINT64 => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value = dll_function_argument.int;
-
-                    const value_on_heap = vm.allocator.create(i64) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_FLOAT => {
-                    if (dll_function_argument != .float) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: f32 = @floatCast(std.math.mod(f64, dll_function_argument.float, @floatCast(std.math.floatMax(f32))) catch unreachable);
-
-                    const value_on_heap = vm.allocator.create(f32) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_DOUBLE => {
-                    if (dll_function_argument != .float) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value = dll_function_argument.float;
-
-                    const value_on_heap = vm.allocator.create(f64) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(value_on_heap) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                ffi.FFI_TYPE_POINTER => {
-                    if (dll_function_argument != .int) {
-                        return Code.Value{ .none = {} };
-                    }
-
-                    const value: *anyopaque = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(dll_function_argument.int)))));
-
-                    const value_on_heap = vm.allocator.create(*anyopaque) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-
-                    value_on_heap.* = value;
-
-                    ffi_arguments.append(@ptrCast(value_on_heap)) catch |err| switch (err) {
-                        else => return Code.Value{ .none = {} },
-                    };
-                },
-
-                else => unreachable,
-            }
-        }
-
-        switch (ffi.ffi_prep_cif(&ffi_cif, ffi.FFI_DEFAULT_ABI, @intCast(ffi_parameter_types.items.len), ffi_return_type, ffi_parameter_types.items.ptr)) {
-            ffi.FFI_OK => {},
-            else => return Code.Value{ .none = {} },
-        }
+    switch (ffi.ffi_prep_cif(&ffi_cif, ffi.FFI_DEFAULT_ABI, @intCast(ffi_parameter_types.items.len), ffi_return_type, ffi_parameter_types.items.ptr)) {
+        ffi.FFI_OK => {},
+        else => return Code.Value{ .none = {} },
     }
 
     switch (dll_function_return_type.int) {

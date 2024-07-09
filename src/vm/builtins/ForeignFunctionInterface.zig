@@ -36,6 +36,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     try exports.put("types", try Code.Value.Object.Map.fromStringHashMap(vm.allocator, types_exports));
 
     try exports.put("call", Code.Value.Object.NativeFunction.init(2, &call));
+    try exports.put("cstring", Code.Value.Object.NativeFunction.init(1, &cstring));
 
     return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }
@@ -405,7 +406,15 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                         return Code.Value{ .none = {} };
                     }
 
-                    ffi_arguments.append(@ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(dll_function_argument.int)))))) catch |err| switch (err) {
+                    const value: *anyopaque = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(dll_function_argument.int)))));
+
+                    const value_on_heap = vm.allocator.create(*anyopaque) catch |err| switch (err) {
+                        else => return Code.Value{ .none = {} },
+                    };
+
+                    value_on_heap.* = value;
+
+                    ffi_arguments.append(@ptrCast(value_on_heap)) catch |err| switch (err) {
                         else => return Code.Value{ .none = {} },
                     };
                 },
@@ -419,8 +428,6 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             else => return Code.Value{ .none = {} },
         }
     }
-
-    std.debug.print("{any}\n", .{ffi_arguments.items});
 
     switch (dll_function_return_type.int) {
         ffi.FFI_TYPE_VOID => {
@@ -519,4 +526,18 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
         else => unreachable,
     }
+}
+
+fn cstring(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+        return Code.Value{ .none = {} };
+    }
+
+    const original = arguments[0].object.string.content;
+
+    const duplicated = vm.allocator.dupeZ(u8, original) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(duplicated.ptr))) };
 }

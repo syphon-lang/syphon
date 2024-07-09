@@ -97,6 +97,10 @@ pub const Value = union(enum) {
 
                 return init(allocator, inner);
             }
+
+            pub fn getWithString(self: Map, key: []const u8) ?Value {
+                return self.inner.get(.{ .object = .{ .string = .{ .content = key } } });
+            }
         };
 
         pub const Function = struct {

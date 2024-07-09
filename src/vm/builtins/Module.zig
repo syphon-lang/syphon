@@ -8,6 +8,7 @@ const Atom = @import("../Atom.zig");
 
 const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
     .{ "fs", &(@import("FileSystem.zig").getExports) },
+    .{ "ffi", &(@import("ForeignFunctionInterface.zig").getExports) },
     .{ "io", &(@import("InputOutput.zig").getExports) },
     .{ "math", &(@import("Math.zig").getExports) },
     .{ "os", &(@import("OperatingSystem.zig").getExports) },

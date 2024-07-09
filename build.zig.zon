@@ -6,6 +6,10 @@
             .url = "git+https://github.com/ivmai/bdwgc?ref=master#09fc015b78756cd114488fabe9be3d57ba53f444",
             .hash = "1220520d8b272f63f98a07b6522db39917eb421a5af59ef4eca06df58efbb7c7da21",
         },
+        .ffi = .{
+            .url = "git+https://github.com/vezel-dev/libffi?ref=v3.4.6-1#0494067eaadbdd65a99817795fdc42708ed7601c",
+            .hash = "122036860f37a08aa1055c494515e9b33553fe906dc2f77dafc5ece78168cd236f7c",
+        },
     },
     .paths = .{""},
 }

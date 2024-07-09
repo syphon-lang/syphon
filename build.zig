@@ -5,8 +5,20 @@ pub fn build(b: *std.Build) void {
 
     const optimize = b.standardOptimizeOption(.{});
 
-    const bdwgc = b.dependency("bdwgc", .{ .target = target, .optimize = optimize, .BUILD_SHARED_LIBS = false });
+    const bdwgc = b.dependency("bdwgc", .{
+        .target = target,
+        .optimize = optimize,
+        .BUILD_SHARED_LIBS = false,
+    });
+
     const bdwgc_artifact = bdwgc.artifact("gc");
+
+    const ffi = b.dependency("ffi", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const ffi_artifact = ffi.artifact("ffi");
 
     const exe = b.addExecutable(.{
         .name = "syphon",
@@ -23,6 +35,8 @@ pub fn build(b: *std.Build) void {
 
     exe.addIncludePath(bdwgc.path("include"));
     exe.linkLibrary(bdwgc_artifact);
+
+    exe.linkLibrary(ffi_artifact);
 
     b.installArtifact(exe);
 
@@ -48,6 +62,8 @@ pub fn build(b: *std.Build) void {
 
     exe_check.addIncludePath(bdwgc.path("include"));
     exe_check.linkLibrary(bdwgc_artifact);
+
+    exe.linkLibrary(ffi_artifact);
 
     const check_step = b.step("check", "Checks if the app can compile");
     check_step.dependOn(&exe_check.step);

@@ -1,0 +1,50 @@
+ffi = import("ffi")
+
+raylib_dll_path = "libraylib." + ffi.dll.suffix
+
+raylib = ffi.dll.open(raylib_dll_path, {
+    # RLAPI void InitWindow(int width, int height, const char *title);  // Initialize window and OpenGL context
+    "InitWindow": {
+        "parameters": [ffi.types.i32, ffi.types.i32, ffi.types.pointer],
+        "returns": ffi.types.void,
+    },
+
+    # RLAPI bool WindowShouldClose(void);                               // Check if application should close (KEY_ESCAPE pressed or windows close icon clicked)
+    "WindowShouldClose": {
+        "parameters": [],
+        "returns": ffi.types.i8,
+    },
+
+    # RLAPI void CloseWindow(void);                                     // Close window and unload OpenGL context
+    "CloseWindow": {
+        "parameters": [],
+        "returns": ffi.types.void,
+    },
+
+    # RLAPI void BeginDrawing(void);                                    // Setup canvas (framebuffer) to start drawing
+    "BeginDrawing": {
+        "parameters": [],
+        "returns": ffi.types.void,
+    },
+
+
+    # RLAPI void EndDrawing(void);                                      // End canvas drawing and swap buffers (double buffering)
+    "EndDrawing": {
+        "parameters": [],
+        "returns": ffi.types.void,
+    },
+})
+
+if raylib == none {
+    println(raylib_dll_path + ": failed to open dynamic link library")
+    exit(1)
+}
+
+ffi.call(raylib.InitWindow, [800, 600, ffi.cstring("Some Blank Example")])
+
+while !ffi.call(raylib.WindowShouldClose, []) {
+    ffi.call(raylib.BeginDrawing, [])
+    ffi.call(raylib.EndDrawing, [])
+}
+
+ffi.call(raylib.CloseWindow, [])

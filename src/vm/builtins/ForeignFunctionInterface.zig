@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const ffi = @cImport(@cInclude("ffi.h"));
 
 const Code = @import("../Code.zig");
@@ -11,6 +12,15 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 
     try dll_exports.put("open", Code.Value.Object.NativeFunction.init(2, dllOpen));
     try dll_exports.put("close", Code.Value.Object.NativeFunction.init(1, dllClose));
+
+    const dll_suffix = switch (builtin.os.tag) {
+        .linux, .freebsd, .openbsd, .solaris, .illumos => "so",
+        .windows => "dll",
+        .macos, .tvos, .watchos, .ios, .visionos => "dylib",
+        else => @compileError("unsupported platform"),
+    };
+
+    try dll_exports.put("suffix", .{ .object = .{ .string = .{ .content = dll_suffix } } });
 
     try exports.put("dll", try Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_exports));
 

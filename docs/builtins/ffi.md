@@ -35,6 +35,10 @@ Contains a map of types to choose from, available keys are:
 
 ]
 
+- dll.suffix
+
+Can be "so" or "dll" or "dylib" depending on the platform
+
 ## Functions
 
 - dll.open

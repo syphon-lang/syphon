@@ -12,7 +12,7 @@ A general-purpose programming language for scripting and all sort of stuff
 4. Open-Software: All our software is open and maintainable in readable idiomatic Zig code
 5. Modern: We learn from other's mistake, which makes the language much more modern than stinky Java
 
-## Did you achieved any of that goals?
+## Did you achieve any of that goals?
 
 You would think "yeah all people say that" and yes all people say that, we are from those people but here is a little roadmap:
 

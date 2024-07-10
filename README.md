@@ -1,41 +1,37 @@
 # Syphon
 
+[Documentation](docs) - [Examples](examples)
+
 A general-purpose programming language for scripting and all sort of stuff
 
-## Documentation
+## Why to use Syphon? here is our main goals:
 
-We only have a [markdown files](docs) to explain the language in detatil, Looking forward to make a website explaining it even deeper
+1. Community-Driven: The syntax and features all being in control by the community, want something? add it or open an issue for someone else to add it
+2. Fast: The main goal to make it as fast as possible compared to other interpreted languages
+3. Simple: There is one way to do it, no semicolons and very readable by default, easy to make println unlike stupid Java
+4. Open-Software: All our software is open and maintainable in readable idiomatic Zig code
+5. Modern: We learn from other's mistake, which makes the language much more modern than stinky Java
 
-## Installation
+## Did you achieved any of that goals?
 
-### Build from source
+You would think "yeah all people say that" and yes all people say that, we are from those people but here is a little roadmap:
 
-You need the latest version of Zig tools (Recommeneded to get the dev version from the master branch)
+- Is it community-driven, at least one (me, yhya) who manages the language
 
-Choose one of the following ways of compilation, the binary will be at `zig-out/bin/syphon` add it to your PATH and here you go you just installed the interpreter
+- Is it fast? not quite.. but there is incremental improvements
 
-- Fast runtime but slow compilation 
-```
-zig build -Doptimize=ReleaseFast
-```
+Currently, on my (Core2Duo E6300) I get a 1.8s on average for fibonacci not-cached recursive function, you can see the benchmark [here](tests/benchmarks/fibonacci.sy), and only a couple micro seconds for fibonacci cached recursive function, you can see the benchmark [here](tests/benchmarks/fibonacci_cached.sy) too
 
-- Small binary but slow compilation and medium-fast runtime
-```
-zig build -Doptimize=ReleaseSmall
-```
+- Is it simple? very simple, quite too simple because there is no for loop btw
 
-- Safe but slow compilation and medium runtime
-```
-zig build -Doptimize=ReleaseSafe
-```
+- Is it open software? yes, you are reading this because it is on GitHub
 
-- Safe and fast compilation but slow runtime
-```
-zig build
-```
+- Is it modern? this is for you to say
 
-## Troubleshoot
+## Why the hate on Java?
 
-### GC Warning: Could not open /proc/stat
+Because why not?
 
-This occurs because the Garbage Collector doesn't have the permission to know what cpu cores are available and then uses 1 core as a default, to solve this just set GC_NPROCS environment variable as the amount of cpu cores you have
+## How can I contribute?
+
+Try the language, open issues, open pull requests, join our [Discord](https://discord.com/invite/h7NaMc4rJA)

@@ -9,5 +9,5 @@ benchmarker.run(fn () {
         return fib(n - 1) + fib(n - 2)
     }
 
-    fib(30)
+    println(fib(30))
 })

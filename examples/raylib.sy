@@ -48,3 +48,5 @@ while !ffi.call(raylib.WindowShouldClose, []) {
 }
 
 ffi.call(raylib.CloseWindow, [])
+
+ffi.dll.close(raylib)

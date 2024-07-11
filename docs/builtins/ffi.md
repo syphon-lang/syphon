@@ -75,12 +75,12 @@ Calls a foreign function
 ffi.call(libc.exit, [4])
 ```
 
-- cstring
+- to_cstring
 
-Makes a C string
+Casts a Syphon string to a C string (which also called "null-terminated string")
 
 ```
-ffi.call(libc.puts, [ffi.cstring("Hello, world!")])
+ffi.call(libc.puts, [ffi.to_cstring("Hello, world!")])
 ```
 
 - allocate_callback

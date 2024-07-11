@@ -9,7 +9,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
     try exports.put("call", Code.Value.Object.NativeFunction.init(2, &call));
-    try exports.put("cstring", Code.Value.Object.NativeFunction.init(1, &cstring));
+    try exports.put("to_cstring", Code.Value.Object.NativeFunction.init(1, &toCstring));
     try exports.put("allocate_callback", Code.Value.Object.NativeFunction.init(2, &allocateCallback));
     try exports.put("free_callback", Code.Value.Object.NativeFunction.init(1, &freeCallback));
 
@@ -514,7 +514,7 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return doFFICall(&ffi_cif, dll_function_pointer, ffi_arguments.items, dll_function_return_type.int);
 }
 
-fn cstring(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn toCstring(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
         return Code.Value{ .none = {} };
     }

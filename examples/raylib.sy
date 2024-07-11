@@ -40,7 +40,7 @@ if raylib == none {
     exit(1)
 }
 
-ffi.call(raylib.InitWindow, [800, 600, ffi.cstring("Some Blank Example")])
+ffi.call(raylib.InitWindow, [800, 600, ffi.to_cstring("Some Blank Example")])
 
 while !ffi.call(raylib.WindowShouldClose, []) {
     ffi.call(raylib.BeginDrawing, [])

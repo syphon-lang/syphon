@@ -43,7 +43,7 @@ Can be "so" or "dll" or "dylib" depending on the platform
 
 - dll.open
 
-Open a dynamic link library (searches in the libraries directory of the user by default (e.g. /usr/lib), use a relative path if you want it to be based on the current working directory (e.g. "./libadd.so")
+Opens a dynamic link library (searches in the libraries directory of the user by default (e.g. /usr/lib), use a relative path if you want it to be based on the current working directory (e.g. "./libadd.so")
 
 ```
 libc = ffi.dll.open("libc.so.6", {
@@ -69,7 +69,7 @@ ffi.dll.close(libc)
 
 - call
 
-Call a foreign function
+Calls a foreign function
 
 ```
 ffi.call(libc.exit, [4])
@@ -77,8 +77,23 @@ ffi.call(libc.exit, [4])
 
 - cstring
 
-Make a C string
+Makes a C string
 
 ```
 ffi.call(libc.puts, [ffi.cstring("Hello, world!")])
+```
+
+- callback
+
+Makes a FFI Callback that can be passed to a function that accepts a specific function pointer
+
+```
+print_i = fn (i) {
+    print(i)
+}
+
+ffi.callback(print_i, {
+    "parameters": [ffi.types.i32],
+    "returns": ffi.types.void,
+})
 ```

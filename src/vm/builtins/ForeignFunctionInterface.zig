@@ -10,7 +10,8 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 
     try exports.put("call", Code.Value.Object.NativeFunction.init(2, &call));
     try exports.put("cstring", Code.Value.Object.NativeFunction.init(1, &cstring));
-    try exports.put("callback", Code.Value.Object.NativeFunction.init(2, &callback));
+    try exports.put("allocate_callback", Code.Value.Object.NativeFunction.init(2, &allocateCallback));
+    try exports.put("free_callback", Code.Value.Object.NativeFunction.init(1, &freeCallback));
 
     try exports.put("dll", try getDLLExports(vm));
     try exports.put("types", try getTypeExports(vm));
@@ -527,7 +528,117 @@ fn cstring(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(duplicated.ptr))) };
 }
 
-fn callback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+const CallbackData = struct {
+    vm: *VirtualMachine,
+    function: *Code.Value.Object.Function,
+};
+
+fn evaluateCallbackFailed() noreturn {
+    std.debug.print("syphon: failed to evaluate a ffi callback\n", .{});
+    std.process.exit(1);
+}
+
+export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaque, arguments: [*c]?*anyopaque, maybe_data: ?*anyopaque) void {
+    const maybe_callback_data: ?*CallbackData = @ptrCast(@alignCast(maybe_data));
+
+    const vm = maybe_callback_data.?.vm;
+    const function = maybe_callback_data.?.function;
+
+    for (arguments[0..cif.*.nargs], 0..) |argument, i| {
+        switch (cif.*.arg_types[i].*.type) {
+            ffi.FFI_TYPE_VOID => evaluateCallbackFailed(),
+
+            ffi.FFI_TYPE_UINT8 => {
+                const value = @as(*u8, @ptrCast(argument.?)).*;
+
+                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_UINT16 => {
+                const value = @as(*u16, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_UINT32 => {
+                const value = @as(*u32, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_UINT64 => {
+                const value = @as(*u64, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_SINT8 => {
+                const value = @as(*i8, @ptrCast(argument.?)).*;
+
+                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_SINT16 => {
+                const value = @as(*i16, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_SINT32 => {
+                const value = @as(*i32, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_SINT64 => {
+                const value = @as(*i64, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .int = value }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_FLOAT => {
+                const value = @as(*f32, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_DOUBLE => {
+                const value = @as(*f64, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            ffi.FFI_TYPE_POINTER => {
+                const value = @as(*ffi.ffi_arg, @ptrCast(@alignCast(argument.?))).*;
+
+                vm.stack.append(Code.Value{ .int = @bitCast(value) }) catch evaluateCallbackFailed();
+            },
+
+            else => evaluateCallbackFailed(),
+        }
+    }
+
+    const frame = &vm.frames.items[vm.frames.items.len - 1];
+
+    vm.callUserFunction(function, frame) catch evaluateCallbackFailed();
+
+    const was_internal = vm.is_internal;
+    vm.is_internal = true;
+
+    vm.run() catch evaluateCallbackFailed();
+
+    vm.is_internal = was_internal;
+
+    const return_value = vm.stack.pop();
+
+    if (cif.*.rtype.*.type != ffi.FFI_TYPE_VOID) {
+        castArgumentToFFIArgument(return_value, @intCast(cif.*.rtype.*.type), maybe_return_address.?) catch evaluateCallbackFailed();
+    }
+}
+
+var writeable_memory_allocated = std.AutoHashMapUnmanaged(i64, *anyopaque){};
+
+fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .function)) {
         return Code.Value{ .none = {} };
     }
@@ -590,119 +701,37 @@ fn callback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
         callback_data_on_heap.* = .{ .vm = vm, .function = user_function };
 
-        switch (ffi.ffi_prep_closure_loc(ffi_closure, ffi_cif_on_heap, &callbackHandler, callback_data_on_heap, ffi_function_pointer)) {
+        switch (ffi.ffi_prep_closure_loc(ffi_closure, ffi_cif_on_heap, &evaluateCallback, callback_data_on_heap, ffi_function_pointer)) {
             ffi.FFI_OK => {},
             else => return Code.Value{ .none = {} },
         }
+
+        const ffi_function_pointer_casted: i64 = @bitCast(@as(u64, @intFromPtr(ffi_function_pointer)));
+
+        writeable_memory_allocated.put(vm.allocator, ffi_function_pointer_casted, ffi_closure) catch |err| switch (err) {
+            else => return Code.Value{ .none = {} },
+        };
+
+        return Code.Value{ .int = ffi_function_pointer_casted };
     }
 
-    return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(ffi_function_pointer))) };
+    return Code.Value{ .none = {} };
 }
 
-const CallbackData = struct {
-    vm: *VirtualMachine,
-    function: *Code.Value.Object.Function,
-};
+fn freeCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = vm;
 
-fn callbackHandlerFailed() noreturn {
-    std.debug.print("syphon: failed to evaluate a ffi callback\n", .{});
-    std.process.exit(1);
-}
-
-export fn callbackHandler(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaque, arguments: [*c]?*anyopaque, maybe_data: ?*anyopaque) void {
-    const maybe_callback_data: ?*CallbackData = @ptrCast(@alignCast(maybe_data));
-
-    const vm = maybe_callback_data.?.vm;
-    const function = maybe_callback_data.?.function;
-
-    for (arguments[0..cif.*.nargs], 0..) |argument, i| {
-        switch (cif.*.arg_types[i].*.type) {
-            ffi.FFI_TYPE_VOID => callbackHandlerFailed(),
-
-            ffi.FFI_TYPE_UINT8 => {
-                const value = @as(*u8, @ptrCast(argument.?)).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_UINT16 => {
-                const value = @as(*u16, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_UINT32 => {
-                const value = @as(*u32, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_UINT64 => {
-                const value = @as(*u64, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_SINT8 => {
-                const value = @as(*i8, @ptrCast(argument.?)).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_SINT16 => {
-                const value = @as(*i16, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_SINT32 => {
-                const value = @as(*i32, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_SINT64 => {
-                const value = @as(*i64, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = value }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_FLOAT => {
-                const value = @as(*f32, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .float = @floatCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_DOUBLE => {
-                const value = @as(*f64, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .float = @floatCast(value) }) catch callbackHandlerFailed();
-            },
-
-            ffi.FFI_TYPE_POINTER => {
-                const value = @as(*ffi.ffi_arg, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @bitCast(value) }) catch callbackHandlerFailed();
-            },
-
-            else => callbackHandlerFailed(),
-        }
+    if (arguments[0] != .int) {
+        return Code.Value{ .none = {} };
     }
 
-    const frame = &vm.frames.items[vm.frames.items.len - 1];
+    const maybe_writeable_memory = writeable_memory_allocated.get(arguments[0].int);
 
-    vm.callUserFunction(function, frame) catch callbackHandlerFailed();
+    if (maybe_writeable_memory != null) {
+        ffi.ffi_closure_free(maybe_writeable_memory);
 
-    const was_internal = vm.is_internal;
-    vm.is_internal = true;
-
-    vm.run() catch callbackHandlerFailed();
-
-    vm.is_internal = was_internal;
-
-    const return_value = vm.stack.pop();
-
-    if (cif.*.rtype.*.type != ffi.FFI_TYPE_VOID) {
-        castArgumentToFFIArgument(return_value, @intCast(cif.*.rtype.*.type), maybe_return_address.?) catch callbackHandlerFailed();
+        _ = writeable_memory_allocated.remove(arguments[0].int);
     }
+
+    return Code.Value{ .none = {} };
 }

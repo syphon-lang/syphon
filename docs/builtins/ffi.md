@@ -83,17 +83,27 @@ Makes a C string
 ffi.call(libc.puts, [ffi.cstring("Hello, world!")])
 ```
 
-- callback
+- allocate_callback
 
-Makes a FFI Callback that can be passed to a function that accepts a specific function pointer
+Allocates a FFI Callback that can be passed to a function that accepts a specific function pointer
+
+Warning: You should call `free_callback` on the output because the garbage collector will not handle this!
 
 ```
 print_i = fn (i) {
     print(i)
 }
 
-ffi.callback(print_i, {
+print_i_callback = ffi.allocate_callback(print_i, {
     "parameters": [ffi.types.i32],
     "returns": ffi.types.void,
 })
+```
+
+- free_callback
+
+Frees the FFI Callback (the writeable and executable memory especially)
+
+```
+ffi.free_callback(print_i_callback)
 ```

@@ -548,6 +548,44 @@ fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
                 else => {},
             },
 
+            .array => switch (rhs) {
+                .object => switch (rhs.object) {
+                    .array => {
+                        const concatenated_array: Code.Value = try Code.Value.Object.Array.init(self.allocator, try lhs.object.array.values.clone());
+
+                        try concatenated_array.object.array.values.appendSlice(rhs.object.array.values.items);
+
+                        return self.stack.append(concatenated_array);
+                    },
+
+                    else => {},
+                },
+
+                else => {},
+            },
+
+            .map => switch (rhs) {
+                .object => switch (rhs.object) {
+                    .map => {
+                        const concatenated_map: Code.Value = try Code.Value.Object.Map.init(self.allocator, try lhs.object.map.inner.clone());
+
+                        try concatenated_map.object.map.inner.ensureUnusedCapacity(rhs.object.map.inner.count());
+
+                        var rhs_map_entry_iterator = rhs.object.map.inner.iterator();
+
+                        while (rhs_map_entry_iterator.next()) |rhs_map_entry| {
+                            concatenated_map.object.map.inner.putAssumeCapacity(rhs_map_entry.key_ptr.*, rhs_map_entry.value_ptr.*);
+                        }
+
+                        return self.stack.append(concatenated_map);
+                    },
+
+                    else => {},
+                },
+
+                else => {},
+            },
+
             else => {},
         },
 

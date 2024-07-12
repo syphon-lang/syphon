@@ -8,7 +8,7 @@ benchmarker.run(fn () {
             return n
         }
 
-        if contains(map_keys(cache), n) {
+        if contains(cache, n) {
             return cache[n]
         }
 

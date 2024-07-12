@@ -54,11 +54,15 @@ fn ord(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn chr(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    _ = vm;
-
-    if (arguments[0] == .int) {
+    if (arguments[0] != .int) {
         return Code.Value{ .none = {} };
     }
 
-    return Code.Value{ .object = .{ .string = .{ .content = &.{@intCast(arguments[0].int)} } } };
+    const content_on_heap = vm.allocator.alloc(u8, 1) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    content_on_heap[0] = @intCast(arguments[0].int);
+
+    return Code.Value{ .object = .{ .string = .{ .content = content_on_heap } } };
 }

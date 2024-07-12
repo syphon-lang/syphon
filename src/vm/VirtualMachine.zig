@@ -107,6 +107,11 @@ pub fn run(self: *VirtualMachine) Error!void {
             return error.StackOverflow;
         }
 
+        // TODO: This check is needed here because in some scenarios it becomes equal, investigate further...
+        if (frame.ip == frame.function.code.instructions.items.len) {
+            return;
+        }
+
         const instruction = frame.function.code.instructions.items[frame.ip];
         const source_loc = frame.function.code.source_locations.items[frame.ip];
 

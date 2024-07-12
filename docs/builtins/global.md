@@ -168,15 +168,24 @@ length(89) # none
 
 - contains
 
-Checks if a value in the values of an (array, string)
+Checks if a value in (array values, string sequences, map keys)
 
 ```
 arr = ["a", "b", "c"]
 
+map = {"a": "b", "c": "d"}
+
 str = "abc"
 
 contains(arr, "ab") # false
+contains(arr, "c") # true
+
+contains(map, "ab") # false
+contains(map, "c") # true
+
+contains(str, "cd") # false
 contains(str, "ab") # true
+
 contains(4, "ab") # none
 ```
 

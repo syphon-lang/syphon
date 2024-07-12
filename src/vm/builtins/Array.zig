@@ -116,6 +116,10 @@ fn contains(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                 return Code.Value{ .boolean = false };
             },
 
+            .map => {
+                return Code.Value{ .boolean = target.object.map.inner.contains(value) };
+            },
+
             else => {},
         },
 

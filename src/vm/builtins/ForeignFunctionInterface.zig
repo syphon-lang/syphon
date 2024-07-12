@@ -256,9 +256,9 @@ fn castArgumentToFFIArgument(argument: Code.Value, ffi_type: i64, destination: *
         ffi.FFI_TYPE_POINTER => {
             if (argument != .int) return error.ExpectedInt;
 
-            const value: *anyopaque = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(argument.int)))));
+            const value: ?*anyopaque = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(argument.int)))));
 
-            @as(**anyopaque, @ptrCast(@alignCast(destination))).* = value;
+            @as(*?*anyopaque, @ptrCast(@alignCast(destination))).* = value;
         },
 
         else => return error.BadType,

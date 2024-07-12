@@ -176,6 +176,12 @@ fn executeRunCommand(self: *Driver) u8 {
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
+        error.OutOfMemory => {
+            std.debug.print("{s}\n", .{errorDescription(err)});
+
+            return 1;
+        },
+
         else => {
             std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
 
@@ -192,6 +198,12 @@ fn executeRunCommand(self: *Driver) u8 {
     };
 
     gen.compileRoot(root) catch |err| switch (err) {
+        error.OutOfMemory => {
+            std.debug.print("{s}\n", .{errorDescription(err)});
+
+            return 1;
+        },
+
         else => {
             std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
 
@@ -235,9 +247,15 @@ fn executeRunCommand(self: *Driver) u8 {
         error.StackOverflow => {
             const last_frame = vm.frames.getLast();
 
-            const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
+            const source_loc = last_frame.function.code.source_locations.items[last_frame.ip];
 
             std.debug.print("{s}:{}:{}: stack overflow\n", .{ file_path, source_loc.line, source_loc.column });
+
+            return 1;
+        },
+
+        error.OutOfMemory => {
+            std.debug.print("{s}\n", .{errorDescription(err)});
 
             return 1;
         },

@@ -19,7 +19,6 @@ globals: std.AutoHashMap(Atom, Code.Value),
 
 internal_vms: std.ArrayList(VirtualMachine),
 internal_functions: std.AutoHashMap(*Code.Value.Object.Function, *VirtualMachine),
-is_internal: bool = false,
 
 argv: []const []const u8,
 
@@ -405,8 +404,6 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
     const stack_start = self.stack.items.len - function.parameters.len;
 
     if (self.internal_functions.get(function)) |internal_vm| {
-        internal_vm.is_internal = true;
-
         const internal_stack_start = internal_vm.stack.items.len;
 
         try internal_vm.stack.appendSlice(self.stack.items[stack_start..]);
@@ -474,7 +471,7 @@ fn executeReturn(self: *VirtualMachine) Error!bool {
 
     try self.stack.append(return_value);
 
-    return (self.frames.items.len == 1 and self.is_internal);
+    return frame.ip == frame.function.code.instructions.items.len;
 }
 
 fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {

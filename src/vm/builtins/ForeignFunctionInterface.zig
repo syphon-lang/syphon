@@ -622,12 +622,7 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
 
     vm.callUserFunction(function, frame) catch evaluateCallbackFailed();
 
-    const was_internal = vm.is_internal;
-    vm.is_internal = true;
-
     vm.run() catch evaluateCallbackFailed();
-
-    vm.is_internal = was_internal;
 
     const return_value = vm.stack.pop();
 

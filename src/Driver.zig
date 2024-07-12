@@ -127,8 +127,8 @@ pub fn run(self: *Driver, arg_iterator: *std.process.ArgIterator) u8 {
     if (self.parseArgs(arg_iterator)) return 1;
 
     switch (self.cli.command.?) {
-        .run => return self.runRunCommand(),
-        .version => return runVersionCommand(),
+        .run => return self.executeRunCommand(),
+        .version => return executeVersionCommand(),
     }
 
     return 0;
@@ -140,6 +140,7 @@ fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
 
         return null;
     };
+
     defer file.close();
 
     const file_content = file.reader().readAllAlloc(allocator, std.math.maxInt(u32)) catch |err| {
@@ -157,7 +158,7 @@ fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     return file_content_z;
 }
 
-fn runRunCommand(self: *Driver) u8 {
+fn executeRunCommand(self: *Driver) u8 {
     const options = self.cli.command.?.run;
 
     const file_path = options.argv[0];
@@ -251,7 +252,7 @@ fn runRunCommand(self: *Driver) u8 {
     return 0;
 }
 
-fn runVersionCommand() u8 {
+fn executeVersionCommand() u8 {
     const stdout = std.io.getStdOut();
 
     stdout.writer().print("Syphon {s}\n", .{build_options.version}) catch return 1;

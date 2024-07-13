@@ -65,11 +65,12 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[1] == .object and arguments[1].object == .function)) {
         return Code.Value{ .none = {} };
     }
-    const callback = arguments[1].object.function;
 
-    const map_or_array = arguments[0];
-    switch (map_or_array) {
-        .object => switch (map_or_array.object) {
+    const callback = arguments[1].object.function;
+    const iterable = arguments[0];
+
+    switch (iterable) {
+        .object => switch (iterable.object) {
             .array => {
                 const array = arguments[0].object.array;
 

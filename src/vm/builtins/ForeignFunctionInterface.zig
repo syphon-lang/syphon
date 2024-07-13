@@ -620,9 +620,14 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
 
     const frame = &vm.frames.items[vm.frames.items.len - 1];
 
+    const previous_frames_start = vm.frames_start;
+    vm.frames_start = vm.frames.items.len;
+
     vm.callUserFunction(function, frame) catch evaluateCallbackFailed();
 
     vm.run() catch evaluateCallbackFailed();
+
+    vm.frames_start = previous_frames_start;
 
     const return_value = vm.stack.pop();
 

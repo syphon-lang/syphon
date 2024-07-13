@@ -14,6 +14,8 @@ mutex: std.Thread.Mutex = .{},
 exported: Code.Value = .{ .none = {} },
 
 frames: std.ArrayList(Frame),
+frames_start: usize = 0,
+
 stack: std.ArrayList(Code.Value),
 globals: std.AutoHashMap(Atom, Code.Value),
 
@@ -105,11 +107,6 @@ pub fn run(self: *VirtualMachine) Error!void {
     while (true) {
         if (self.frames.items.len >= MAX_FRAMES_COUNT or self.stack.items.len >= MAX_STACK_SIZE) {
             return error.StackOverflow;
-        }
-
-        // TODO: This check is needed here because in some scenarios it becomes equal, investigate further...
-        if (frame.ip == frame.function.code.instructions.items.len) {
-            return;
         }
 
         const instruction = frame.function.code.instructions.items[frame.ip];
@@ -409,6 +406,9 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
     const stack_start = self.stack.items.len - function.parameters.len;
 
     if (self.internal_functions.get(function)) |internal_vm| {
+        const previous_frames_start = internal_vm.frames_start;
+        internal_vm.frames_start = internal_vm.frames.items.len;
+
         const internal_stack_start = internal_vm.stack.items.len;
 
         try internal_vm.stack.appendSlice(self.stack.items[stack_start..]);
@@ -432,6 +432,8 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
 
             return err;
         };
+
+        internal_vm.frames_start = previous_frames_start;
 
         const return_value = internal_vm.stack.pop();
 
@@ -476,7 +478,7 @@ fn executeReturn(self: *VirtualMachine) Error!bool {
 
     try self.stack.append(return_value);
 
-    return frame.ip == frame.function.code.instructions.items.len;
+    return self.frames.items.len == self.frames_start;
 }
 
 fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {

@@ -13,11 +13,13 @@ allocator: std.mem.Allocator,
 cli: CLI,
 
 const CLI = struct {
+    program: []const u8 = "",
     command: ?Command = null,
 
     const Command = union(enum) {
         run: Run,
         version: void,
+        help: void,
 
         const Run = struct {
             argv: []const []const u8,
@@ -32,6 +34,7 @@ const usage =
     \\Commands:
     \\  run <file_path>     -- run certain file
     \\  version             -- print version
+    \\  help                -- print this help message
     \\
     \\
 ;
@@ -74,6 +77,8 @@ pub fn init(allocator: std.mem.Allocator) Driver {
 fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
     const program = arg_iterator.next().?;
 
+    self.cli.program = program;
+
     while (arg_iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "run")) {
             var argv = std.ArrayList([]const u8).init(self.allocator);
@@ -103,6 +108,8 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
             self.cli.command = .{ .run = .{ .argv = owned_argv } };
         } else if (std.mem.eql(u8, arg, "version")) {
             self.cli.command = .{ .version = {} };
+        } else if (std.mem.eql(u8, arg, "help")) {
+            self.cli.command = .{ .help = {} };
         } else {
             std.debug.print(usage, .{program});
 
@@ -129,6 +136,7 @@ pub fn run(self: *Driver, arg_iterator: *std.process.ArgIterator) u8 {
     switch (self.cli.command.?) {
         .run => return self.executeRunCommand(),
         .version => return executeVersionCommand(),
+        .help => return self.executeHelpCommand(),
     }
 
     return 0;
@@ -274,6 +282,12 @@ fn executeVersionCommand() u8 {
     const stdout = std.io.getStdOut();
 
     stdout.writer().print("Syphon {s}\n", .{build_options.version}) catch return 1;
+
+    return 0;
+}
+
+fn executeHelpCommand(self: Driver) u8 {
+    std.debug.print(usage, .{self.cli.program});
 
     return 0;
 }

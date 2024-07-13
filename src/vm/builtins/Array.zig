@@ -87,8 +87,15 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                     const args = [2]Code.Value{ entry.key_ptr.*, entry.value_ptr.* };
                     _ = callback.call(vm, &args);
                 }
+            },
 
-                return Code.Value{ .none = {} };
+            .string => {
+                const str = arguments[0].object.string;
+                for (0..str.content.len) |i| {
+                    const char = str.content[i];
+                    const args = [1]Code.Value{.{ .object = .{ .string = .{ .content = &[1]u8{char} } } }};
+                    _ = callback.call(vm, &args);
+                }
             },
 
             else => {},

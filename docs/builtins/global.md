@@ -149,6 +149,30 @@ arr = [0, 1]
 array_reverse(arr) # [1, 0]
 ```
 
+- foreach
+
+Runs the provided callback on (array, string, map) entries
+
+```
+arr = [1, 2, 3]
+
+str = "aaa"
+
+map = {1: 2, 3: 4, 4: 5}
+
+foreach(arr, fn (v) {
+    println(v)
+})
+
+foreach(str, fn (s) {
+    println(s)
+})
+
+foreach(map, fn (k, v) {
+    println(k, v)
+})
+```
+
 - length
 
 Gives you the length of an (array, string, map)
@@ -158,7 +182,7 @@ arr = [1, 2, 3]
 
 str = "aaa"
 
-map = {1, 2, 3}
+map = {1: 2, 3: 4, 4: 5}
 
 length(str) # 3
 length(arr) # 3

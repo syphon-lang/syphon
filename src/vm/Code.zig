@@ -115,6 +115,22 @@ pub const Value = union(enum) {
 
                 return Value{ .object = .{ .function = function_on_heap } };
             }
+
+            pub fn call(self: *Function, vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+                for (arguments) |arg| {
+                    vm.stack.append(arg) catch unreachable;
+                }
+                const frame = &vm.frames.items[vm.frames.items.len - 1];
+                const previous_frames_start = vm.frames_start;
+                vm.frames_start = vm.frames.items.len;
+
+                vm.callUserFunction(self, frame) catch unreachable;
+                vm.run() catch unreachable;
+
+                vm.frames_start = previous_frames_start;
+
+                return vm.stack.pop();
+            }
         };
 
         pub const NativeFunction = struct {

@@ -8,6 +8,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put(try Atom.new("array_push"), Code.Value.Object.NativeFunction.init(2, &array_push));
     try vm.globals.put(try Atom.new("array_pop"), Code.Value.Object.NativeFunction.init(1, &array_pop));
     try vm.globals.put(try Atom.new("array_reverse"), Code.Value.Object.NativeFunction.init(1, &array_reverse));
+    try vm.globals.put(try Atom.new("foreach"), Code.Value.Object.NativeFunction.init(2, &foreach));
     try vm.globals.put(try Atom.new("length"), Code.Value.Object.NativeFunction.init(1, &length));
     try vm.globals.put(try Atom.new("contains"), Code.Value.Object.NativeFunction.init(2, &contains));
 }
@@ -60,9 +61,34 @@ fn array_reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value 
     return Code.Value.Object.Array.init(vm.allocator, new_array) catch Code.Value{ .none = {} };
 }
 
-fn length(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    _ = vm;
+fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    if (!((arguments[0] == .object and (arguments[0].object == .array or arguments[0].object == .map)) and (arguments[1] == .object and arguments[1].object == .function))) {
+        return Code.Value{ .none = {} };
+    }
 
+    const callback = arguments[1].object.function;
+
+    if (arguments[0].object == .map) {
+        const map = arguments[0].object.map;
+        var map_iter = map.inner.iterator();
+
+        while (map_iter.next()) |map_entry| {
+            const args = [2]Code.Value{ map_entry.key_ptr.*, map_entry.value_ptr.* };
+            _ = callback.call(vm, &args);
+        }
+        return Code.Value{ .none = {} };
+    }
+    const arr = arguments[0].object.array;
+
+    for (0..arr.values.items.len) |i| {
+        const args = [1]Code.Value{arr.values.items[i]};
+        _ = callback.call(vm, &args);
+    }
+
+    return Code.Value{ .none = {} };
+}
+
+fn length(_: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const value = arguments[0];
 
     switch (value) {

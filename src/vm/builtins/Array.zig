@@ -62,33 +62,47 @@ fn array_reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value 
 }
 
 fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!((arguments[0] == .object and (arguments[0].object == .array or arguments[0].object == .map)) and (arguments[1] == .object and arguments[1].object == .function))) {
+    if (!(arguments[1] == .object and arguments[1].object == .function)) {
         return Code.Value{ .none = {} };
     }
-
     const callback = arguments[1].object.function;
 
-    if (arguments[0].object == .map) {
-        const map = arguments[0].object.map;
-        var map_iter = map.inner.iterator();
+    const map_or_array = arguments[0];
+    switch (map_or_array) {
+        .object => switch (map_or_array.object) {
+            .array => {
+                const array = arguments[0].object.array;
 
-        while (map_iter.next()) |map_entry| {
-            const args = [2]Code.Value{ map_entry.key_ptr.*, map_entry.value_ptr.* };
-            _ = callback.call(vm, &args);
-        }
-        return Code.Value{ .none = {} };
-    }
-    const arr = arguments[0].object.array;
+                for (0..array.values.items.len) |i| {
+                    const args = [1]Code.Value{array.values.items[i]};
+                    _ = callback.call(vm, &args);
+                }
+            },
 
-    for (0..arr.values.items.len) |i| {
-        const args = [1]Code.Value{arr.values.items[i]};
-        _ = callback.call(vm, &args);
+            .map => {
+                const map = arguments[0].object.map;
+                var map_iter = map.inner.iterator();
+
+                while (map_iter.next()) |entry| {
+                    const args = [2]Code.Value{ entry.key_ptr.*, entry.value_ptr.* };
+                    _ = callback.call(vm, &args);
+                }
+
+                return Code.Value{ .none = {} };
+            },
+
+            else => {},
+        },
+
+        else => {},
     }
 
     return Code.Value{ .none = {} };
 }
 
-fn length(_: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn length(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    _ = vm;
+
     const value = arguments[0];
 
     switch (value) {

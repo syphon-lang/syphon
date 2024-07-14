@@ -1,0 +1,39 @@
+name: Build and release Syphon
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+        matrix:
+            include:
+                - os: ubuntu-latest
+                  artifact_name: ${{ github.event.repository.name }}
+                  asset_name: ${{ github.event.repository.name }}-linux-x86_64
+                - os: windows-latest
+                  artifact_name: ${{ github.event.repository.name }}.exe
+                  asset_name: ${{ github.event.repository.name }}-windows-x86_64.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: master
+
+      - run: |
+          zig build -Doptimize=ReleaseSafe
+          mv zig-out/bin/${{ matrix.artifact_name }} zig-out/bin/${{ matrix.asset_name }}
+
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} zig-out/bin/${{ matrix.asset_name }}

@@ -66,8 +66,9 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return Code.Value{ .none = {} };
     }
 
-    const callback = arguments[1].object.function;
     const iterable = arguments[0];
+
+    const callback = arguments[1].object.function;
 
     switch (iterable) {
         .object => switch (iterable.object) {
@@ -75,27 +76,25 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                 const array = arguments[0].object.array;
 
                 for (0..array.values.items.len) |i| {
-                    const args = [1]Code.Value{array.values.items[i]};
-                    _ = callback.call(vm, &args);
+                    _ = callback.call(vm, array.values.items[i .. i + 1]);
                 }
             },
 
             .map => {
                 const map = arguments[0].object.map;
-                var map_iter = map.inner.iterator();
 
-                while (map_iter.next()) |entry| {
-                    const args = [2]Code.Value{ entry.key_ptr.*, entry.value_ptr.* };
-                    _ = callback.call(vm, &args);
+                var map_entry_iterator = map.inner.iterator();
+
+                while (map_entry_iterator.next()) |map_entry| {
+                    _ = callback.call(vm, &.{ map_entry.key_ptr.*, map_entry.value_ptr.* });
                 }
             },
 
             .string => {
-                const str = arguments[0].object.string;
-                for (0..str.content.len) |i| {
-                    const char = str.content[i];
-                    const args = [1]Code.Value{.{ .object = .{ .string = .{ .content = &[1]u8{char} } } }};
-                    _ = callback.call(vm, &args);
+                const string = arguments[0].object.string;
+
+                for (0..string.content.len) |i| {
+                    _ = callback.call(vm, &.{.{ .object = .{ .string = .{ .content = string.content[i .. i + 1] } } }});
                 }
             },
 

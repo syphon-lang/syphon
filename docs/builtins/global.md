@@ -173,6 +173,66 @@ foreach(map, fn (k, v) {
 })
 ```
 
+- filter
+Filter an iterable (array, string, map) based on its member values using a callback, the callback **must** return a boolean value
+```
+arr = [1, 2, 3, 4, 5, 6]
+
+str = "42not4002"
+
+map = {"cat": 2, "dog": 4, "cow": 8, "car": 34}
+
+filter(arr, fn (v) { return ((v % 2) == 0) }) # [2, 4, 6]
+
+filter(str, fn (s) { return s != to_string(0) }) # 42not42
+
+# filter the map based on its keys
+filter(map, fn (k, v) {
+    if k != "car" {
+        return true
+    }
+}) # {"cat": 2, "dog": 4, "cow": 8}
+
+# filter the map based on its values
+filter(map, fn (k, v) {
+    if v > 12 {
+        return true
+    }
+}) # {"car": 34}
+
+```
+
+- transform
+Transform (modify) an iterable (array, string, map) based on its member values using a callback, the member will be modified to be equal to the returned value by the callback
+```
+arr = [1, 2, 3, 4, 5, 6]
+
+str = "42not4002"
+
+map = {"cat": 2, "dog": 4, "cow": 8, "car": 34}
+
+transform(arr, fn (v) { return v + 1 }) # [2, 3, 4, 5, 6, 7]
+
+transform(str, fn (s) { return s + "0" }) # 4020n0o0t040000020
+
+# transform the map based on its keys
+transform(map, fn (k, v) {
+    if k == "car" {
+        return ["toyota", v]
+    }
+    return [k, v]
+}) # {"cat": 2, "dog": 4, "cow": 8, "toyota": 34}
+
+# transform the map based on its values
+transform(map, fn (k, v) {
+    if v == 34 {
+        return [k, "SUPRA"]
+    }
+    return [k, v]
+}) # {"cat": 2, "dog": 4, "cow": 8, "car": "SUPRA"}
+
+```
+
 - length
 
 Gives you the length of an (array, string, map)

@@ -22,6 +22,10 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     switch (iterable) {
         .object => switch (iterable.object) {
             .array => {
+                if (callback.parameters.len != 1) {
+                    return Code.Value{ .none = {} };
+                }
+
                 const array = arguments[0].object.array;
 
                 for (0..array.values.items.len) |i| {
@@ -29,21 +33,29 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                 }
             },
 
+            .string => {
+                if (callback.parameters.len != 1) {
+                    return Code.Value{ .none = {} };
+                }
+
+                const string = arguments[0].object.string;
+
+                for (0..string.content.len) |i| {
+                    _ = callback.call(vm, &.{.{ .object = .{ .string = .{ .content = string.content[i .. i + 1] } } }});
+                }
+            },
+
             .map => {
+                if (callback.parameters.len != 2) {
+                    return Code.Value{ .none = {} };
+                }
+
                 const map = arguments[0].object.map;
 
                 var map_entry_iterator = map.inner.iterator();
 
                 while (map_entry_iterator.next()) |map_entry| {
                     _ = callback.call(vm, &.{ map_entry.key_ptr.*, map_entry.value_ptr.* });
-                }
-            },
-
-            .string => {
-                const string = arguments[0].object.string;
-
-                for (0..string.content.len) |i| {
-                    _ = callback.call(vm, &.{.{ .object = .{ .string = .{ .content = string.content[i .. i + 1] } } }});
                 }
             },
 

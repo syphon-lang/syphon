@@ -98,7 +98,13 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
 
     const internal_vm = vm.internal_vms.addOneAssumeCapacity();
 
-    internal_vm.* = VirtualMachine.init(vm.allocator, &.{resolved_file_path}) catch |err| switch (err) {
+    const internal_vm_argv = vm.allocator.alloc([]const u8, 1) catch |err| switch (err) {
+        else => return Code.Value{ .none = {} },
+    };
+
+    internal_vm_argv[0] = resolved_file_path;
+
+    internal_vm.* = VirtualMachine.init(vm.allocator, internal_vm_argv) catch |err| switch (err) {
         else => return Code.Value{ .none = {} },
     };
 

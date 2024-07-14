@@ -231,7 +231,7 @@ fn executeRunCommand(self: *Driver) u8 {
 
             const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
 
-            std.debug.print("{s}:{}:{}: division by zero\n", .{ file_path, source_loc.line, source_loc.column });
+            std.debug.print("{s}:{}:{}: division by zero\n", .{ vm.argv[0], source_loc.line, source_loc.column });
 
             return 1;
         },
@@ -241,7 +241,7 @@ fn executeRunCommand(self: *Driver) u8 {
 
             const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
 
-            std.debug.print("{s}:{}:{}: negative denominator\n", .{ file_path, source_loc.line, source_loc.column });
+            std.debug.print("{s}:{}:{}: negative denominator\n", .{ vm.argv[0], source_loc.line, source_loc.column });
 
             return 1;
         },
@@ -251,7 +251,7 @@ fn executeRunCommand(self: *Driver) u8 {
 
             const source_loc = last_frame.function.code.source_locations.items[last_frame.ip];
 
-            std.debug.print("{s}:{}:{}: stack overflow\n", .{ file_path, source_loc.line, source_loc.column });
+            std.debug.print("{s}:{}:{}: stack overflow\n", .{ vm.argv[0], source_loc.line, source_loc.column });
 
             return 1;
         },
@@ -263,7 +263,7 @@ fn executeRunCommand(self: *Driver) u8 {
         },
 
         else => {
-            std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
+            std.debug.print("{s}:{}:{}: {s}\n", .{ vm.argv[0], vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
 
             return 1;
         },

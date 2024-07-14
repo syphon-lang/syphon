@@ -430,7 +430,7 @@ pub fn callUserFunction(self: *VirtualMachine, function: *Code.Value.Object.Func
         try internal_vm.frames.append(.{ .function = function, .locals = internal_frame.locals, .stack_start = internal_stack_start });
 
         internal_vm.run() catch |err| {
-            self.error_info = internal_vm.error_info;
+            self.* = internal_vm.*;
 
             return err;
         };

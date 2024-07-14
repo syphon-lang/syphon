@@ -16,20 +16,23 @@ fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[1] == .object and arguments[1].object == .function)) {
         return Code.Value{ .none = {} };
     }
+
     const callback = arguments[1].object.function;
     const iterable = arguments[0];
 
     switch (iterable) {
         .object => switch (iterable.object) {
             .array => {
+                if (callback.parameters.len != 1) return Code.Value{ .none = {} };
+
                 const array = arguments[0].object.array;
                 var new_array = std.ArrayList(Code.Value).init(vm.allocator);
 
                 for (0..array.values.items.len) |i| {
-                    const rvalue = callback.call(vm, &.{array.values.items[i]});
-                    switch (rvalue) {
+                    const return_value = callback.call(vm, &.{array.values.items[i]});
+                    switch (return_value) {
                         .boolean => {
-                            if (!rvalue.boolean) continue;
+                            if (!return_value.boolean) continue;
                             new_array.append(array.values.items[i]) catch continue;
                         },
                         else => {},
@@ -41,16 +44,39 @@ fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                     new_array,
                 ) catch Code.Value{ .none = {} };
             },
+
+            .string => {
+                if (callback.parameters.len != 1) return Code.Value{ .none = {} };
+
+                const string = arguments[0].object.string;
+                var new_string = std.ArrayList(u8).init(vm.allocator);
+
+                for (0..string.content.len) |i| {
+                    const char = string.content[i];
+                    const return_value = callback.call(vm, &.{.{ .object = .{ .string = .{ .content = &[1]u8{char} } } }});
+                    switch (return_value) {
+                        .boolean => {
+                            if (!return_value.boolean) continue;
+                            new_string.append(char) catch continue;
+                        },
+                        else => {},
+                    }
+                }
+                return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
+            },
+
             .map => {
+                if (callback.parameters.len != 2) return Code.Value{ .none = {} };
+
                 const map = arguments[0].object.map;
                 var new_map = Code.Value.Object.Map.Inner.init(vm.allocator);
 
                 var map_iter = map.inner.iterator();
                 while (map_iter.next()) |entry| {
-                    const rvalue = callback.call(vm, &.{ entry.key_ptr.*, entry.value_ptr.* });
-                    switch (rvalue) {
+                    const return_value = callback.call(vm, &.{ entry.key_ptr.*, entry.value_ptr.* });
+                    switch (return_value) {
                         .boolean => {
-                            if (!rvalue.boolean) continue;
+                            if (!return_value.boolean) continue;
                             new_map.put(entry.key_ptr.*, entry.value_ptr.*) catch continue;
                         },
                         else => {},
@@ -62,25 +88,10 @@ fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                     new_map,
                 ) catch Code.Value{ .none = {} };
             },
-            .string => {
-                const string = arguments[0].object.string;
-                var new_string = std.ArrayList(u8).init(vm.allocator);
 
-                for (0..string.content.len) |i| {
-                    const char = string.content[i];
-                    const rvalue = callback.call(vm, &.{.{ .object = .{ .string = .{ .content = &[1]u8{char} } } }});
-                    switch (rvalue) {
-                        .boolean => {
-                            if (!rvalue.boolean) continue;
-                            new_string.append(char) catch continue;
-                        },
-                        else => {},
-                    }
-                }
-                return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
-            },
             else => {},
         },
+
         else => {},
     }
     return Code.Value{ .none = {} };
@@ -90,18 +101,21 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[1] == .object and arguments[1].object == .function)) {
         return Code.Value{ .none = {} };
     }
+
     const callback = arguments[1].object.function;
     const iterable = arguments[0];
 
     switch (iterable) {
         .object => switch (iterable.object) {
             .array => {
+                if (callback.parameters.len != 1) return Code.Value{ .none = {} };
+
                 const array = arguments[0].object.array;
                 var new_array = std.ArrayList(Code.Value).init(vm.allocator);
 
                 for (0..array.values.items.len) |i| {
-                    const rvalue = callback.call(vm, &.{array.values.items[i]});
-                    new_array.append(rvalue) catch unreachable;
+                    const return_value = callback.call(vm, &.{array.values.items[i]});
+                    new_array.append(return_value) catch unreachable;
                 }
 
                 return Code.Value.Object.Array.init(
@@ -109,16 +123,37 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                     new_array,
                 ) catch Code.Value{ .none = {} };
             },
+
+            .string => {
+                if (callback.parameters.len != 1) return Code.Value{ .none = {} };
+
+                const string = arguments[0].object.string;
+                var new_string = std.ArrayList(u8).init(vm.allocator);
+
+                for (0..string.content.len) |i| {
+                    const char = string.content[i];
+                    const return_value = callback.call(vm, &.{.{ .object = .{ .string = .{ .content = &[1]u8{char} } } }});
+                    if ((return_value == .object and return_value.object == .string)) {
+                        new_string.appendSlice(return_value.object.string.content) catch unreachable;
+                    } else {
+                        new_string.append(char) catch unreachable;
+                    }
+                }
+                return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
+            },
+
             .map => {
+                if (callback.parameters.len != 2) return Code.Value{ .none = {} };
+
                 const map = arguments[0].object.map;
                 var new_map = Code.Value.Object.Map.Inner.init(vm.allocator);
 
                 var map_iter = map.inner.iterator();
                 while (map_iter.next()) |entry| {
-                    const rvalue = callback.call(vm, &.{ entry.key_ptr.*, entry.value_ptr.* });
+                    const return_value = callback.call(vm, &.{ entry.key_ptr.*, entry.value_ptr.* });
                     var new_kv = [2]Code.Value{ entry.key_ptr.*, entry.value_ptr.* };
-                    if ((rvalue == .object and rvalue.object == .array) and (rvalue.object.array.values.items.len == 2)) {
-                        new_kv = .{ rvalue.object.array.values.items[0], rvalue.object.array.values.items[1] };
+                    if ((return_value == .object and return_value.object == .array) and (return_value.object.array.values.items.len == 2)) {
+                        new_kv = .{ return_value.object.array.values.items[0], return_value.object.array.values.items[1] };
                     }
                     new_map.put(new_kv[0], new_kv[1]) catch unreachable;
                 }
@@ -128,8 +163,10 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                     new_map,
                 ) catch Code.Value{ .none = {} };
             },
+
             else => {},
         },
+
         else => {},
     }
     return Code.Value{ .none = {} };

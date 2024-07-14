@@ -222,6 +222,20 @@ string_split("Hello world", " ") # ["Hello", "world"]
 string_split("world", "") # ["w", "o", "r", "l", "d"]
 ```
 
+- string_upper
+
+Gives you a uppercased copy of the passed in string
+```
+string_upper("hello, world") # HELLO, WORLD
+```
+
+- string_lower
+
+Gives you a lowercased copy of the passed in string, it acts as the opposite of `string_upper`
+```
+string_lower("FOO, BAR") # foo, bar
+```
+
 - ord
 
 Gives you the unicode representation of a one character

@@ -71,24 +71,26 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
+    const Map = @import("./builtins/Map.zig");
     const Array = @import("./builtins/Array.zig");
+    const String = @import("./builtins/String.zig");
+    const IterableUtils = @import("./builtins/IterableUtils.zig");
     const Console = @import("./builtins/Console.zig");
     const Hash = @import("./builtins/Hash.zig");
-    const Map = @import("./builtins/Map.zig");
     const Module = @import("./builtins/Module.zig");
     const Process = @import("./builtins/Process.zig");
     const Random = @import("./builtins/Random.zig");
-    const String = @import("./builtins/String.zig");
     const Type = @import("./builtins/Type.zig");
 
+    try Map.addGlobals(self);
     try Array.addGlobals(self);
+    try String.addGlobals(self);
+    try IterableUtils.addGlobals(self);
     try Console.addGlobals(self);
     try Hash.addGlobals(self);
-    try Map.addGlobals(self);
     try Module.addGlobals(self);
     try Process.addGlobals(self);
     try Random.addGlobals(self);
-    try String.addGlobals(self);
     try Type.addGlobals(self);
 }
 

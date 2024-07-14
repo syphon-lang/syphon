@@ -1,0 +1,124 @@
+test_1 = fn () {
+    # transform an empty map
+    untransformed_map = {}
+    transformed_map = transform(untransformed_map, fn (k, v) { return [k, v] })
+    return transformed_map == untransformed_map
+}
+
+test_2 = fn () {
+    # pass-through transform for an map holding a number of elements
+    # transformed map should be equal to the untransformed map
+    untransformed_map = {
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5
+    }
+    transformed_map = transform(untransformed_map, fn (k, v) { return [k, v] })
+    return transformed_map == untransformed_map
+}
+
+test_3 = fn () {
+    # apply a simple tranformation to values but not keys
+    untransformed_map = {
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5
+    }
+    expected_map = {
+        "1": 2,
+        "2": 3,
+        "3": 4,
+        "4": 5,
+        "5": 6
+    }
+    transformed_map = transform(untransformed_map, fn (k, v) { return [k, v + 1] })
+    return transformed_map == expected_map
+}
+
+test_4 = fn () {
+    # apply a simple tranformation to keys but not values
+    untransformed_map = {
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5
+    }
+    expected_map = {
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "5": 4,
+        "6": 5
+    }
+    transformed_map = transform(untransformed_map, fn (k, v) { return [to_string(to_int(k) + 1), v] })
+    return transformed_map == expected_map
+}
+
+test_5 = fn () {
+    # apply a simple tranformation both keys and values
+    untransformed_map = {
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5
+    }
+    expected_map = {
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5,
+        "6": 6
+    }
+    transformed_map = transform(untransformed_map, fn (k, v) { return [to_string(to_int(k) + 1), v + 1] })
+    return transformed_map == expected_map
+}
+
+test_6 = fn () {
+    # same as test_1 but for array
+    untransformed_arr = [1, 2, 3, 4, 5]
+    transformed_arr = transform(untransformed_arr, fn (v) { return v })
+    return transformed_arr == untransformed_arr
+}
+
+test_7 = fn () {
+    # apply a simple transformation to array's values
+    untransformed_arr = [1, 2, 3, 4, 5]
+    expected_arr = [2, 3, 4, 5, 6]
+    transformed_arr = transform(untransformed_arr, fn (v) { return v + 1 })
+    return transformed_arr == expected_arr
+}
+
+tests_total =  [
+    test_1,
+    test_2,
+    test_3,
+    test_4,
+    test_5,
+    test_6,
+    test_7
+]
+
+tests_results = []
+
+i = 0
+while i < length(tests_total) {
+    array_push(tests_results, tests_total[i]())
+    if tests_results[i] == true {
+        print("test ", i + 1, " passed\n")
+    } else {
+        print("test ", i + 1, " failed\n")
+    }
+    i += 1
+}
+
+if contains(tests_results, false) {
+    print("some tests has failed\n")
+} else {
+    print("all good!\n")
+}

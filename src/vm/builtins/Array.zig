@@ -8,6 +8,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put(try Atom.new("array_push"), Code.Value.Object.NativeFunction.init(2, &array_push));
     try vm.globals.put(try Atom.new("array_pop"), Code.Value.Object.NativeFunction.init(1, &array_pop));
     try vm.globals.put(try Atom.new("array_reverse"), Code.Value.Object.NativeFunction.init(1, &array_reverse));
+    try vm.globals.put(try Atom.new("foreach"), Code.Value.Object.NativeFunction.init(2, &foreach));
     try vm.globals.put(try Atom.new("length"), Code.Value.Object.NativeFunction.init(1, &length));
     try vm.globals.put(try Atom.new("contains"), Code.Value.Object.NativeFunction.init(2, &contains));
 }
@@ -58,6 +59,53 @@ fn array_reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value 
     }
 
     return Code.Value.Object.Array.init(vm.allocator, new_array) catch Code.Value{ .none = {} };
+}
+
+fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    if (!(arguments[1] == .object and arguments[1].object == .function)) {
+        return Code.Value{ .none = {} };
+    }
+
+    const callback = arguments[1].object.function;
+    const iterable = arguments[0];
+
+    switch (iterable) {
+        .object => switch (iterable.object) {
+            .array => {
+                const array = arguments[0].object.array;
+
+                for (0..array.values.items.len) |i| {
+                    const args = [1]Code.Value{array.values.items[i]};
+                    _ = callback.call(vm, &args);
+                }
+            },
+
+            .map => {
+                const map = arguments[0].object.map;
+                var map_iter = map.inner.iterator();
+
+                while (map_iter.next()) |entry| {
+                    const args = [2]Code.Value{ entry.key_ptr.*, entry.value_ptr.* };
+                    _ = callback.call(vm, &args);
+                }
+            },
+
+            .string => {
+                const str = arguments[0].object.string;
+                for (0..str.content.len) |i| {
+                    const char = str.content[i];
+                    const args = [1]Code.Value{.{ .object = .{ .string = .{ .content = &[1]u8{char} } } }};
+                    _ = callback.call(vm, &args);
+                }
+            },
+
+            else => {},
+        },
+
+        else => {},
+    }
+
+    return Code.Value{ .none = {} };
 }
 
 fn length(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

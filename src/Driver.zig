@@ -99,13 +99,7 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
                 return true;
             }
 
-            const owned_argv = argv.toOwnedSlice() catch |err| {
-                std.debug.print("{s}\n", .{errorDescription(err)});
-
-                return true;
-            };
-
-            self.cli.command = .{ .run = .{ .argv = owned_argv } };
+            self.cli.command = .{ .run = .{ .argv = argv.items } };
         } else if (std.mem.eql(u8, arg, "version")) {
             self.cli.command = .{ .version = {} };
         } else if (std.mem.eql(u8, arg, "help")) {

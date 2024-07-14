@@ -102,9 +102,5 @@ pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => return Code.Value{ .none = {} },
     };
 
-    const result_owned = result.toOwnedSlice() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
-    };
-
-    return Code.Value{ .object = .{ .string = .{ .content = result_owned } } };
+    return Code.Value{ .object = .{ .string = .{ .content = result.items } } };
 }

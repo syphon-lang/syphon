@@ -340,7 +340,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     }
 
     const function: Code.Value.Object.Function = .{
-        .parameters = try parameters.toOwnedSlice(),
+        .parameters = parameters.items,
         .code = blk: {
             self.locals.newSnapshot();
 

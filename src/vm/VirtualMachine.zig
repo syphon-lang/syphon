@@ -177,7 +177,7 @@ fn executeLoadAtom(self: *VirtualMachine, atom: Atom, source_loc: SourceLoc, fra
 
         try error_message_buf.writer().print("undefined name '{s}'", .{atom.toName()});
 
-        self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+        self.error_info = .{ .message = error_message_buf.items, .source_loc = source_loc };
 
         return error.UndefinedName;
     }
@@ -256,7 +256,7 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
 
                 try buffered_writer.flush();
 
-                self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+                self.error_info = .{ .message = error_message_buf.items, .source_loc = source_loc };
 
                 return error.UndefinedKey;
             },
@@ -398,7 +398,7 @@ fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_c
 
         try error_message_buf.writer().print("expected {} {s} got {}", .{ required_count, if (required_count != 1) "arguments" else "argument", arguments_count });
 
-        self.error_info = .{ .message = try error_message_buf.toOwnedSlice(), .source_loc = source_loc };
+        self.error_info = .{ .message = error_message_buf.items, .source_loc = source_loc };
 
         return error.UnexpectedValue;
     }

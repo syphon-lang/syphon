@@ -543,6 +543,7 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
 
     const vm = maybe_callback_data.?.vm;
     const function = maybe_callback_data.?.function;
+    var function_arguments = std.ArrayList(Code.Value).init(vm.allocator);
 
     for (arguments[0..cif.*.nargs], 0..) |argument, i| {
         switch (cif.*.arg_types[i].*.type) {
@@ -550,86 +551,64 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
 
             ffi.FFI_TYPE_UINT8 => {
                 const value = @as(*u8, @ptrCast(argument.?)).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_UINT16 => {
                 const value = @as(*u16, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_UINT32 => {
                 const value = @as(*u32, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_UINT64 => {
                 const value = @as(*u64, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT8 => {
                 const value = @as(*i8, @ptrCast(argument.?)).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT16 => {
                 const value = @as(*i16, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT32 => {
                 const value = @as(*i32, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT64 => {
                 const value = @as(*i64, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = value }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = value }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_FLOAT => {
                 const value = @as(*f32, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_DOUBLE => {
                 const value = @as(*f64, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_POINTER => {
                 const value = @as(*ffi.ffi_arg, @ptrCast(@alignCast(argument.?))).*;
-
-                vm.stack.append(Code.Value{ .int = @bitCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @bitCast(value) }) catch evaluateCallbackFailed();
             },
 
             else => evaluateCallbackFailed(),
         }
     }
 
-    const frame = &vm.frames.items[vm.frames.items.len - 1];
-
-    const previous_frames_start = vm.frames_start;
-    vm.frames_start = vm.frames.items.len;
-
-    vm.callUserFunction(function, frame) catch evaluateCallbackFailed();
-
-    vm.run() catch evaluateCallbackFailed();
-
-    vm.frames_start = previous_frames_start;
-
-    const return_value = vm.stack.pop();
+    const return_value = function.call(vm, function_arguments.items);
 
     if (cif.*.rtype.*.type != ffi.FFI_TYPE_VOID) {
         castArgumentToFFIArgument(return_value, @intCast(cif.*.rtype.*.type), maybe_return_address.?) catch evaluateCallbackFailed();

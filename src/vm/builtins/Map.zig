@@ -5,12 +5,12 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put(try Atom.new("map_keys"), Code.Value.Object.NativeFunction.init(1, &map_keys));
-    try vm.globals.put(try Atom.new("map_from_keys"), Code.Value.Object.NativeFunction.init(1, &map_from_keys));
-    try vm.globals.put(try Atom.new("map_values"), Code.Value.Object.NativeFunction.init(1, &map_values));
+    try vm.globals.put(try Atom.new("map_keys"), Code.Value.Object.NativeFunction.init(1, &mapKeys));
+    try vm.globals.put(try Atom.new("map_from_keys"), Code.Value.Object.NativeFunction.init(1, &mapFromKeys));
+    try vm.globals.put(try Atom.new("map_values"), Code.Value.Object.NativeFunction.init(1, &mapValues));
 }
 
-fn map_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn mapKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .map)) {
         return Code.Value{ .none = {} };
     }
@@ -36,7 +36,7 @@ fn map_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     };
 }
 
-fn map_from_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn mapFromKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
         return Code.Value{ .none = {} };
     }
@@ -60,7 +60,7 @@ fn map_from_keys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value 
     return map;
 }
 
-fn map_values(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn mapValues(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .map)) {
         return Code.Value{ .none = {} };
     }

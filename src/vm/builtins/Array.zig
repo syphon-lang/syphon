@@ -5,15 +5,15 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put(try Atom.new("array_push"), Code.Value.Object.NativeFunction.init(2, &array_push));
-    try vm.globals.put(try Atom.new("array_pop"), Code.Value.Object.NativeFunction.init(1, &array_pop));
-    try vm.globals.put(try Atom.new("array_reverse"), Code.Value.Object.NativeFunction.init(1, &array_reverse));
+    try vm.globals.put(try Atom.new("array_push"), Code.Value.Object.NativeFunction.init(2, &arrayPush));
+    try vm.globals.put(try Atom.new("array_pop"), Code.Value.Object.NativeFunction.init(1, &arrayPop));
+    try vm.globals.put(try Atom.new("array_reverse"), Code.Value.Object.NativeFunction.init(1, &arrayReverse));
     try vm.globals.put(try Atom.new("foreach"), Code.Value.Object.NativeFunction.init(2, &foreach));
     try vm.globals.put(try Atom.new("length"), Code.Value.Object.NativeFunction.init(1, &length));
     try vm.globals.put(try Atom.new("contains"), Code.Value.Object.NativeFunction.init(2, &contains));
 }
 
-fn array_push(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn arrayPush(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
@@ -31,7 +31,7 @@ fn array_push(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .none = {} };
 }
 
-fn array_pop(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn arrayPop(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
@@ -43,7 +43,7 @@ fn array_pop(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return array.values.popOrNull() orelse Code.Value{ .none = {} };
 }
 
-fn array_reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+fn arrayReverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
         return Code.Value{ .none = {} };
     }

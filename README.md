@@ -4,7 +4,8 @@
 
 A general-purpose programming language for scripting and all sort of stuff
 
-## Why Syphon? 
+## Why Syphon?
+
 Here is our main goals:
 
 1. **Community-Driven**: The syntax and features all being in control by the community, want something? add it or open an issue for someone else to add it

@@ -44,7 +44,7 @@ pub fn toInt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
         .object => switch (value.object) {
             .string => {
-                const parsed_int = std.fmt.parseInt(i64, value.object.string.content, 10) catch {
+                const parsed_int = std.fmt.parseInt(i64, value.object.string.content, 0) catch {
                     return Code.Value{ .none = {} };
                 };
 

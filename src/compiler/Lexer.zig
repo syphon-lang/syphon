@@ -287,7 +287,7 @@ pub fn next(self: *Lexer) Token {
             },
 
             .number => switch (current_char) {
-                '0'...'9' => {},
+                'a'...'z', 'A'...'Z', '0'...'9', '_' => {},
 
                 '.' => {
                     result.tag = .float;

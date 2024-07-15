@@ -27,7 +27,6 @@ raylib = ffi.dll.open(raylib_dll_path, {
         "returns": ffi.types.void,
     },
 
-
     # RLAPI void EndDrawing(void);                                      // End canvas drawing and swap buffers (double buffering)
     "EndDrawing": {
         "parameters": [],

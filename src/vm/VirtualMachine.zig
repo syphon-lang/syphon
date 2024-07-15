@@ -197,16 +197,16 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
                 }
 
                 if (index.int < 0) {
-                    index.int += @as(i64, @bitCast(target.object.array.values.items.len));
+                    index.int += @as(i64, @intCast(target.object.array.values.items.len));
                 }
 
-                if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
+                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
                     self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                     return error.IndexOverflow;
                 }
 
-                return self.stack.append(target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))]);
+                return self.stack.append(target.object.array.values.items[@as(usize, @intCast(index.int))]);
             },
 
             .string => {
@@ -217,16 +217,16 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
                 }
 
                 if (index.int < 0) {
-                    index.int += @as(i64, @bitCast(target.object.string.content.len));
+                    index.int += @as(i64, @intCast(target.object.string.content.len));
                 }
 
-                if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.string.content.len))) {
+                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.string.content.len))) {
                     self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                     return error.IndexOverflow;
                 }
 
-                const index_casted: usize = @intCast(@as(u64, @bitCast(index.int)));
+                const index_casted: usize = @intCast(index.int);
 
                 return self.stack.append(.{ .object = .{ .string = .{ .content = target.object.string.content[index_casted .. index_casted + 1] } } });
             },
@@ -301,16 +301,16 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!voi
                 }
 
                 if (index.int < 0) {
-                    index.int += @as(i64, @bitCast(target.object.array.values.items.len));
+                    index.int += @as(i64, @intCast(target.object.array.values.items.len));
                 }
 
-                if (index.int < 0 or index.int >= @as(i64, @bitCast(target.object.array.values.items.len))) {
+                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
                     self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                     return error.IndexOverflow;
                 }
 
-                target.object.array.values.items[@as(usize, @intCast(@as(u64, @bitCast(index.int))))] = value;
+                target.object.array.values.items[@as(usize, @intCast(index.int))] = value;
 
                 return;
             },

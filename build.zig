@@ -65,7 +65,7 @@ pub fn build(b: *std.Build) void {
     exe_check.addIncludePath(bdwgc.path("include"));
     exe_check.linkLibrary(bdwgc_artifact);
 
-    exe.linkLibrary(ffi_artifact);
+    exe_check.linkLibrary(ffi_artifact);
 
     const check_step = b.step("check", "Checks if the app can compile");
     check_step.dependOn(&exe_check.step);

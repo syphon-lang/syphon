@@ -237,8 +237,8 @@ fn length(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     switch (value) {
         .object => switch (value.object) {
-            .array => return Code.Value{ .int = @bitCast(value.object.array.values.items.len) },
-            .string => return Code.Value{ .int = @bitCast(value.object.string.content.len) },
+            .array => return Code.Value{ .int = @intCast(value.object.array.values.items.len) },
+            .string => return Code.Value{ .int = @intCast(value.object.string.content.len) },
             .map => return Code.Value{ .int = @intCast(value.object.map.inner.count()) },
 
             else => {},

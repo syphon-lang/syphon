@@ -419,7 +419,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @bitCast(result) };
+            return Code.Value{ .int = @intCast(result) };
         },
 
         ffi.FFI_TYPE_FLOAT => {
@@ -435,7 +435,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .float = @bitCast(result) };
+            return Code.Value{ .float = @floatFromInt(result) };
         },
 
         ffi.FFI_TYPE_POINTER => {
@@ -443,7 +443,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @bitCast(result) };
+            return Code.Value{ .int = @intCast(result) };
         },
 
         else => return Code.Value{ .none = {} },
@@ -601,7 +601,7 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
 
             ffi.FFI_TYPE_POINTER => {
                 const value = @as(*ffi.ffi_arg, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = @bitCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             else => evaluateCallbackFailed(),

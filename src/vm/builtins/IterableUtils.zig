@@ -5,11 +5,104 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
+    try vm.globals.put(try Atom.new("range"), Code.Value.Object.NativeFunction.init(null, &range));
+    try vm.globals.put(try Atom.new("reverse"), Code.Value.Object.NativeFunction.init(1, &reverse));
     try vm.globals.put(try Atom.new("filter"), Code.Value.Object.NativeFunction.init(2, &filter));
     try vm.globals.put(try Atom.new("transform"), Code.Value.Object.NativeFunction.init(2, &transform));
     try vm.globals.put(try Atom.new("foreach"), Code.Value.Object.NativeFunction.init(2, &foreach));
     try vm.globals.put(try Atom.new("length"), Code.Value.Object.NativeFunction.init(1, &length));
     try vm.globals.put(try Atom.new("contains"), Code.Value.Object.NativeFunction.init(2, &contains));
+}
+
+fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    if (arguments.len < 1 or arguments.len > 3) {
+        return Code.Value{ .none = {} };
+    }
+
+    var start: i64 = 0;
+    var end: i64 = 1;
+    var step: i64 = 1;
+
+    for (arguments) |arg| {
+        if (!(arg == .int)) {
+            return Code.Value{ .none = {} };
+        }
+    }
+
+    switch (arguments.len) {
+        1 => {
+            end = arguments[0].int;
+        },
+
+        2 => {
+            start = arguments[0].int;
+            end = arguments[1].int;
+        },
+
+        3 => {
+            start = arguments[0].int;
+            end = arguments[1].int;
+            step = arguments[2].int;
+
+            if (step == 0) return Code.Value{ .none = {} };
+        },
+
+        else => {
+            // already covered above
+        },
+    }
+
+    // all aboard...
+    var range_array = std.ArrayList(Code.Value).init(vm.allocator);
+
+    var i: i64 = start;
+    while (i < end) : (i += step) {
+        range_array.append(Code.Value{ .int = i }) catch return Code.Value{ .none = {} };
+    }
+
+    return Code.Value.Object.Array.init(vm.allocator, range_array) catch Code.Value{ .none = {} };
+}
+
+fn reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    if (!(arguments[0] == .object)) {
+        return Code.Value{ .none = {} };
+    }
+
+    switch (arguments[0].object) {
+        .array => {
+            const array = arguments[0].object.array;
+
+            var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.values.items.len) catch |err| switch (err) {
+                else => return Code.Value{ .none = {} },
+            };
+
+            var i = array.values.items.len;
+            while (i > 0) {
+                i -= 1;
+                new_array.append(array.values.items[i]) catch return Code.Value{ .none = {} };
+            }
+            return Code.Value.Object.Array.init(vm.allocator, new_array) catch Code.Value{ .none = {} };
+        },
+
+        .string => {
+            const string = arguments[0].object.string;
+
+            var new_string = std.ArrayList(u8).initCapacity(vm.allocator, string.content.len) catch |err| switch (err) {
+                else => return Code.Value{ .none = {} },
+            };
+
+            var i = string.content.len;
+            while (i > 0) {
+                i -= 1;
+                new_string.append(string.content[i]) catch return Code.Value{ .none = {} };
+            }
+
+            return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
+        },
+
+        else => {},
+    }
+    return Code.Value{ .none = {} };
 }
 
 fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

@@ -173,6 +173,37 @@ foreach(map, fn (k, v) {
 })
 ```
 
+- range
+
+Gives back a ranged Array of integers, you can specify the start point, the end point, and the step incrementor
+
+```
+# if given a single argument it will use the start point of 0 and the step incrementor of 1
+range(4) # [0, 1, 2, 3]
+
+# if given two arguments it will use the first as the starting point and the second ans the ending point
+range(1, 6) # [1, 2, 3, 4, 5]
+
+# if given three arguments it will act the pass two arugments but it will use the thrid arugment as the step incrementor
+range(0, 12, 2) # [0, 2, 4, 6, 8, 10]
+
+```
+
+- reverse
+
+Gives a reversed version of the passed in iterable (array, string)
+
+```
+
+arr = ["foo", "bar", "foobar", "human"]
+
+str = "hello, world!"
+
+reverse(arr) # ["human", "foobar", "bar", "foo"]
+
+reverse(str) # !dlrow ,olleh
+```
+
 - filter
 
 Filter an iterable (array, string, map) based on its member values using a callback, the callback **must** return a boolean value

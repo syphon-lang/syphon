@@ -1,7 +1,16 @@
-time = import("time")
+tester = import("tester.sy")
 
-start = time.now()
-time.sleep(1)
-end = time.now()
+test_1 = fn () {
+    # sleep for one second
+    time = import("time")
 
-println("Took 1 second:", end - start == 1)
+    start = time.now()
+    time.sleep(1)
+    end = time.now()
+
+    return end - start == 1
+}
+
+tester.test([
+    test_1,
+])

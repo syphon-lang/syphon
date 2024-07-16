@@ -1,0 +1,24 @@
+tester = import("tester.sy")
+
+test_1 = fn () {
+    # concatenate a string 
+    str = "Hello"
+
+    str += ", World!"
+
+    return str == "Hello, World!"
+}
+
+test_2 = fn () {
+    # concatenate an array 
+    arr = [0, 1, 2]
+
+    arr += [3, 4, 5]
+
+    return arr == [0, 1, 2, 3, 4, 5] 
+}
+
+tester.test([
+    test_1,
+    test_2,
+])

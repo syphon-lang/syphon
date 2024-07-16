@@ -1,6 +1,6 @@
 benchmarker = import("benchmarker.sy")
 
-benchmarker.run(fn () {
+benchmarker.run("common arithmetic operations loop", fn () {
     result = 1
 
     i = 1

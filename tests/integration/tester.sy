@@ -1,0 +1,25 @@
+export({
+    "test": fn (tests) {
+        results = []
+
+        i = -1
+
+        while (i += 1) < length(tests) {
+            result = tests[i]()
+
+            array_push(results, result)
+
+            if result {
+                print("test ", i + 1, " passed\n")
+            } else {
+                print("test ", i + 1, " failed\n")
+            }
+        }
+
+        if contains(results, false) {
+            print("some tests has failed..\n")
+        } else {
+            print("all good!\n")
+        }
+    },
+})

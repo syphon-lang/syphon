@@ -1,14 +1,28 @@
-arr = [0, 2, 4, 3, 5]
+tester = import("tester.sy")
 
-println("The Array to Subscript:", arr)
-println("Got a Subscript of Array at index 3:", arr[3] == 3)
+test_1 = fn () {
+    # subscript an array
+    arr = [0, 2, 4, 3, 5]
 
-str = "Hello, World!"
+    return arr[3] == 3
+}
 
-println("The String to Subscript:", str)
-println("Got a Subscript of String at index 3:", str[3] == "l")
+test_2 = fn () {
+    # subscript a string
+    str = "Hello, World!"
 
-map = {1: 2, 3: 4, 4: 5}
+    return str[3] == "l"
+}
 
-println("The Map to Subscript:", map)
-println("Got a Subscript from Map with key 3:", map[3] == 4)
+test_3 = fn () {
+    # subscript a map
+    map = {1: 2, 3: 4, 4: 5}
+
+    return map[3] == 4
+}
+
+tester.test([
+    test_1,
+    test_2,
+    test_3,
+])

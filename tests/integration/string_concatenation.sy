@@ -1,9 +1,0 @@
-str = "Hello"
-
-println("First state of the String:", str)
-
-str = str + ", World!"
-
-println("Concatenated the String:", str == "Hello, World!")
-
-println("Final state of the String:", str)

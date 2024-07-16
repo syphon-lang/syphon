@@ -1,13 +1,13 @@
 time = import("time")
 
 export({
-    "run": fn (benchmark) {
+    "run": fn (label, benchmark) {
         start = time.now_ms()
 
         benchmark()
 
         end = time.now_ms()
 
-        println("Took", (end - start), "ms")
+        println(label + ":", (end - start), "ms")
     },
 })

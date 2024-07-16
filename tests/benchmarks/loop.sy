@@ -1,9 +1,7 @@
 benchmarker = import("benchmarker.sy")
 
-benchmarker.run(fn () {
-    i = 0
+benchmarker.run("empty loop", fn () {
+    i = -1
 
-    while i < 10 ** 6 {
-        i += 1
-    }
+    while (i += 1) < 10 ** 6 {}
 })

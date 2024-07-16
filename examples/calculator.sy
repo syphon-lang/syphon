@@ -7,15 +7,11 @@ while true {
 
     print("Left: ")
 
-    raw_lhs = fs.read_line(io.stdin)
-
-    if raw_lhs == none {
+    if (raw_lhs = fs.read_line(io.stdin)) == none {
         break
     }
 
-    parsed_lhs = to_float(raw_lhs)
-
-    if parsed_lhs == none {
+    if (parsed_lhs = to_float(raw_lhs)) == none {
         println(raw_lhs, "is not a number")
 
         continue
@@ -23,22 +19,21 @@ while true {
 
     print("Right: ")
 
-    raw_rhs = fs.read_line(io.stdin)
-
-    if raw_rhs == none {
+    if (raw_rhs = fs.read_line(io.stdin)) == none {
         break
     }
 
-    parsed_rhs = to_float(raw_rhs)
-
-    if parsed_rhs == none {
+    if (parsed_rhs = to_float(raw_rhs)) == none {
         println(raw_rhs, "is not a number")
 
         continue
     }
 
     print("Operator [+, -, /, *, **]: ")
-    operator = fs.read_line(io.stdin)
+
+    if (operator = fs.read_line(io.stdin)) == none {
+        break
+    }
 
     if operator == "+" {
         println(parsed_lhs + parsed_rhs)

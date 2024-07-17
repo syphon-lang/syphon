@@ -1,0 +1,20 @@
+tester = import("tester.sy")
+
+test_1 = fn () {
+    # reverse an array of mixed types
+    expected_arr = [[3], 2, 1, "0"]
+    reversed_arr = reverse(["0", 1, 2, [3]])
+    return reversed_arr == expected_arr
+}
+
+test_2 = fn () {
+    # reverse a string
+    expected_str = "321!dlrow ,olleh"
+    reversed_str = reverse("hello, world!123")
+    return reversed_str == expected_str
+}
+
+tester.test([
+    test_1,
+    test_2,
+])

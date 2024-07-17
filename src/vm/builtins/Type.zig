@@ -45,7 +45,7 @@ pub fn toInt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         .object => switch (value.object) {
             .string => {
                 const parsed_int = std.fmt.parseInt(i64, value.object.string.content, 0) catch {
-                    return Code.Value{ .none = {} };
+                    return .none;
                 };
 
                 return Code.Value{ .int = parsed_int };
@@ -57,7 +57,7 @@ pub fn toInt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => {},
     }
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -73,7 +73,7 @@ pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         .object => switch (value.object) {
             .string => {
                 const parsed_float = std.fmt.parseFloat(f64, value.object.string.content) catch {
-                    return Code.Value{ .none = {} };
+                    return .none;
                 };
 
                 return Code.Value{ .float = parsed_float };
@@ -85,7 +85,7 @@ pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => {},
     }
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -95,11 +95,11 @@ pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var buffered_writer = std.io.bufferedWriter(result.writer());
 
     Console._print(std.ArrayList(u8).Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     buffered_writer.flush() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     return Code.Value{ .object = .{ .string = .{ .content = result.items } } };

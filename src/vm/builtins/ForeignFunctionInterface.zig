@@ -62,22 +62,22 @@ fn getTypeExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 
 fn dllOpen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (!(arguments[1] == .object and arguments[1].object == .map)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const dll_path = arguments[0].object.string.content;
     const dll_wanted_functions = arguments[1].object.map;
 
     const dll = std.DynLib.open(dll_path) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     const dll_on_heap = vm.allocator.create(std.DynLib) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     dll_on_heap.* = dll;
@@ -85,58 +85,58 @@ fn dllOpen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var dll_map = std.StringHashMap(Code.Value).init(vm.allocator);
 
     dll_map.put("pointer", .{ .int = @bitCast(@as(u64, @intFromPtr(dll_on_heap))) }) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     var dll_wanted_function_iterator = dll_wanted_functions.inner.iterator();
 
     while (dll_wanted_function_iterator.next()) |dll_wanted_function| {
         if (!(dll_wanted_function.key_ptr.* == .object and dll_wanted_function.key_ptr.object == .string)) {
-            return Code.Value{ .none = {} };
+            return .none;
         }
 
         if (!(dll_wanted_function.value_ptr.* == .object and dll_wanted_function.value_ptr.object == .map)) {
-            return Code.Value{ .none = {} };
+            return .none;
         }
 
         const dll_wanted_function_name = dll_wanted_function.key_ptr.object.string.content;
 
         const dll_wanted_function_name_z = vm.allocator.dupeZ(u8, dll_wanted_function_name) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         };
 
         var dll_function = std.StringHashMap(Code.Value).init(vm.allocator);
 
-        const dll_function_pointer = dll_on_heap.lookup(*anyopaque, dll_wanted_function_name_z) orelse return Code.Value{ .none = {} };
+        const dll_function_pointer = dll_on_heap.lookup(*anyopaque, dll_wanted_function_name_z) orelse return .none;
 
         dll_function.put("pointer", .{ .int = @bitCast(@as(u64, @intFromPtr(dll_function_pointer))) }) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         };
 
         dll_function.put("prototype", dll_wanted_function.value_ptr.*) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         };
 
-        dll_map.put(dll_wanted_function_name, Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_function) catch return Code.Value{ .none = {} }) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+        dll_map.put(dll_wanted_function_name, Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_function) catch return .none) catch |err| switch (err) {
+            else => return .none,
         };
     }
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_map) catch Code.Value{ .none = {} };
+    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_map) catch .none;
 }
 
 fn dllClose(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .map)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
-    const dll = getPointerFromMap(std.DynLib, arguments[0]) orelse return Code.Value{ .none = {} };
+    const dll = getPointerFromMap(std.DynLib, arguments[0]) orelse return .none;
 
     dll.close();
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn getPointerFromMap(comptime T: type, map: Code.Value) ?*T {
@@ -355,7 +355,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_VOID => {
             ffi.ffi_call(cif, @ptrCast(function_pointer), null, arguments.ptr);
 
-            return Code.Value{ .none = {} };
+            return .none;
         },
 
         ffi.FFI_TYPE_UINT8 => {
@@ -363,7 +363,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(@as(u8, @truncate(result))) };
+            return .{ .int = @intCast(@as(u8, @truncate(result))) };
         },
 
         ffi.FFI_TYPE_UINT16 => {
@@ -371,7 +371,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(@as(u16, @truncate(result))) };
+            return .{ .int = @intCast(@as(u16, @truncate(result))) };
         },
 
         ffi.FFI_TYPE_UINT32 => {
@@ -379,7 +379,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(@as(u32, @truncate(result))) };
+            return .{ .int = @intCast(@as(u32, @truncate(result))) };
         },
 
         ffi.FFI_TYPE_UINT64 => {
@@ -387,7 +387,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(result) };
+            return .{ .int = @intCast(result) };
         },
 
         ffi.FFI_TYPE_SINT8 => {
@@ -395,7 +395,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(@as(i8, @truncate(result))) };
+            return .{ .int = @intCast(@as(i8, @truncate(result))) };
         },
 
         ffi.FFI_TYPE_SINT16 => {
@@ -403,7 +403,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(@as(i16, @truncate(result))) };
+            return .{ .int = @intCast(@as(i16, @truncate(result))) };
         },
 
         ffi.FFI_TYPE_SINT32 => {
@@ -411,7 +411,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(@as(i32, @truncate(result))) };
+            return .{ .int = @intCast(@as(i32, @truncate(result))) };
         },
 
         ffi.FFI_TYPE_SINT64 => {
@@ -419,7 +419,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(result) };
+            return .{ .int = @intCast(result) };
         },
 
         ffi.FFI_TYPE_FLOAT => {
@@ -427,7 +427,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .float = @floatCast(@as(f32, @bitCast(@as(u32, @truncate(result))))) };
+            return .{ .float = @floatCast(@as(f32, @bitCast(@as(u32, @truncate(result))))) };
         },
 
         ffi.FFI_TYPE_DOUBLE => {
@@ -435,7 +435,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .float = @floatFromInt(result) };
+            return .{ .float = @floatFromInt(result) };
         },
 
         ffi.FFI_TYPE_POINTER => {
@@ -443,37 +443,37 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 
             ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
 
-            return Code.Value{ .int = @intCast(result) };
+            return .{ .int = @intCast(result) };
         },
 
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     }
 }
 
 fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .map)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (!(arguments[1] == .object and arguments[1].object == .array)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
-    const dll_function_pointer = getPointerFromMap(anyopaque, arguments[0]) orelse return Code.Value{ .none = {} };
+    const dll_function_pointer = getPointerFromMap(anyopaque, arguments[0]) orelse return .none;
 
-    const dll_function_prototype = arguments[0].object.map.getWithString("prototype") orelse return Code.Value{ .none = {} };
+    const dll_function_prototype = arguments[0].object.map.getWithString("prototype") orelse return .none;
     if (!(dll_function_prototype == .object and dll_function_prototype.object == .map)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
-    const dll_function_parameter_types = dll_function_prototype.object.map.getWithString("parameters") orelse return Code.Value{ .none = {} };
+    const dll_function_parameter_types = dll_function_prototype.object.map.getWithString("parameters") orelse return .none;
     if (!(dll_function_parameter_types == .object and dll_function_parameter_types.object == .array)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
-    const dll_function_return_type = dll_function_prototype.object.map.getWithString("returns") orelse return Code.Value{ .none = {} };
+    const dll_function_return_type = dll_function_prototype.object.map.getWithString("returns") orelse return .none;
     if (dll_function_return_type != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const dll_function_arguments = arguments[1].object.array;
@@ -482,33 +482,33 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     var ffi_parameter_types = std.ArrayList(?*ffi.ffi_type).init(vm.allocator);
 
-    const ffi_return_type = getFFITypeFromInt(dll_function_return_type.int) catch return Code.Value{ .none = {} };
+    const ffi_return_type = getFFITypeFromInt(dll_function_return_type.int) catch return .none;
 
     var ffi_arguments = std.ArrayList(?*anyopaque).init(vm.allocator);
 
     for (dll_function_parameter_types.object.array.values.items) |dll_function_parameter_type| {
         if (dll_function_parameter_type != .int) {
-            return Code.Value{ .none = {} };
+            return .none;
         }
 
-        const ffi_parameter_type = getFFITypeFromInt(dll_function_parameter_type.int) catch return Code.Value{ .none = {} };
+        const ffi_parameter_type = getFFITypeFromInt(dll_function_parameter_type.int) catch return .none;
 
         ffi_parameter_types.append(ffi_parameter_type) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         };
     }
 
     if (dll_function_arguments.values.items.len != ffi_parameter_types.items.len) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     for (dll_function_arguments.values.items, 0..) |dll_function_argument, i| {
-        putArgumentInFFIArguments(vm.allocator, dll_function_argument, dll_function_parameter_types.object.array.values.items[i].int, &ffi_arguments) catch return Code.Value{ .none = {} };
+        putArgumentInFFIArguments(vm.allocator, dll_function_argument, dll_function_parameter_types.object.array.values.items[i].int, &ffi_arguments) catch return .none;
     }
 
     switch (ffi.ffi_prep_cif(&ffi_cif, ffi.FFI_DEFAULT_ABI, @intCast(ffi_parameter_types.items.len), ffi_return_type, ffi_parameter_types.items.ptr)) {
         ffi.FFI_OK => {},
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     }
 
     return doFFICall(&ffi_cif, dll_function_pointer, ffi_arguments.items, dll_function_return_type.int);
@@ -516,16 +516,16 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
 fn toCstring(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const original = arguments[0].object.string.content;
 
     const duplicated = vm.allocator.dupeZ(u8, original) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
-    return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(duplicated.ptr))) };
+    return .{ .int = @bitCast(@as(u64, @intFromPtr(duplicated.ptr))) };
 }
 
 const CallbackData = struct {
@@ -551,57 +551,57 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
 
             ffi.FFI_TYPE_UINT8 => {
                 const value = @as(*u8, @ptrCast(argument.?)).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_UINT16 => {
                 const value = @as(*u16, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_UINT32 => {
                 const value = @as(*u32, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_UINT64 => {
                 const value = @as(*u64, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT8 => {
                 const value = @as(*i8, @ptrCast(argument.?)).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT16 => {
                 const value = @as(*i16, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT32 => {
                 const value = @as(*i32, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_SINT64 => {
                 const value = @as(*i64, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = value }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = value }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_FLOAT => {
                 const value = @as(*f32, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_DOUBLE => {
                 const value = @as(*f64, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .float = @floatCast(value) }) catch evaluateCallbackFailed();
             },
 
             ffi.FFI_TYPE_POINTER => {
                 const value = @as(*ffi.ffi_arg, @ptrCast(@alignCast(argument.?))).*;
-                function_arguments.append(Code.Value{ .int = @intCast(value) }) catch evaluateCallbackFailed();
+                function_arguments.append(.{ .int = @intCast(value) }) catch evaluateCallbackFailed();
             },
 
             else => evaluateCallbackFailed(),
@@ -619,52 +619,52 @@ var writeable_memory_allocated = std.AutoHashMapUnmanaged(i64, *anyopaque){};
 
 fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .function)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (!(arguments[1] == .object and arguments[1].object == .map)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const user_function = arguments[0].object.function;
 
     const user_function_prototype = arguments[1].object.map;
 
-    const user_function_parameter_types = user_function_prototype.getWithString("parameters") orelse return Code.Value{ .none = {} };
+    const user_function_parameter_types = user_function_prototype.getWithString("parameters") orelse return .none;
     if (!(user_function_parameter_types == .object and user_function_parameter_types.object == .array)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
-    const user_function_return_type = user_function_prototype.getWithString("returns") orelse return Code.Value{ .none = {} };
+    const user_function_return_type = user_function_prototype.getWithString("returns") orelse return .none;
     if (user_function_return_type != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     var ffi_cif: ffi.ffi_cif = undefined;
 
     var ffi_parameter_types = std.ArrayList(?*ffi.ffi_type).init(vm.allocator);
 
-    const ffi_return_type = getFFITypeFromInt(user_function_return_type.int) catch return Code.Value{ .none = {} };
+    const ffi_return_type = getFFITypeFromInt(user_function_return_type.int) catch return .none;
 
     for (user_function_parameter_types.object.array.values.items) |dll_function_parameter_type| {
         if (dll_function_parameter_type != .int) {
-            return Code.Value{ .none = {} };
+            return .none;
         }
 
-        const ffi_parameter_type = getFFITypeFromInt(dll_function_parameter_type.int) catch return Code.Value{ .none = {} };
+        const ffi_parameter_type = getFFITypeFromInt(dll_function_parameter_type.int) catch return .none;
 
         ffi_parameter_types.append(ffi_parameter_type) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         };
     }
 
     switch (ffi.ffi_prep_cif(&ffi_cif, ffi.FFI_DEFAULT_ABI, @intCast(ffi_parameter_types.items.len), ffi_return_type, ffi_parameter_types.items.ptr)) {
         ffi.FFI_OK => {},
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     }
 
     const ffi_cif_on_heap = vm.allocator.create(ffi.ffi_cif) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     ffi_cif_on_heap.* = ffi_cif;
@@ -675,33 +675,33 @@ fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Val
 
     if (maybe_ffi_closure) |ffi_closure| {
         const callback_data_on_heap = vm.allocator.create(CallbackData) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         };
 
         callback_data_on_heap.* = .{ .vm = vm, .function = user_function };
 
         switch (ffi.ffi_prep_closure_loc(ffi_closure, ffi_cif_on_heap, &evaluateCallback, callback_data_on_heap, ffi_function_pointer)) {
             ffi.FFI_OK => {},
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         }
 
         const ffi_function_pointer_casted: i64 = @bitCast(@as(u64, @intFromPtr(ffi_function_pointer)));
 
         writeable_memory_allocated.put(vm.allocator, ffi_function_pointer_casted, ffi_closure) catch |err| switch (err) {
-            else => return Code.Value{ .none = {} },
+            else => return .none,
         };
 
-        return Code.Value{ .int = ffi_function_pointer_casted };
+        return .{ .int = ffi_function_pointer_casted };
     }
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn freeCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const maybe_writeable_memory = writeable_memory_allocated.get(arguments[0].int);
@@ -712,5 +712,5 @@ fn freeCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         _ = writeable_memory_allocated.remove(arguments[0].int);
     }
 
-    return Code.Value{ .none = {} };
+    return .none;
 }

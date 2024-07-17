@@ -11,7 +11,7 @@ allocator: std.mem.Allocator,
 
 mutex: std.Thread.Mutex = .{},
 
-exported: Code.Value = .{ .none = {} },
+exported: Code.Value = .none,
 
 frames: std.ArrayList(Frame),
 frames_start: usize = 0,

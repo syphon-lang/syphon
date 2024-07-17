@@ -26,13 +26,13 @@ fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file_path = arguments[0].object.string.content;
 
     const file = std.fs.cwd().openFile(file_path, .{ .mode = .read_write }) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     if (builtin.os.tag == .windows) {
@@ -46,13 +46,13 @@ fn create(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file_path = arguments[0].object.string.content;
 
     const file = std.fs.cwd().createFile(file_path, .{ .truncate = false, .read = true }) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     if (builtin.os.tag == .windows) {
@@ -74,37 +74,37 @@ fn delete(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file_path = arguments[0].object.string.content;
 
     std.fs.cwd().deleteFile(file_path) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn close(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file = getFile(arguments[0]);
 
     file.close();
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn cwd(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = arguments;
 
     const cwd_file_path = std.fs.cwd().realpathAlloc(vm.allocator, ".") catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     return Code.Value{ .object = .{ .string = .{ .content = cwd_file_path } } };
@@ -114,27 +114,27 @@ fn chdir(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const dir_path = arguments[0].object.string.content;
 
     const dir = std.fs.cwd().openDir(dir_path, .{}) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     dir.setAsCwd() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn access(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file_path = arguments[0].object.string.content;
@@ -150,11 +150,11 @@ fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (!(arguments[1] == .object and arguments[1].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file = getFile(arguments[0]);
@@ -164,33 +164,33 @@ fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var buffered_writer = std.io.bufferedWriter(file.writer());
 
     buffered_writer.writer().writeAll(write_content) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     buffered_writer.flush() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file = getFile(arguments[0]);
 
     const buf = vm.allocator.alloc(u8, 1) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     const n = file.reader().read(buf) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     if (n == 0) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     return Code.Value{ .object = .{ .string = .{ .content = buf } } };
@@ -198,17 +198,17 @@ fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
 fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file = getFile(arguments[0]);
 
     const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.allocator, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     if (file_content == null) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     return Code.Value{ .object = .{ .string = .{ .content = file_content.? } } };
@@ -216,13 +216,13 @@ fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
 fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file = getFile(arguments[0]);
 
     const file_content = file.reader().readAllAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     return Code.Value{ .object = .{ .string = .{ .content = file_content } } };

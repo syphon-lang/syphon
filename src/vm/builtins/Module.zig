@@ -27,18 +27,18 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     vm.exported = arguments[0];
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file_path = arguments[0].object.string.content;
 
     if (NativeModuleGetters.get(file_path)) |getNativeModule| {
-        return getNativeModule(vm) catch Code.Value{ .none = {} };
+        return getNativeModule(vm) catch .none;
     } else {
         return getExported(vm, file_path);
     }
@@ -59,21 +59,21 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     };
 
     const resolved_file_path = std.fs.path.resolve(vm.allocator, &.{ source_dir_path, file_path }) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     const file = std.fs.cwd().openFile(resolved_file_path, .{}) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     defer file.close();
 
     const file_content = file.reader().readAllAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     if (file_content.len == 0) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const file_content_z = @as([:0]u8, @ptrCast(file_content));
@@ -81,39 +81,39 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     file_content_z[file_content.len] = 0;
 
     var parser = Parser.init(vm.allocator, file_content_z) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     var gen = CodeGen.init(vm.allocator, .script, null) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     gen.compileRoot(root) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     const internal_vm = vm.internal_vms.addOneAssumeCapacity();
 
     const internal_vm_argv = vm.allocator.alloc([]const u8, 1) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     internal_vm_argv[0] = resolved_file_path;
 
     internal_vm.* = VirtualMachine.init(vm.allocator, internal_vm_argv) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     internal_vm.setCode(gen.code) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     internal_vm.run() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     addForeignFunction(vm, internal_vm, internal_vm.exported);
@@ -123,45 +123,45 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
 
 fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (arguments[0].object.string.content.len == 0) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const source_code = vm.allocator.dupeZ(u8, arguments[0].object.string.content) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     var parser = Parser.init(vm.allocator, source_code) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     const root = parser.parseRoot() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     var gen = CodeGen.init(vm.allocator, .script, null) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     gen.compileRoot(root) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     const internal_vm = vm.internal_vms.addOneAssumeCapacity();
 
     internal_vm.* = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     internal_vm.setCode(gen.code) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     internal_vm.run() catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     addForeignFunction(vm, internal_vm, internal_vm.exported);

@@ -70,10 +70,10 @@ pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
 
 fn endCode(self: *CodeGen) Error!void {
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .none = {} }) });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .@"return" = {} });
+    try self.code.instructions.append(.@"return");
 }
 
 fn compileNodes(self: *CodeGen, nodes: []const ast.Node) Error!void {
@@ -235,7 +235,7 @@ fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void
     try self.compileExpr(@"return".value);
 
     try self.code.source_locations.append(@"return".source_loc);
-    try self.code.instructions.append(.{ .@"return" = {} });
+    try self.code.instructions.append(.@"return");
 }
 
 fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
@@ -280,7 +280,7 @@ fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
 
 fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
     try self.code.source_locations.append(none.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .none = {} }) });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
 }
 
 fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) Error!void {
@@ -289,7 +289,7 @@ fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) E
 
     if (self.context.unused_expression) {
         try self.code.source_locations.append(identifier.name.source_loc);
-        try self.code.instructions.append(.{ .pop = {} });
+        try self.code.instructions.append(.pop);
     }
 }
 
@@ -374,11 +374,11 @@ fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Erro
     try self.compileExpr(subscript.index.*);
 
     try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .load_subscript = {} });
+    try self.code.instructions.append(.load_subscript);
 
     if (self.context.unused_expression) {
         try self.code.source_locations.append(subscript.source_loc);
-        try self.code.instructions.append(.{ .pop = {} });
+        try self.code.instructions.append(.pop);
     }
 }
 
@@ -448,12 +448,12 @@ fn compileUnaryOperationExpr(self: *CodeGen, unary_operation: ast.Node.Expr.Unar
         switch (unary_operation.operator) {
             .minus => {
                 try self.code.source_locations.append(unary_operation.source_loc);
-                try self.code.instructions.append(.{ .neg = {} });
+                try self.code.instructions.append(.neg);
             },
 
             .bang => {
                 try self.code.source_locations.append(unary_operation.source_loc);
-                try self.code.instructions.append(.{ .not = {} });
+                try self.code.instructions.append(.not);
             },
         }
     }
@@ -641,52 +641,52 @@ fn compileBinaryOperationExpr(self: *CodeGen, binary_operation: ast.Node.Expr.Bi
         switch (binary_operation.operator) {
             .plus => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .add = {} });
+                try self.code.instructions.append(.add);
             },
 
             .minus => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .subtract = {} });
+                try self.code.instructions.append(.subtract);
             },
 
             .forward_slash => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .divide = {} });
+                try self.code.instructions.append(.divide);
             },
 
             .star => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .multiply = {} });
+                try self.code.instructions.append(.multiply);
             },
 
             .double_star => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .exponent = {} });
+                try self.code.instructions.append(.exponent);
             },
 
             .percent => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .modulo = {} });
+                try self.code.instructions.append(.modulo);
             },
 
             .bang_equal_sign => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .not_equals = {} });
+                try self.code.instructions.append(.not_equals);
             },
 
             .double_equal_sign => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .equals = {} });
+                try self.code.instructions.append(.equals);
             },
 
             .less_than => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .less_than = {} });
+                try self.code.instructions.append(.less_than);
             },
 
             .greater_than => {
                 try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.{ .greater_than = {} });
+                try self.code.instructions.append(.greater_than);
             },
         }
     }
@@ -707,7 +707,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         if (!was_unused_expression) {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .duplicate = {} });
+            try self.code.instructions.append(.duplicate);
         }
 
         try self.compileExpr(assignment.target.subscript.index.*);
@@ -716,7 +716,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
         self.context.unused_expression = was_unused_expression;
 
         try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.{ .store_subscript = {} });
+        try self.code.instructions.append(.store_subscript);
 
         self.context.unused_expression = was_unused_expression;
 
@@ -739,7 +739,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
             if (!self.context.unused_expression) {
                 try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .duplicate = {} });
+                try self.code.instructions.append(.duplicate);
             }
 
             try self.code.source_locations.append(assignment.source_loc);
@@ -754,7 +754,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
             if (!self.context.unused_expression) {
                 try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .duplicate = {} });
+                try self.code.instructions.append(.duplicate);
             }
         }
     } else {
@@ -770,32 +770,32 @@ fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Assignment
 
         .plus => {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .add = {} });
+            try self.code.instructions.append(.add);
         },
 
         .minus => {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .subtract = {} });
+            try self.code.instructions.append(.subtract);
         },
 
         .forward_slash => {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .divide = {} });
+            try self.code.instructions.append(.divide);
         },
 
         .star => {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .multiply = {} });
+            try self.code.instructions.append(.multiply);
         },
 
         .double_star => {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .exponent = {} });
+            try self.code.instructions.append(.exponent);
         },
 
         .percent => {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .modulo = {} });
+            try self.code.instructions.append(.modulo);
         },
     }
 }
@@ -817,6 +817,6 @@ fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
 
     if (self.context.unused_expression) {
         try self.code.source_locations.append(call.source_loc);
-        try self.code.instructions.append(.{ .pop = {} });
+        try self.code.instructions.append(.pop);
     }
 }

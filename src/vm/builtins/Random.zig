@@ -22,7 +22,7 @@ fn random(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var max = Type.toFloat(vm, &.{arguments[1]});
 
     if (min == .none or max == .none) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (min.float > max.float) {

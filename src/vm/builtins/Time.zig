@@ -34,5 +34,5 @@ pub fn sleep(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     std.time.sleep(@intFromFloat(seconds.float * std.math.pow(f64, 10.0, 9.0)));
 
-    return Code.Value{ .none = {} };
+    return .none;
 }

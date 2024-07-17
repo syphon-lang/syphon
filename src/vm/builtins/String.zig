@@ -14,11 +14,11 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 
 fn stringSplit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (!(arguments[1] == .object and arguments[1].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const string = arguments[0].object.string.content;
@@ -29,7 +29,7 @@ fn stringSplit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (delimiter.len == 0) {
         for (0..string.len) |i| {
             new_strings.append(string[i .. i + 1]) catch |err| switch (err) {
-                else => return Code.Value{ .none = {} },
+                else => return .none,
             };
         }
     } else {
@@ -37,17 +37,17 @@ fn stringSplit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
         while (new_string_iterator.next()) |new_string| {
             new_strings.append(new_string) catch |err| switch (err) {
-                else => return Code.Value{ .none = {} },
+                else => return .none,
             };
         }
     }
 
-    return Code.Value.Object.Array.fromStringSlices(vm.allocator, new_strings.items) catch Code.Value{ .none = {} };
+    return Code.Value.Object.Array.fromStringSlices(vm.allocator, new_strings.items) catch .none;
 }
 
 fn stringUpper(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const string = arguments[0].object.string;
@@ -64,7 +64,7 @@ fn stringUpper(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
 fn stringLower(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .string)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const string = arguments[0].object.string;
@@ -83,7 +83,7 @@ fn ord(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .string and arguments[0].object.string.content.len == 1)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     return Code.Value{ .int = @intCast(arguments[0].object.string.content[0]) };
@@ -91,11 +91,11 @@ fn ord(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
 fn chr(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const content_on_heap = vm.allocator.alloc(u8, 1) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     content_on_heap[0] = @intCast(arguments[0].int);

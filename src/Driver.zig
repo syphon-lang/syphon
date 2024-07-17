@@ -101,9 +101,9 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
 
             self.cli.command = .{ .run = .{ .argv = argv.items } };
         } else if (std.mem.eql(u8, arg, "version")) {
-            self.cli.command = .{ .version = {} };
+            self.cli.command = .version;
         } else if (std.mem.eql(u8, arg, "help")) {
-            self.cli.command = .{ .help = {} };
+            self.cli.command = .help;
         } else {
             std.debug.print(usage, .{program});
 

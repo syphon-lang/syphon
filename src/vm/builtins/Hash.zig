@@ -14,7 +14,7 @@ fn hash(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const value = arguments[0];
 
     if (!Code.Value.HashContext.hashable(value)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const hash_context = Code.Value.HashContext{};

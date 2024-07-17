@@ -14,11 +14,11 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 
 fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (!(arguments[0] == .object and arguments[0].object == .function)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     if (!(arguments[1] == .object and arguments[1].object == .array)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const thread_function = arguments[0].object.function;
@@ -26,11 +26,11 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const thread_arguments = arguments[1].object.array;
 
     if (thread_arguments.values.items.len != thread_function.parameters.len) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const thread = std.Thread.spawn(.{ .allocator = vm.allocator }, callThreadFunction, .{ vm, thread_function, thread_arguments.values.items }) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     vm.mutex.unlock();
@@ -39,7 +39,7 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     std.Thread.yield() catch {};
 
     const thread_on_heap = vm.allocator.create(std.Thread) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
     thread_on_heap.* = thread;
@@ -68,7 +68,7 @@ fn callThreadFunction(vm: *VirtualMachine, function: *Code.Value.Object.Function
 
 fn join(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (arguments[0] != .int) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const thread: *std.Thread = @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(arguments[0].int)))));
@@ -80,5 +80,5 @@ fn join(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     thread.join();
 
-    return Code.Value{ .none = {} };
+    return .none;
 }

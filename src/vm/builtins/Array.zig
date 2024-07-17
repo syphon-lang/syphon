@@ -13,7 +13,7 @@ fn arrayPush(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const array = arguments[0].object.array;
@@ -21,20 +21,20 @@ fn arrayPush(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const value = arguments[1];
 
     array.values.append(value) catch |err| switch (err) {
-        else => return Code.Value{ .none = {} },
+        else => return .none,
     };
 
-    return Code.Value{ .none = {} };
+    return .none;
 }
 
 fn arrayPop(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
     if (!(arguments[0] == .object and arguments[0].object == .array)) {
-        return Code.Value{ .none = {} };
+        return .none;
     }
 
     const array = arguments[0].object.array;
 
-    return array.values.popOrNull() orelse Code.Value{ .none = {} };
+    return array.values.popOrNull() orelse .none;
 }

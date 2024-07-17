@@ -15,6 +15,8 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
+    const Type = @import("Type.zig");
+
     if (arguments.len < 1 or arguments.len > 3) {
         return Code.Value{ .none = {} };
     }
@@ -23,26 +25,35 @@ fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var end: i64 = 1;
     var step: i64 = 1;
 
-    for (arguments) |argument| {
-        if (argument != .int) {
-            return Code.Value{ .none = {} };
-        }
-    }
-
     switch (arguments.len) {
         1 => {
-            end = arguments[0].int;
+            const first_argument_casted = Type.toInt(vm, arguments[0..1]);
+            if (first_argument_casted == .none) return first_argument_casted;
+            end = first_argument_casted.int;
         },
 
         2 => {
-            start = arguments[0].int;
-            end = arguments[1].int;
+            const first_argument_casted = Type.toInt(vm, arguments[0..1]);
+            if (first_argument_casted == .none) return first_argument_casted;
+            start = first_argument_casted.int;
+
+            const second_argument_casted = Type.toInt(vm, arguments[1..2]);
+            if (second_argument_casted == .none) return second_argument_casted;
+            end = second_argument_casted.int;
         },
 
         3 => {
-            start = arguments[0].int;
-            end = arguments[1].int;
-            step = arguments[2].int;
+            const first_argument_casted = Type.toInt(vm, arguments[0..1]);
+            if (first_argument_casted == .none) return first_argument_casted;
+            start = first_argument_casted.int;
+
+            const second_argument_casted = Type.toInt(vm, arguments[1..2]);
+            if (second_argument_casted == .none) return second_argument_casted;
+            end = second_argument_casted.int;
+
+            const third_argument_casted = Type.toInt(vm, arguments[2..3]);
+            if (third_argument_casted == .none) return third_argument_casted;
+            step = third_argument_casted.int;
 
             if (step == 0) return Code.Value{ .none = {} };
         },

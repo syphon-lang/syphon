@@ -1,17 +1,14 @@
 tester = import("tester.sy")
 
-test_1 = fn () {
-    # transform an empty map
+tester.run("pass-through an empty map", fn () {
     untransformed_map = {}
 
     transformed_map = transform(untransformed_map, fn (k, v) { return [k, v] })
 
     return transformed_map == untransformed_map
-}
+})
 
-test_2 = fn () {
-    # pass-through transform for an map holding a number of elements
-    # transformed map should be equal to the untransformed map
+tester.run("pass-through a non-empty map", fn () {
     untransformed_map = {
         "1": 1,
         "2": 2,
@@ -23,10 +20,9 @@ test_2 = fn () {
     transformed_map = transform(untransformed_map, fn (k, v) { return [k, v] })
 
     return transformed_map == untransformed_map
-}
+})
 
-test_3 = fn () {
-    # apply a simple tranformation to values but not keys
+tester.run("apply a simple tranformation to values but not keys", fn () {
     untransformed_map = {
         "1": 1,
         "2": 2,
@@ -46,10 +42,9 @@ test_3 = fn () {
     }
 
     return transformed_map == expected_map
-}
+})
 
-test_4 = fn () {
-    # apply a simple tranformation to keys but not values
+tester.run("apply a simple tranformation to keys but not values", fn () {
     untransformed_map = {
         "1": 1,
         "2": 2,
@@ -69,10 +64,9 @@ test_4 = fn () {
     }
 
     return transformed_map == expected_map
-}
+})
 
-test_5 = fn () {
-    # apply a simple tranformation both keys and values
+tester.run("apply a simple tranformation both keys and values", fn () {
     untransformed_map = {
         "1": 1,
         "2": 2,
@@ -92,19 +86,17 @@ test_5 = fn () {
     }
 
     return transformed_map == expected_map
-}
+})
 
-test_6 = fn () {
-    # same as test_1 but for array
+tester.run("pass-through a non-empty array", fn () {
     untransformed_arr = [1, 2, 3, 4, 5]
 
     transformed_arr = transform(untransformed_arr, fn (v) { return v })
 
     return transformed_arr == untransformed_arr
-}
+})
 
-test_7 = fn () {
-    # apply a simple transformation to array's values
+tester.run("apply a simple transformation to array's values", fn () {
     untransformed_arr = [1, 2, 3, 4, 5]
 
     transformed_arr = transform(untransformed_arr, fn (v) { return v + 1 })
@@ -112,14 +104,6 @@ test_7 = fn () {
     expected_arr = [2, 3, 4, 5, 6]
 
     return transformed_arr == expected_arr
-}
+})
 
-tester.test([
-    test_1,
-    test_2,
-    test_3,
-    test_4,
-    test_5,
-    test_6,
-    test_7,
-])
+tester.end()

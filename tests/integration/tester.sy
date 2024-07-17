@@ -1,25 +1,46 @@
+stats = {"passed": 0, "failed": 0}
+
 export({
-    "test": fn (tests) {
-        results = []
+    "run": fn (label, test) {
+        print(label + ".. ")
 
-        i = -1
+        result = test()
 
-        while (i += 1) < length(tests) {
-            result = tests[i]()
-
-            array_push(results, result)
-
-            if result {
-                print("test ", i + 1, " passed\n")
-            } else {
-                print("test ", i + 1, " failed\n")
-            }
-        }
-
-        if contains(results, false) {
-            print("some tests has failed..\n")
+        if result == none {
+            println("skipped")
+        } else if result == true {
+            println("passed")
+            stats.passed += 1
         } else {
-            print("all good!\n")
+            println("failed")
+            stats.failed += 1
         }
     },
+
+    "end": fn () {
+        if stats.passed + stats.failed == 0 {
+            return none
+        }
+
+        println()
+
+        if stats.passed == 1 {
+            test_or_tests_passed = "test"
+        } else {
+            test_or_tests_passed = "tests"
+        }
+
+        if stats.failed == 1 {
+            test_or_tests_failed = "test"
+        } else {
+            test_or_tests_failed = "tests"
+        }
+
+        if stats.failed == 0 {
+            println("all", stats.passed, test_or_tests_passed, "passed")
+        } else {
+            print(stats.passed, test_or_tests_passed, "passed ")
+            println("and", stats.failed, test_or_tests_failed, "failed")
+        }
+    }
 })

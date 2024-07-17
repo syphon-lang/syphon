@@ -1,28 +1,21 @@
 tester = import("tester.sy")
 
-test_1 = fn () {
-    # subscript an array
+tester.run("subscript an array", fn () {
     arr = [0, 2, 4, 3, 5]
 
     return arr[3] == 3
-}
+})
 
-test_2 = fn () {
-    # subscript a string
+tester.run("subscript a string", fn () {
     str = "Hello, World!"
 
     return str[3] == "l"
-}
+})
 
-test_3 = fn () {
-    # subscript a map
+tester.run("subscript a map", fn () {
     map = {1: 2, 3: 4, 4: 5}
 
     return map[3] == 4
-}
+})
 
-tester.test([
-    test_1,
-    test_2,
-    test_3,
-])
+tester.end()

@@ -1,7 +1,6 @@
 tester = import("tester.sy")
 
-test_1 = fn () {
-    # sleep for one second
+tester.run("sleep for 1 second", fn () {
     time = import("time")
 
     start = time.now()
@@ -9,8 +8,6 @@ test_1 = fn () {
     end = time.now()
 
     return end - start == 1
-}
+})
 
-tester.test([
-    test_1,
-])
+tester.end()

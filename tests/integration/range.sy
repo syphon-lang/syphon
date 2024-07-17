@@ -1,28 +1,27 @@
 tester = import("tester.sy")
 
-test_1 = fn () {
-    # generate a range array and validate it
-    expected_arr = [0, 1, 2, 3, 4, 5]
+tester.run("generate a range array", fn () {
     range_arr = range(6)
-    return range_arr == expected_arr
-}
 
-test_2 = fn () {
-    # generate a range array with a specified starting point and validate it
-    expected_arr = [1, 2, 3, 4, 5]
+    expected_arr = [0, 1, 2, 3, 4, 5]
+
+    return range_arr == expected_arr
+})
+
+tester.run("generate a range array with a specified starting point", fn () {
     range_arr = range(1, 6)
-    return range_arr == expected_arr
-}
 
-test_3 = fn () {
-    # generate a range array with a specified starting point and step incrementor validate it
-    expected_arr = [0, 2, 4, 6, 8, 10]
+    expected_arr = [1, 2, 3, 4, 5]
+
+    return range_arr == expected_arr
+})
+
+tester.run("generate a range array with a specified starting point and step incrementor", fn () {
     range_arr = range(0, 12, 2)
-    return range_arr == expected_arr
-}
 
-tester.test([
-    test_1,
-    test_2,
-    test_3,
-])
+    expected_arr = [0, 2, 4, 6, 8, 10]
+
+    return range_arr == expected_arr
+})
+
+tester.end()

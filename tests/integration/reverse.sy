@@ -1,20 +1,19 @@
 tester = import("tester.sy")
 
-test_1 = fn () {
-    # reverse an array of mixed types
-    expected_arr = [[3], 2, 1, "0"]
+tester.run("reverse an array", fn () {
     reversed_arr = reverse(["0", 1, 2, [3]])
+
+    expected_arr = [[3], 2, 1, "0"]
+
     return reversed_arr == expected_arr
-}
+})
 
-test_2 = fn () {
-    # reverse a string
-    expected_str = "321!dlrow ,olleh"
+tester.run("reverse a string", fn () {
     reversed_str = reverse("hello, world!123")
-    return reversed_str == expected_str
-}
 
-tester.test([
-    test_1,
-    test_2,
-])
+    expected_str = "321!dlrow ,olleh"
+
+    return reversed_str == expected_str
+})
+
+tester.end()

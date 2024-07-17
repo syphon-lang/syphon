@@ -1,16 +1,14 @@
 tester = import("tester.sy")
 
-test_1 = fn () {
-    # pass-through filter for an empty map
+tester.run("pass-through on an empty map", fn () {
     unfiltered_map = {}
 
     filtered_map = filter(unfiltered_map, fn (k, v) { return true })
 
     return filtered_map == unfiltered_map
-}
+})
 
-test_2 = fn () {
-    # pass-through filter for non-empty empty map
+tester.run("pass-through on a non-empty empty map", fn () {
     unfiltered_map = {
         "1": 1,
         "2": 2,
@@ -22,10 +20,9 @@ test_2 = fn () {
     filtered_map = filter(unfiltered_map, fn (k, v) { return true })
 
     return filtered_map == unfiltered_map
-}
+})
 
-test_3 = fn () {
-    # filter a map based on its member values
+tester.run("filter a map based on its member values", fn () {
     unfiltered_map = {
         "1": 1,
         "2": 2,
@@ -39,28 +36,25 @@ test_3 = fn () {
     expected_map = {"2": 2, "4": 4}
 
     return filtered_map == expected_map
-}
+})
 
-test_4 = fn () {
-    # pass-through filter for an empty array
+tester.run("pass-through on an empty array", fn () {
     unfiltered_arr = []
 
     filtered_arr = filter(unfiltered_arr, fn (v) { return true })
 
     return filtered_arr == unfiltered_arr
-}
+})
 
-test_5 = fn () {
-    # pass-through filter for non-empty empty array
+tester.run("pass-through on a non-empty array", fn () {
     unfiltered_arr = [1, 2, 3, 4, 5]
 
     filtered_arr = filter(unfiltered_arr, fn (v) { return true })
 
     return filtered_arr == unfiltered_arr
-}
+})
 
-test_6 = fn () {
-    # a simple filter on a array of integers
+tester.run("filter an array based on its values", fn () {
     unfiltered_arr = [1, 2, 3, 4, 5]
 
     filtered_arr = filter(unfiltered_arr, fn (v) { return (v % 2) == 0 })
@@ -68,19 +62,17 @@ test_6 = fn () {
     expected_arr = [2, 4]
 
     return filtered_arr == expected_arr
-}
+})
 
-test_7 = fn () {
-    # pass-through filter applied to a string
+tester.run("pass-through on a non-empty string", fn () {
     unfiltered_str = "12345"
 
     filtered_str = filter(unfiltered_str, fn (v) { return true })
 
     return filtered_str == unfiltered_str
-}
+})
 
-test_8 = fn () {
-    # a simple filter on a string
+tester.run("filter a string based on its values", fn () {
     unfiltered_str = "12345"
 
     expected_str = "24"
@@ -88,15 +80,6 @@ test_8 = fn () {
     filtered_str = filter(unfiltered_str, fn (v) { return ((to_int(v)) % 2) == 0 })
 
     return filtered_str == expected_str
-}
+})
 
-tester.test([
-    test_1,
-    test_2,
-    test_3,
-    test_4,
-    test_5,
-    test_6,
-    test_7,
-    test_8,
-])
+tester.end()

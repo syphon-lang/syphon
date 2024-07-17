@@ -1,16 +1,14 @@
 tester = import("tester.sy")
 
-test_1 = fn () {
-    # manipulate the last element with negative indexing
+tester.run("manipulate the last element with negative indexing", fn () {
     arr = [0, 1, 2, 3, 4, 5]
 
     arr[-1] = 6
 
     return arr[5] == 6
-}
+})
 
-test_2 = fn () {
-    # swap two elements
+tester.run("swap two elements", fn () {
     arr = [0, 1, 2, 3, 4, 6]
 
     temp = arr[0]
@@ -22,10 +20,9 @@ test_2 = fn () {
     }
 
     return  arr[-1] == 0
-}
+})
 
-test_3 = fn () {
-    # copy elements from array to another array 
+tester.run("copy elements from array to another array", fn () {
     arr = [6, 1, 2, 3, 4, 0]
 
     zero_arr = [0, 0, 0, 0, 0, 0]
@@ -37,10 +34,9 @@ test_3 = fn () {
     }
 
     return arr == zero_arr
-}
+})
 
-test_4 = fn () {
-    # duplicate an array 
+tester.run("duplicate an array", fn () {
     arr = [0, 0, 0, 0, 0, 0]
 
     arr_copied = arr + []
@@ -48,11 +44,6 @@ test_4 = fn () {
     arr[0] = 5
 
     return arr != arr_copied
-}
+})
 
-tester.test([
-    test_1,
-    test_2,
-    test_3,
-    test_4,
-])
+tester.end()

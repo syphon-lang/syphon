@@ -23,8 +23,8 @@ fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var end: i64 = 1;
     var step: i64 = 1;
 
-    for (arguments) |arg| {
-        if (!(arg == .int)) {
+    for (arguments) |argument| {
+        if (argument != .int) {
             return Code.Value{ .none = {} };
         }
     }
@@ -47,15 +47,13 @@ fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             if (step == 0) return Code.Value{ .none = {} };
         },
 
-        else => {
-            // already covered above
-        },
+        else => unreachable,
     }
 
-    // all aboard...
     var range_array = std.ArrayList(Code.Value).init(vm.allocator);
 
     var i: i64 = start;
+
     while (i < end) : (i += step) {
         range_array.append(Code.Value{ .int = i }) catch return Code.Value{ .none = {} };
     }
@@ -64,44 +62,45 @@ fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object)) {
-        return Code.Value{ .none = {} };
-    }
+    switch (arguments[0]) {
+        .object => switch (arguments[0].object) {
+            .array => {
+                const array = arguments[0].object.array;
 
-    switch (arguments[0].object) {
-        .array => {
-            const array = arguments[0].object.array;
+                var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.values.items.len) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
 
-            var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.values.items.len) catch |err| switch (err) {
-                else => return Code.Value{ .none = {} },
-            };
+                var i = array.values.items.len;
+                while (i > 0) {
+                    i -= 1;
+                    new_array.append(array.values.items[i]) catch return Code.Value{ .none = {} };
+                }
+                return Code.Value.Object.Array.init(vm.allocator, new_array) catch Code.Value{ .none = {} };
+            },
 
-            var i = array.values.items.len;
-            while (i > 0) {
-                i -= 1;
-                new_array.append(array.values.items[i]) catch return Code.Value{ .none = {} };
-            }
-            return Code.Value.Object.Array.init(vm.allocator, new_array) catch Code.Value{ .none = {} };
-        },
+            .string => {
+                const string = arguments[0].object.string;
 
-        .string => {
-            const string = arguments[0].object.string;
+                var new_string = std.ArrayList(u8).initCapacity(vm.allocator, string.content.len) catch |err| switch (err) {
+                    else => return Code.Value{ .none = {} },
+                };
 
-            var new_string = std.ArrayList(u8).initCapacity(vm.allocator, string.content.len) catch |err| switch (err) {
-                else => return Code.Value{ .none = {} },
-            };
+                var i = string.content.len;
+                while (i > 0) {
+                    i -= 1;
+                    new_string.append(string.content[i]) catch return Code.Value{ .none = {} };
+                }
 
-            var i = string.content.len;
-            while (i > 0) {
-                i -= 1;
-                new_string.append(string.content[i]) catch return Code.Value{ .none = {} };
-            }
+                return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
+            },
 
-            return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
+            else => {},
         },
 
         else => {},
     }
+
     return Code.Value{ .none = {} };
 }
 

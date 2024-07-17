@@ -5,3 +5,7 @@ benchmarker.run("empty loop", fn () {
 
     while (i += 1) < 10 ** 6 {}
 })
+
+benchmarker.run("empty loop using range", fn () {
+    foreach(range(0, to_int(10 ** 6)), fn (v) {})
+})

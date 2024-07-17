@@ -24,11 +24,11 @@ You would think "yeah, all people say that", and yes all people say that, we are
 
 > Currently, on my Core2Duo E6300 machine I can get up to 1.8s speed on average for fibonacci not-cached recursive function, morever, only a couple of microseconds for fibonacci cached recursive function, you can check up the benchmark [here](tests/benchmarks/fibonacci.sy)
 
-- **How simple is it?** Incredibly simple, quite too simple because there is no `for` loop btw
+- **How simple is it?** Yes
 
 - **Is it open source?** Yes
 
-- **Is it modern?** This is up to you to decide
+- **Is it modern?** Yes
 
 ## How can I contribute?
 

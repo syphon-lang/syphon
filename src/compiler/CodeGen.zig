@@ -324,8 +324,8 @@ fn compileArrayExpr(self: *CodeGen, array: ast.Node.Expr.Array) Error!void {
 
 fn compileMapExpr(self: *CodeGen, map: ast.Node.Expr.Map) Error!void {
     for (0..map.keys.len) |i| {
-        try self.compileExpr(map.keys[i]);
-        try self.compileExpr(map.values[i]);
+        try self.compileExpr(map.keys[map.keys.len - 1 - i]);
+        try self.compileExpr(map.values[map.values.len - 1 - i]);
     }
 
     try self.code.source_locations.append(.{});

@@ -32,11 +32,11 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
                 .array => {
                     _ = try buffered_writer.write("[");
 
-                    for (argument.object.array.values.items, 0..) |value, j| {
-                        if (value == .object and value.object == .array and value.object.array == argument.object.array) {
+                    for (argument.object.array.values.items, 0..) |array_value, j| {
+                        if (array_value == .object and array_value.object == .array and array_value.object.array == argument.object.array) {
                             _ = try buffered_writer.write("[..]");
                         } else {
-                            try _print(B, buffered_writer, &.{value}, true);
+                            try _print(B, buffered_writer, &.{array_value}, true);
                         }
 
                         if (j < argument.object.array.values.items.len - 1) {
@@ -50,19 +50,19 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
                 .map => {
                     _ = try buffered_writer.write("{");
 
-                    var map_iterator = argument.object.map.inner.iterator();
+                    const map = argument.object.map;
 
                     var j: usize = 0;
 
-                    while (map_iterator.next()) |entry| {
-                        try _print(B, buffered_writer, &.{entry.key_ptr.*}, true);
+                    for (map.inner.keys(), map.inner.values()) |map_key, map_value| {
+                        try _print(B, buffered_writer, &.{map_key}, true);
 
                         _ = try buffered_writer.write(": ");
 
-                        if (entry.value_ptr.* == .object and entry.value_ptr.object == .map and entry.value_ptr.object.map == argument.object.map) {
+                        if (map_value == .object and map_value.object == .map and map_value.object.map == argument.object.map) {
                             _ = try buffered_writer.write("{..}");
                         } else {
-                            try _print(B, buffered_writer, &.{entry.value_ptr.*}, true);
+                            try _print(B, buffered_writer, &.{map_value}, true);
                         }
 
                         if (j < argument.object.map.inner.count() - 1) {

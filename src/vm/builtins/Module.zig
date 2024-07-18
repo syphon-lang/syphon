@@ -179,10 +179,8 @@ fn addForeignFunction(vm: *VirtualMachine, internal_vm: *VirtualMachine, value: 
             },
 
             .map => {
-                var map_value_iterator = value.object.map.inner.valueIterator();
-
-                while (map_value_iterator.next()) |map_value| {
-                    addForeignFunction(vm, internal_vm, map_value.*);
+                for (value.object.map.inner.keys()) |map_value| {
+                    addForeignFunction(vm, internal_vm, map_value);
                 }
             },
 

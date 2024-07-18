@@ -55,7 +55,7 @@ pub const Value = union(enum) {
         };
 
         pub const Map = struct {
-            pub const Inner = std.HashMap(Value, Value, Value.HashContext, std.hash_map.default_max_load_percentage);
+            pub const Inner = std.ArrayHashMap(Value, Value, Value.HashContext, true);
 
             inner: Inner,
 
@@ -158,29 +158,31 @@ pub const Value = union(enum) {
             };
         }
 
-        pub fn hash(ctx: HashContext, key: Value) u64 {
+        pub fn hash(ctx: HashContext, key: Value) u32 {
             _ = ctx;
 
             return switch (key) {
                 .none => 0,
 
-                .int => @bitCast(key.int),
+                .int => @truncate(@as(u64, @bitCast(key.int))),
 
-                .float => @intFromFloat(key.float),
+                .float => @truncate(@as(u64, @bitCast(@as(i64, @intFromFloat(key.float))))),
 
                 .boolean => @intFromBool(key.boolean),
 
                 .object => switch (key.object) {
-                    .string => std.hash.Wyhash.hash(0, key.object.string.content),
+                    .string => @truncate(std.hash.Wyhash.hash(0, key.object.string.content)),
 
                     else => unreachable,
                 },
             };
         }
 
-        pub fn eql(ctx: HashContext, lhs: Value, rhs: Value) bool {
+        pub fn eql(ctx: HashContext, a: Value, b: Value, b_index: usize) bool {
             _ = ctx;
-            return lhs.eql(rhs, false);
+            _ = b_index;
+
+            return a.eql(b, false);
         }
     };
 

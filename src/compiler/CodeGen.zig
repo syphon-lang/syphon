@@ -2,7 +2,6 @@ const std = @import("std");
 
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
-const AutoHashMapRecorder = @import("../ds/hash_map_recorder.zig").AutoHashMapRecorder;
 const Code = @import("../vm/Code.zig");
 const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const Atom = @import("../vm/Atom.zig");
@@ -11,9 +10,9 @@ const CodeGen = @This();
 
 allocator: std.mem.Allocator,
 
-code: Code,
+scope: Scope,
 
-locals: AutoHashMapRecorder(Atom, void),
+code: Code,
 
 context: Context,
 
@@ -21,6 +20,7 @@ error_info: ?ErrorInfo = null,
 
 pub const Error = error{
     BadOperand,
+    UninitializedName,
     UnexpectedBreak,
     UnexpectedContinue,
     UnexpectedReturn,
@@ -29,6 +29,49 @@ pub const Error = error{
 pub const ErrorInfo = struct {
     message: []const u8,
     source_loc: SourceLoc,
+};
+
+pub const Scope = struct {
+    parent: ?*const Scope = null,
+    locals: Inner,
+
+    const Inner = std.AutoHashMap(Atom, Local);
+
+    const Local = struct {
+        stack_index: usize,
+    };
+
+    pub fn get(self: Scope, atom: Atom) ?Local {
+        var maybe_current: ?*const Scope = &self;
+
+        while (maybe_current) |current| {
+            if (current.locals.get(atom)) |local| {
+                return local;
+            }
+
+            maybe_current = current.parent;
+        }
+
+        return null;
+    }
+
+    pub fn put(self: *Scope, atom: Atom, local: Local) std.mem.Allocator.Error!void {
+        return self.locals.put(atom, local);
+    }
+
+    pub fn count(self: Scope) Inner.Size {
+        var total: Inner.Size = 0;
+
+        var maybe_current: ?*const Scope = &self;
+
+        while (maybe_current) |current| {
+            total += current.locals.count();
+
+            maybe_current = current.parent;
+        }
+
+        return total;
+    }
 };
 
 pub const Context = struct {
@@ -45,15 +88,17 @@ pub const Context = struct {
     };
 };
 
-pub fn init(allocator: std.mem.Allocator, mode: Context.Mode, maybe_locals: ?AutoHashMapRecorder(Atom, void)) std.mem.Allocator.Error!CodeGen {
+pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.Error!CodeGen {
     return CodeGen{
         .allocator = allocator,
+        .scope = .{
+            .locals = Scope.Inner.init(allocator),
+        },
         .code = .{
             .constants = std.ArrayList(Code.Value).init(allocator),
             .instructions = std.ArrayList(Code.Instruction).init(allocator),
             .source_locations = std.ArrayList(SourceLoc).init(allocator),
         },
-        .locals = if (maybe_locals) |locals| locals else try AutoHashMapRecorder(Atom, void).initSnapshotsCapacity(allocator, 128),
         .context = .{
             .mode = mode,
             .break_points = std.ArrayList(usize).init(allocator),
@@ -119,6 +164,8 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     const was_compiling_conditional = self.context.compiling_conditional;
     self.context.compiling_conditional = true;
 
+    const parent_scope = self.scope;
+
     for (0..conditional.conditions.len) |i| {
         const condition_point = self.code.instructions.items.len;
         try self.compileExpr(conditional.conditions[i]);
@@ -126,6 +173,8 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         const jump_if_false_point = self.code.instructions.items.len;
         try self.code.source_locations.append(.{});
         try self.code.instructions.append(.{ .jump_if_false = 0 });
+
+        self.scope = .{ .parent = &parent_scope, .locals = Scope.Inner.init(self.allocator) };
 
         try self.compileNodes(conditional.possiblities[i]);
 
@@ -137,7 +186,13 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     }
 
     const fallback_point = self.code.instructions.items.len;
+
+    self.scope.locals = Scope.Inner.init(self.allocator);
+
     try self.compileNodes(conditional.fallback);
+
+    self.scope = parent_scope;
+
     const after_fallback_point = self.code.instructions.items.len;
 
     self.context.compiling_conditional = was_compiling_conditional;
@@ -179,7 +234,13 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     const previous_continue_points_len = self.context.continue_points.items.len;
 
+    const parent_scope = self.scope;
+
+    self.scope = .{ .parent = &parent_scope, .locals = Scope.Inner.init(self.allocator) };
+
     try self.compileNodes(while_loop.body);
+
+    self.scope = parent_scope;
 
     self.context.compiling_loop = was_compiling_loop;
 
@@ -284,8 +345,15 @@ fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
 }
 
 fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) Error!void {
-    try self.code.source_locations.append(identifier.name.source_loc);
-    try self.code.instructions.append(.{ .load_atom = try Atom.new(identifier.name.buffer) });
+    const atom = try Atom.new(identifier.name.buffer);
+
+    if (self.scope.get(atom)) |local| {
+        try self.code.source_locations.append(identifier.name.source_loc);
+        try self.code.instructions.append(.{ .load_local = local.stack_index });
+    } else {
+        try self.code.source_locations.append(identifier.name.source_loc);
+        try self.code.instructions.append(.{ .load_global = atom });
+    }
 
     if (self.context.unused_expression) {
         try self.code.source_locations.append(identifier.name.source_loc);
@@ -342,21 +410,15 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     const function: Code.Value.Object.Function = .{
         .parameters = parameters.items,
         .code = blk: {
-            self.locals.newSnapshot();
+            var gen = try init(self.allocator, .function);
 
-            try self.locals.ensureUnusedCapacity(@intCast(parameters.items.len));
-
-            for (parameters.items) |parameter| {
-                try self.locals.put(parameter, {});
+            for (parameters.items, 0..) |parameter, i| {
+                try gen.scope.put(parameter, .{ .stack_index = i });
             }
-
-            var gen = try init(self.allocator, .function, self.locals);
 
             try gen.compileNodes(ast_function.body);
 
             try gen.endCode();
-
-            self.locals.destroySnapshot();
 
             break :blk gen.code;
         },
@@ -734,28 +796,35 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         const atom = try Atom.new(assignment.target.identifier.name.buffer);
 
-        if (self.locals.get(atom) != null) {
-            self.context.unused_expression = was_unused_expression;
+        self.context.unused_expression = was_unused_expression;
 
-            if (!self.context.unused_expression) {
+        if (self.context.mode == .function) {
+            if (self.scope.get(atom)) |local| {
+                if (!self.context.unused_expression) {
+                    try self.code.source_locations.append(assignment.source_loc);
+                    try self.code.instructions.append(.duplicate);
+                }
+
                 try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.duplicate);
-            }
+                try self.code.instructions.append(.{ .store_local = local.stack_index });
+            } else {
+                const stack_index = self.scope.count();
 
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .store_atom = atom });
+                try self.scope.put(atom, .{ .stack_index = stack_index });
+
+                if (!self.context.unused_expression) {
+                    try self.code.source_locations.append(assignment.source_loc);
+                    try self.code.instructions.append(.duplicate);
+                }
+            }
         } else {
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .store_atom = atom });
-
-            try self.locals.put(atom, {});
-
-            self.context.unused_expression = was_unused_expression;
-
             if (!self.context.unused_expression) {
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.duplicate);
             }
+
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .store_global = atom });
         }
     } else {
         self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = assignment.source_loc };

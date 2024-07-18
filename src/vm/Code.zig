@@ -116,16 +116,16 @@ pub const Value = union(enum) {
                 return Value{ .object = .{ .function = function_on_heap } };
             }
 
-            pub fn call(self: *Function, vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-                for (arguments) |arg| {
-                    vm.stack.append(arg) catch unreachable;
+            pub fn call(self: *Function, vm: *VirtualMachine, arguments: []const Value) Value {
+                for (arguments) |argument| {
+                    vm.stack.append(argument) catch return .none;
                 }
-                const frame = &vm.frames.items[vm.frames.items.len - 1];
+
                 const previous_frames_start = vm.frames_start;
                 vm.frames_start = vm.frames.items.len;
 
-                vm.callUserFunction(self, frame) catch unreachable;
-                vm.run() catch unreachable;
+                vm.callUserFunction(self) catch return .none;
+                vm.run() catch return .none;
 
                 vm.frames_start = previous_frames_start;
 
@@ -271,9 +271,11 @@ pub const Instruction = union(enum) {
     back: usize,
     jump_if_false: usize,
     load_constant: usize,
-    load_atom: Atom,
+    load_global: Atom,
+    load_local: usize,
     load_subscript: void,
-    store_atom: Atom,
+    store_global: Atom,
+    store_local: usize,
     store_subscript: void,
     make_array: usize,
     make_map: u32,

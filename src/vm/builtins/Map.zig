@@ -23,10 +23,8 @@ fn mapKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         },
     };
 
-    var inner_key_iterator = map.inner.keyIterator();
-
-    while (inner_key_iterator.next()) |inner_key| {
-        keys.appendAssumeCapacity(inner_key.*);
+    for (map.inner.keys()) |map_key| {
+        keys.appendAssumeCapacity(map_key);
     }
 
     return Code.Value.Object.Array.init(vm.allocator, keys) catch |err| switch (err) {
@@ -73,10 +71,8 @@ fn mapValues(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         },
     };
 
-    var inner_value_iterator = map.inner.valueIterator();
-
-    while (inner_value_iterator.next()) |inner_value| {
-        values.appendAssumeCapacity(inner_value.*);
+    for (map.inner.values()) |map_value| {
+        values.appendAssumeCapacity(map_value);
     }
 
     return Code.Value.Object.Array.init(vm.allocator, values) catch |err| switch (err) {

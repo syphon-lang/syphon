@@ -179,7 +179,7 @@ fn addForeignFunction(vm: *VirtualMachine, internal_vm: *VirtualMachine, value: 
             },
 
             .map => {
-                for (value.object.map.inner.keys()) |map_value| {
+                for (value.object.map.inner.values()) |map_value| {
                     addForeignFunction(vm, internal_vm, map_value);
                 }
             },

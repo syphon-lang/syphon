@@ -94,7 +94,6 @@ pub const Context = struct {
     compiling_loop: bool = false,
     break_points: std.ArrayList(usize),
     continue_points: std.ArrayList(usize),
-    unused_expression: bool = false,
 
     pub const Mode = enum {
         script,
@@ -123,7 +122,6 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
     try self.compileNodes(root.body);
-
     try self.endCode();
 }
 
@@ -152,9 +150,10 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
     switch (node) {
         .stmt => try self.compileStmt(node.stmt),
         .expr => {
-            self.context.unused_expression = true;
             try self.compileExpr(node.expr);
-            self.context.unused_expression = false;
+
+            try self.code.source_locations.append(.{});
+            try self.code.instructions.append(.pop);
         },
     }
 }
@@ -334,40 +333,32 @@ fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
     switch (expr) {
         .identifier => try self.compileIdentifierExpr(expr.identifier),
 
+        .none => try self.compileNoneExpr(expr.none),
+
+        .string => try self.compileStringExpr(expr.string),
+
+        .int => try self.compileIntExpr(expr.int),
+
+        .float => try self.compileFloatExpr(expr.float),
+
+        .boolean => try self.compileBooleanExpr(expr.boolean),
+
+        .array => try self.compileArrayExpr(expr.array),
+
+        .map => try self.compileMapExpr(expr.map),
+
+        .function => try self.compileFunctionExpr(expr.function),
+
+        .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
+
+        .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
+
         .subscript => try self.compileSubscriptExpr(expr.subscript),
 
         .assignment => try self.compileAssignmentExpr(expr.assignment),
 
         .call => try self.compileCallExpr(expr.call),
-
-        else => {},
     }
-
-    if (!self.context.unused_expression) {
-        switch (expr) {
-            .none => try self.compileNoneExpr(expr.none),
-
-            .string => try self.compileStringExpr(expr.string),
-
-            .int => try self.compileIntExpr(expr.int),
-
-            .float => try self.compileFloatExpr(expr.float),
-
-            .boolean => try self.compileBooleanExpr(expr.boolean),
-
-            .array => try self.compileArrayExpr(expr.array),
-
-            .map => try self.compileMapExpr(expr.map),
-
-            .function => try self.compileFunctionExpr(expr.function),
-
-            .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
-
-            .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
-
-            else => {},
-        }
-    } else {}
 }
 
 fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
@@ -384,11 +375,6 @@ fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) E
     } else {
         try self.code.source_locations.append(identifier.name.source_loc);
         try self.code.instructions.append(.{ .load_global = atom });
-    }
-
-    if (self.context.unused_expression) {
-        try self.code.source_locations.append(identifier.name.source_loc);
-        try self.code.instructions.append(.pop);
     }
 }
 
@@ -470,11 +456,6 @@ fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Erro
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.load_subscript);
-
-    if (self.context.unused_expression) {
-        try self.code.source_locations.append(subscript.source_loc);
-        try self.code.instructions.append(.pop);
-    }
 }
 
 fn knownAtCompileTime(expr: ast.Node.Expr) bool {
@@ -788,9 +769,6 @@ fn compileBinaryOperationExpr(self: *CodeGen, binary_operation: ast.Node.Expr.Bi
 }
 
 fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
-    const was_unused_expression = self.context.unused_expression;
-    self.context.unused_expression = false;
-
     if (assignment.target.* == .subscript) {
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
@@ -800,24 +778,14 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         try handleAssignmentOperator(self, assignment);
 
-        if (!was_unused_expression) {
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.duplicate);
-        }
+        try self.code.source_locations.append(assignment.source_loc);
+        try self.code.instructions.append(.duplicate);
 
         try self.compileExpr(assignment.target.subscript.index.*);
         try self.compileExpr(assignment.target.subscript.target.*);
 
-        self.context.unused_expression = was_unused_expression;
-
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.store_subscript);
-
-        self.context.unused_expression = was_unused_expression;
-
-        if (!self.context.unused_expression) {
-            try self.compileExpr(assignment.value.*);
-        }
     } else if (assignment.target.* == .identifier) {
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
@@ -829,14 +797,10 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         const atom = try Atom.new(assignment.target.identifier.name.buffer);
 
-        self.context.unused_expression = was_unused_expression;
-
         if (self.context.mode == .function) {
             if (self.scope.get(atom)) |local| {
-                if (!self.context.unused_expression) {
-                    try self.code.source_locations.append(assignment.source_loc);
-                    try self.code.instructions.append(.duplicate);
-                }
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.duplicate);
 
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.{ .store_local = local.stack_index });
@@ -845,16 +809,12 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
                 try self.scope.put(atom, .{ .stack_index = stack_index });
 
-                if (!self.context.unused_expression) {
-                    try self.code.source_locations.append(assignment.source_loc);
-                    try self.code.instructions.append(.duplicate);
-                }
-            }
-        } else {
-            if (!self.context.unused_expression) {
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.duplicate);
             }
+        } else {
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.duplicate);
 
             try self.code.source_locations.append(assignment.source_loc);
             try self.code.instructions.append(.{ .store_global = atom });
@@ -903,9 +863,6 @@ fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Assignment
 }
 
 fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
-    const was_unused_expression = self.context.unused_expression;
-    self.context.unused_expression = false;
-
     for (call.arguments) |argument| {
         try self.compileExpr(argument);
     }
@@ -914,11 +871,4 @@ fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
 
     try self.code.source_locations.append(call.source_loc);
     try self.code.instructions.append(.{ .call = call.arguments.len });
-
-    self.context.unused_expression = was_unused_expression;
-
-    if (self.context.unused_expression) {
-        try self.code.source_locations.append(call.source_loc);
-        try self.code.instructions.append(.pop);
-    }
 }

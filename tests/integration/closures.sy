@@ -1,0 +1,19 @@
+tester = import("tester.sy")
+
+tester.run("first level capture", fn () {
+    make_closure = fn () {
+        x = 5
+
+        closure = fn () {
+            return x
+        }
+
+        return closure
+    }
+
+    closure = make_closure()
+
+    return closure() == 5
+})
+
+tester.end()

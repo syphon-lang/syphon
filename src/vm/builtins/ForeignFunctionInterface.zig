@@ -530,7 +530,7 @@ fn toCstring(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
 const CallbackData = struct {
     vm: *VirtualMachine,
-    function: *Code.Value.Object.Function,
+    closure: *Code.Value.Object.Closure,
 };
 
 fn evaluateCallbackFailed() noreturn {
@@ -542,7 +542,7 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
     const maybe_callback_data: ?*CallbackData = @ptrCast(@alignCast(maybe_data));
 
     const vm = maybe_callback_data.?.vm;
-    const function = maybe_callback_data.?.function;
+    const closure = maybe_callback_data.?.closure;
     var function_arguments = std.ArrayList(Code.Value).init(vm.allocator);
 
     for (arguments[0..cif.*.nargs], 0..) |argument, i| {
@@ -608,7 +608,7 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
         }
     }
 
-    const return_value = function.call(vm, function_arguments.items);
+    const return_value = closure.call(vm, function_arguments.items);
 
     if (cif.*.rtype.*.type != ffi.FFI_TYPE_VOID) {
         castArgumentToFFIArgument(return_value, @intCast(cif.*.rtype.*.type), maybe_return_address.?) catch evaluateCallbackFailed();
@@ -618,7 +618,7 @@ export fn evaluateCallback(cif: [*c]ffi.ffi_cif, maybe_return_address: ?*anyopaq
 var writeable_memory_allocated = std.AutoHashMapUnmanaged(i64, *anyopaque){};
 
 fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .function)) {
+    if (!(arguments[0] == .object and arguments[0].object == .closure)) {
         return .none;
     }
 
@@ -626,7 +626,7 @@ fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Val
         return .none;
     }
 
-    const user_function = arguments[0].object.function;
+    const user_closure = arguments[0].object.closure;
 
     const user_function_prototype = arguments[1].object.map;
 
@@ -678,7 +678,7 @@ fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Val
             else => return .none,
         };
 
-        callback_data_on_heap.* = .{ .vm = vm, .function = user_function };
+        callback_data_on_heap.* = .{ .vm = vm, .closure = user_closure };
 
         switch (ffi.ffi_prep_closure_loc(ffi_closure, ffi_cif_on_heap, &evaluateCallback, callback_data_on_heap, ffi_function_pointer)) {
             ffi.FFI_OK => {},

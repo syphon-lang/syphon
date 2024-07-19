@@ -229,7 +229,7 @@ fn executeRunCommand(self: *Driver) u8 {
         error.DivisionByZero => {
             const last_frame = vm.frames.getLast();
 
-            const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
+            const source_loc = last_frame.closure.function.code.source_locations.items[last_frame.ip - 1];
 
             std.debug.print("{s}:{}:{}: division by zero\n", .{ vm.argv[0], source_loc.line, source_loc.column });
 
@@ -239,7 +239,7 @@ fn executeRunCommand(self: *Driver) u8 {
         error.NegativeDenominator => {
             const last_frame = vm.frames.getLast();
 
-            const source_loc = last_frame.function.code.source_locations.items[last_frame.ip - 1];
+            const source_loc = last_frame.closure.function.code.source_locations.items[last_frame.ip - 1];
 
             std.debug.print("{s}:{}:{}: negative denominator\n", .{ vm.argv[0], source_loc.line, source_loc.column });
 
@@ -249,7 +249,7 @@ fn executeRunCommand(self: *Driver) u8 {
         error.StackOverflow => {
             const last_frame = vm.frames.getLast();
 
-            const source_loc = last_frame.function.code.source_locations.items[last_frame.ip];
+            const source_loc = last_frame.closure.function.code.source_locations.items[last_frame.ip];
 
             std.debug.print("{s}:{}:{}: stack overflow\n", .{ vm.argv[0], source_loc.line, source_loc.column });
 

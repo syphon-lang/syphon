@@ -447,7 +447,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     function_on_heap.* = function;
 
     try self.code.source_locations.append(ast_function.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } }) });
+    try self.code.instructions.append(.{ .make_closure = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } }) });
 }
 
 fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Error!void {

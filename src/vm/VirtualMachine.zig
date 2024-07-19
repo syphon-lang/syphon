@@ -355,8 +355,8 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
 fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: SourceLoc) Error!void {
     const callable = self.stack.pop();
 
-    if (callable == .object) {
-        switch (callable.object) {
+    switch (callable) {
+        .object => switch (callable.object) {
             .function => {
                 try self.checkArgumentsCount(callable.object.function.parameters.len, arguments_count, source_loc);
 
@@ -371,13 +371,15 @@ fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Source
                 try self.callNativeFunction(callable.object.native_function, arguments_count);
             },
 
-            else => {
-                self.error_info = .{ .message = "not a callable", .source_loc = source_loc };
+            else => {},
+        },
 
-                return error.BadOperand;
-            },
-        }
+        else => {},
     }
+
+    self.error_info = .{ .message = "not a callable", .source_loc = source_loc };
+
+    return error.BadOperand;
 }
 
 fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: SourceLoc) Error!void {

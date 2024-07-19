@@ -32,12 +32,20 @@ pub const ErrorInfo = struct {
 };
 
 pub const Scope = struct {
-    parent: ?*const Scope = null,
+    tag: Tag = .global,
     locals: Inner,
+    parent: ?*const Scope = null,
 
-    const Inner = std.AutoHashMap(Atom, Local);
+    pub const Tag = enum {
+        global,
+        function,
+        loop,
+        conditional,
+    };
 
-    const Local = struct {
+    pub const Inner = std.AutoHashMap(Atom, Local);
+
+    pub const Local = struct {
         stack_index: usize,
     };
 
@@ -60,12 +68,18 @@ pub const Scope = struct {
     }
 
     pub fn count(self: Scope) Inner.Size {
+        return self.countUntil(.function);
+    }
+
+    pub fn countUntil(self: Scope, tag: Tag) Inner.Size {
         var total: Inner.Size = 0;
 
         var maybe_current: ?*const Scope = &self;
 
         while (maybe_current) |current| {
             total += current.locals.count();
+
+            if (current.tag == tag) break;
 
             maybe_current = current.parent;
         }
@@ -121,6 +135,13 @@ fn endCode(self: *CodeGen) Error!void {
     try self.code.instructions.append(.@"return");
 }
 
+fn popScopeLocals(self: *CodeGen, tag: Scope.Tag) Error!void {
+    for (0..self.scope.countUntil(tag)) |_| {
+        try self.code.source_locations.append(.{});
+        try self.code.instructions.append(.pop);
+    }
+}
+
 fn compileNodes(self: *CodeGen, nodes: []const ast.Node) Error!void {
     for (nodes) |node| {
         try self.compileNode(node);
@@ -174,9 +195,11 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         try self.code.source_locations.append(.{});
         try self.code.instructions.append(.{ .jump_if_false = 0 });
 
-        self.scope = .{ .parent = &parent_scope, .locals = Scope.Inner.init(self.allocator) };
+        self.scope = .{ .tag = .conditional, .locals = Scope.Inner.init(self.allocator), .parent = &parent_scope };
 
         try self.compileNodes(conditional.possiblities[i]);
+
+        try self.popScopeLocals(.conditional);
 
         const jump_point = self.code.instructions.items.len;
         try self.code.source_locations.append(.{});
@@ -190,6 +213,8 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     self.scope.locals = Scope.Inner.init(self.allocator);
 
     try self.compileNodes(conditional.fallback);
+
+    try self.popScopeLocals(.conditional);
 
     self.scope = parent_scope;
 
@@ -236,9 +261,11 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     const parent_scope = self.scope;
 
-    self.scope = .{ .parent = &parent_scope, .locals = Scope.Inner.init(self.allocator) };
+    self.scope = .{ .tag = .loop, .locals = Scope.Inner.init(self.allocator), .parent = &parent_scope };
 
     try self.compileNodes(while_loop.body);
+
+    try self.popScopeLocals(.loop);
 
     self.scope = parent_scope;
 
@@ -269,6 +296,8 @@ fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {
         return error.UnexpectedBreak;
     }
 
+    try self.popScopeLocals(.loop);
+
     try self.context.break_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"break".source_loc);
     try self.code.instructions.append(.{ .jump = 0 });
@@ -280,6 +309,8 @@ fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Erro
 
         return error.UnexpectedContinue;
     }
+
+    try self.popScopeLocals(.loop);
 
     try self.context.continue_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"continue".source_loc);
@@ -411,6 +442,8 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
         .parameters = parameters.items,
         .code = blk: {
             var gen = try init(self.allocator, .function);
+
+            gen.scope.tag = .function;
 
             for (parameters.items, 0..) |parameter, i| {
                 try gen.scope.put(parameter, .{ .stack_index = i });

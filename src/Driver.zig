@@ -193,7 +193,7 @@ fn executeRunCommand(self: *Driver) u8 {
 
     Atom.init(self.allocator);
 
-    var gen = CodeGen.init(self.allocator, .script, null) catch |err| {
+    var gen = CodeGen.init(self.allocator, .script) catch |err| {
         std.debug.print("{s}\n", .{errorDescription(err)});
 
         return 1;

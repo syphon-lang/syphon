@@ -24,11 +24,15 @@ export({
 
         println()
 
+        test_or_tests_passed = none
+
         if stats.passed == 1 {
             test_or_tests_passed = "test"
         } else {
             test_or_tests_passed = "tests"
         }
+
+        test_or_tests_failed = none
 
         if stats.failed == 1 {
             test_or_tests_failed = "test"

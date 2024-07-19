@@ -2,7 +2,6 @@ const std = @import("std");
 
 const ast = @import("ast.zig");
 const SourceLoc = ast.SourceLoc;
-const AutoHashMapRecorder = @import("../ds/hash_map_recorder.zig").AutoHashMapRecorder;
 const Code = @import("../vm/Code.zig");
 const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const Atom = @import("../vm/Atom.zig");
@@ -11,9 +10,9 @@ const CodeGen = @This();
 
 allocator: std.mem.Allocator,
 
-code: Code,
+scope: Scope,
 
-locals: AutoHashMapRecorder(Atom, void),
+code: Code,
 
 context: Context,
 
@@ -21,6 +20,7 @@ error_info: ?ErrorInfo = null,
 
 pub const Error = error{
     BadOperand,
+    UninitializedName,
     UnexpectedBreak,
     UnexpectedContinue,
     UnexpectedReturn,
@@ -31,13 +31,69 @@ pub const ErrorInfo = struct {
     source_loc: SourceLoc,
 };
 
+pub const Scope = struct {
+    tag: Tag = .global,
+    locals: Inner,
+    parent: ?*const Scope = null,
+
+    pub const Tag = enum {
+        global,
+        function,
+        loop,
+        conditional,
+    };
+
+    pub const Inner = std.AutoHashMap(Atom, Local);
+
+    pub const Local = struct {
+        stack_index: usize,
+    };
+
+    pub fn get(self: Scope, atom: Atom) ?Local {
+        var maybe_current: ?*const Scope = &self;
+
+        while (maybe_current) |current| {
+            if (current.locals.get(atom)) |local| {
+                return local;
+            }
+
+            maybe_current = current.parent;
+        }
+
+        return null;
+    }
+
+    pub fn put(self: *Scope, atom: Atom, local: Local) std.mem.Allocator.Error!void {
+        return self.locals.put(atom, local);
+    }
+
+    pub fn count(self: Scope) Inner.Size {
+        return self.countUntil(.function);
+    }
+
+    pub fn countUntil(self: Scope, tag: Tag) Inner.Size {
+        var total: Inner.Size = 0;
+
+        var maybe_current: ?*const Scope = &self;
+
+        while (maybe_current) |current| {
+            total += current.locals.count();
+
+            if (current.tag == tag) break;
+
+            maybe_current = current.parent;
+        }
+
+        return total;
+    }
+};
+
 pub const Context = struct {
     mode: Mode,
     compiling_conditional: bool = false,
     compiling_loop: bool = false,
     break_points: std.ArrayList(usize),
     continue_points: std.ArrayList(usize),
-    unused_expression: bool = false,
 
     pub const Mode = enum {
         script,
@@ -45,15 +101,17 @@ pub const Context = struct {
     };
 };
 
-pub fn init(allocator: std.mem.Allocator, mode: Context.Mode, maybe_locals: ?AutoHashMapRecorder(Atom, void)) std.mem.Allocator.Error!CodeGen {
+pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.Error!CodeGen {
     return CodeGen{
         .allocator = allocator,
+        .scope = .{
+            .locals = Scope.Inner.init(allocator),
+        },
         .code = .{
             .constants = std.ArrayList(Code.Value).init(allocator),
             .instructions = std.ArrayList(Code.Instruction).init(allocator),
             .source_locations = std.ArrayList(SourceLoc).init(allocator),
         },
-        .locals = if (maybe_locals) |locals| locals else try AutoHashMapRecorder(Atom, void).initSnapshotsCapacity(allocator, 128),
         .context = .{
             .mode = mode,
             .break_points = std.ArrayList(usize).init(allocator),
@@ -64,7 +122,6 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode, maybe_locals: ?Aut
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
     try self.compileNodes(root.body);
-
     try self.endCode();
 }
 
@@ -74,6 +131,13 @@ fn endCode(self: *CodeGen) Error!void {
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.@"return");
+}
+
+fn popScopeLocals(self: *CodeGen, tag: Scope.Tag) Error!void {
+    for (0..self.scope.countUntil(tag)) |_| {
+        try self.code.source_locations.append(.{});
+        try self.code.instructions.append(.pop);
+    }
 }
 
 fn compileNodes(self: *CodeGen, nodes: []const ast.Node) Error!void {
@@ -86,9 +150,10 @@ fn compileNode(self: *CodeGen, node: ast.Node) Error!void {
     switch (node) {
         .stmt => try self.compileStmt(node.stmt),
         .expr => {
-            self.context.unused_expression = true;
             try self.compileExpr(node.expr);
-            self.context.unused_expression = false;
+
+            try self.code.source_locations.append(.{});
+            try self.code.instructions.append(.pop);
         },
     }
 }
@@ -119,6 +184,8 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     const was_compiling_conditional = self.context.compiling_conditional;
     self.context.compiling_conditional = true;
 
+    const parent_scope = self.scope;
+
     for (0..conditional.conditions.len) |i| {
         const condition_point = self.code.instructions.items.len;
         try self.compileExpr(conditional.conditions[i]);
@@ -127,7 +194,11 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         try self.code.source_locations.append(.{});
         try self.code.instructions.append(.{ .jump_if_false = 0 });
 
+        self.scope = .{ .tag = .conditional, .locals = Scope.Inner.init(self.allocator), .parent = &parent_scope };
+
         try self.compileNodes(conditional.possiblities[i]);
+
+        try self.popScopeLocals(.conditional);
 
         const jump_point = self.code.instructions.items.len;
         try self.code.source_locations.append(.{});
@@ -137,7 +208,15 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     }
 
     const fallback_point = self.code.instructions.items.len;
+
+    self.scope.locals = Scope.Inner.init(self.allocator);
+
     try self.compileNodes(conditional.fallback);
+
+    try self.popScopeLocals(.conditional);
+
+    self.scope = parent_scope;
+
     const after_fallback_point = self.code.instructions.items.len;
 
     self.context.compiling_conditional = was_compiling_conditional;
@@ -179,7 +258,15 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     const previous_continue_points_len = self.context.continue_points.items.len;
 
+    const parent_scope = self.scope;
+
+    self.scope = .{ .tag = .loop, .locals = Scope.Inner.init(self.allocator), .parent = &parent_scope };
+
     try self.compileNodes(while_loop.body);
+
+    try self.popScopeLocals(.loop);
+
+    self.scope = parent_scope;
 
     self.context.compiling_loop = was_compiling_loop;
 
@@ -208,6 +295,8 @@ fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {
         return error.UnexpectedBreak;
     }
 
+    try self.popScopeLocals(.loop);
+
     try self.context.break_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"break".source_loc);
     try self.code.instructions.append(.{ .jump = 0 });
@@ -219,6 +308,8 @@ fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Erro
 
         return error.UnexpectedContinue;
     }
+
+    try self.popScopeLocals(.loop);
 
     try self.context.continue_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"continue".source_loc);
@@ -242,40 +333,32 @@ fn compileExpr(self: *CodeGen, expr: ast.Node.Expr) Error!void {
     switch (expr) {
         .identifier => try self.compileIdentifierExpr(expr.identifier),
 
+        .none => try self.compileNoneExpr(expr.none),
+
+        .string => try self.compileStringExpr(expr.string),
+
+        .int => try self.compileIntExpr(expr.int),
+
+        .float => try self.compileFloatExpr(expr.float),
+
+        .boolean => try self.compileBooleanExpr(expr.boolean),
+
+        .array => try self.compileArrayExpr(expr.array),
+
+        .map => try self.compileMapExpr(expr.map),
+
+        .function => try self.compileFunctionExpr(expr.function),
+
+        .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
+
+        .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
+
         .subscript => try self.compileSubscriptExpr(expr.subscript),
 
         .assignment => try self.compileAssignmentExpr(expr.assignment),
 
         .call => try self.compileCallExpr(expr.call),
-
-        else => {},
     }
-
-    if (!self.context.unused_expression) {
-        switch (expr) {
-            .none => try self.compileNoneExpr(expr.none),
-
-            .string => try self.compileStringExpr(expr.string),
-
-            .int => try self.compileIntExpr(expr.int),
-
-            .float => try self.compileFloatExpr(expr.float),
-
-            .boolean => try self.compileBooleanExpr(expr.boolean),
-
-            .array => try self.compileArrayExpr(expr.array),
-
-            .map => try self.compileMapExpr(expr.map),
-
-            .function => try self.compileFunctionExpr(expr.function),
-
-            .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
-
-            .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
-
-            else => {},
-        }
-    } else {}
 }
 
 fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
@@ -284,12 +367,14 @@ fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
 }
 
 fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) Error!void {
-    try self.code.source_locations.append(identifier.name.source_loc);
-    try self.code.instructions.append(.{ .load_atom = try Atom.new(identifier.name.buffer) });
+    const atom = try Atom.new(identifier.name.buffer);
 
-    if (self.context.unused_expression) {
+    if (self.scope.get(atom)) |local| {
         try self.code.source_locations.append(identifier.name.source_loc);
-        try self.code.instructions.append(.pop);
+        try self.code.instructions.append(.{ .load_local = local.stack_index });
+    } else {
+        try self.code.source_locations.append(identifier.name.source_loc);
+        try self.code.instructions.append(.{ .load_global = atom });
     }
 }
 
@@ -342,21 +427,17 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     const function: Code.Value.Object.Function = .{
         .parameters = parameters.items,
         .code = blk: {
-            self.locals.newSnapshot();
+            var gen = try init(self.allocator, .function);
 
-            try self.locals.ensureUnusedCapacity(@intCast(parameters.items.len));
+            gen.scope.tag = .function;
 
-            for (parameters.items) |parameter| {
-                try self.locals.put(parameter, {});
+            for (parameters.items, 0..) |parameter, i| {
+                try gen.scope.put(parameter, .{ .stack_index = i });
             }
-
-            var gen = try init(self.allocator, .function, self.locals);
 
             try gen.compileNodes(ast_function.body);
 
             try gen.endCode();
-
-            self.locals.destroySnapshot();
 
             break :blk gen.code;
         },
@@ -375,11 +456,6 @@ fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Erro
 
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.load_subscript);
-
-    if (self.context.unused_expression) {
-        try self.code.source_locations.append(subscript.source_loc);
-        try self.code.instructions.append(.pop);
-    }
 }
 
 fn knownAtCompileTime(expr: ast.Node.Expr) bool {
@@ -693,9 +769,6 @@ fn compileBinaryOperationExpr(self: *CodeGen, binary_operation: ast.Node.Expr.Bi
 }
 
 fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) Error!void {
-    const was_unused_expression = self.context.unused_expression;
-    self.context.unused_expression = false;
-
     if (assignment.target.* == .subscript) {
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
@@ -705,24 +778,14 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         try handleAssignmentOperator(self, assignment);
 
-        if (!was_unused_expression) {
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.duplicate);
-        }
+        try self.code.source_locations.append(assignment.source_loc);
+        try self.code.instructions.append(.duplicate);
 
         try self.compileExpr(assignment.target.subscript.index.*);
         try self.compileExpr(assignment.target.subscript.target.*);
 
-        self.context.unused_expression = was_unused_expression;
-
         try self.code.source_locations.append(assignment.source_loc);
         try self.code.instructions.append(.store_subscript);
-
-        self.context.unused_expression = was_unused_expression;
-
-        if (!self.context.unused_expression) {
-            try self.compileExpr(assignment.value.*);
-        }
     } else if (assignment.target.* == .identifier) {
         if (assignment.operator != .none) {
             try self.compileExpr(assignment.target.*);
@@ -734,28 +797,27 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
 
         const atom = try Atom.new(assignment.target.identifier.name.buffer);
 
-        if (self.locals.get(atom) != null) {
-            self.context.unused_expression = was_unused_expression;
+        if (self.context.mode == .function) {
+            if (self.scope.get(atom)) |local| {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.duplicate);
 
-            if (!self.context.unused_expression) {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .store_local = local.stack_index });
+            } else {
+                const stack_index = self.scope.count();
+
+                try self.scope.put(atom, .{ .stack_index = stack_index });
+
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.duplicate);
             }
-
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .store_atom = atom });
         } else {
             try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .store_atom = atom });
+            try self.code.instructions.append(.duplicate);
 
-            try self.locals.put(atom, {});
-
-            self.context.unused_expression = was_unused_expression;
-
-            if (!self.context.unused_expression) {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.duplicate);
-            }
+            try self.code.source_locations.append(assignment.source_loc);
+            try self.code.instructions.append(.{ .store_global = atom });
         }
     } else {
         self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = assignment.source_loc };
@@ -801,9 +863,6 @@ fn handleAssignmentOperator(self: *CodeGen, assignment: ast.Node.Expr.Assignment
 }
 
 fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
-    const was_unused_expression = self.context.unused_expression;
-    self.context.unused_expression = false;
-
     for (call.arguments) |argument| {
         try self.compileExpr(argument);
     }
@@ -812,11 +871,4 @@ fn compileCallExpr(self: *CodeGen, call: ast.Node.Expr.Call) Error!void {
 
     try self.code.source_locations.append(call.source_loc);
     try self.code.instructions.append(.{ .call = call.arguments.len });
-
-    self.context.unused_expression = was_unused_expression;
-
-    if (self.context.unused_expression) {
-        try self.code.source_locations.append(call.source_loc);
-        try self.code.instructions.append(.pop);
-    }
 }

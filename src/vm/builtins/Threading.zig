@@ -51,13 +51,11 @@ fn callThreadFunction(vm: *VirtualMachine, function: *Code.Value.Object.Function
     vm.mutex.lock();
     defer vm.mutex.unlock();
 
-    const frame = &vm.frames.items[vm.frames.items.len - 1];
-
     vm.stack.appendSlice(arguments) catch |err| switch (err) {
         else => return,
     };
 
-    vm.callUserFunction(function, frame) catch |err| switch (err) {
+    vm.callUserFunction(function) catch |err| switch (err) {
         else => return,
     };
 

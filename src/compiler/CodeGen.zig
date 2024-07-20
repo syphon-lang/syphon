@@ -33,7 +33,9 @@ pub const ErrorInfo = struct {
 
 pub const Scope = struct {
     tag: Tag = .global,
-    locals: Inner,
+
+    locals: Locals,
+
     parent: ?*const Scope = null,
 
     pub const Tag = enum {
@@ -43,10 +45,10 @@ pub const Scope = struct {
         conditional,
     };
 
-    pub const Inner = std.AutoHashMap(Atom, Local);
+    pub const Locals = std.AutoHashMap(Atom, Local);
 
     pub const Local = struct {
-        stack_index: usize,
+        index: usize,
     };
 
     pub fn get(self: Scope, atom: Atom) ?Local {
@@ -67,12 +69,12 @@ pub const Scope = struct {
         return self.locals.put(atom, local);
     }
 
-    pub fn count(self: Scope) Inner.Size {
-        return self.countUntil(.function);
+    pub fn countLocals(self: Scope) Locals.Size {
+        return self.countLocalsUntil(.function);
     }
 
-    pub fn countUntil(self: Scope, tag: Tag) Inner.Size {
-        var total: Inner.Size = 0;
+    pub fn countLocalsUntil(self: Scope, tag: Tag) Locals.Size {
+        var total: Locals.Size = 0;
 
         var maybe_current: ?*const Scope = &self;
 
@@ -105,7 +107,7 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.
     return CodeGen{
         .allocator = allocator,
         .scope = .{
-            .locals = Scope.Inner.init(allocator),
+            .locals = Scope.Locals.init(allocator),
         },
         .code = .{
             .constants = std.ArrayList(Code.Value).init(allocator),
@@ -134,7 +136,7 @@ fn endCode(self: *CodeGen) Error!void {
 }
 
 fn popScopeLocals(self: *CodeGen, tag: Scope.Tag) Error!void {
-    for (0..self.scope.countUntil(tag)) |_| {
+    for (0..self.scope.countLocalsUntil(tag)) |_| {
         try self.code.source_locations.append(.{});
         try self.code.instructions.append(.pop);
     }
@@ -194,7 +196,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         try self.code.source_locations.append(.{});
         try self.code.instructions.append(.{ .jump_if_false = 0 });
 
-        self.scope = .{ .tag = .conditional, .locals = Scope.Inner.init(self.allocator), .parent = &parent_scope };
+        self.scope = .{ .tag = .conditional, .locals = Scope.Locals.init(self.allocator), .parent = &parent_scope };
 
         try self.compileNodes(conditional.possiblities[i]);
 
@@ -209,7 +211,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
 
     const fallback_point = self.code.instructions.items.len;
 
-    self.scope.locals = Scope.Inner.init(self.allocator);
+    self.scope.locals = Scope.Locals.init(self.allocator);
 
     try self.compileNodes(conditional.fallback);
 
@@ -260,7 +262,7 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     const parent_scope = self.scope;
 
-    self.scope = .{ .tag = .loop, .locals = Scope.Inner.init(self.allocator), .parent = &parent_scope };
+    self.scope = .{ .tag = .loop, .locals = Scope.Locals.init(self.allocator), .parent = &parent_scope };
 
     try self.compileNodes(while_loop.body);
 
@@ -371,7 +373,7 @@ fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) E
 
     if (self.scope.get(atom)) |local| {
         try self.code.source_locations.append(identifier.name.source_loc);
-        try self.code.instructions.append(.{ .load_local = local.stack_index });
+        try self.code.instructions.append(.{ .load_local = local.index });
     } else {
         try self.code.source_locations.append(identifier.name.source_loc);
         try self.code.instructions.append(.{ .load_global = atom });
@@ -432,7 +434,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
             gen.scope.tag = .function;
 
             for (parameters.items, 0..) |parameter, i| {
-                try gen.scope.put(parameter, .{ .stack_index = i });
+                try gen.scope.put(parameter, .{ .index = i });
             }
 
             try gen.compileNodes(ast_function.body);
@@ -803,11 +805,11 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
                 try self.code.instructions.append(.duplicate);
 
                 try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .store_local = local.stack_index });
+                try self.code.instructions.append(.{ .store_local = local.index });
             } else {
-                const stack_index = self.scope.count();
+                const index = self.scope.countLocals();
 
-                try self.scope.put(atom, .{ .stack_index = stack_index });
+                try self.scope.put(atom, .{ .index = index });
 
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.duplicate);

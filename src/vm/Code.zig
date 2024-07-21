@@ -289,13 +289,15 @@ pub const Instruction = union(enum) {
     load_constant: usize,
     load_global: Atom,
     load_local: usize,
+    load_upvalue: usize,
     load_subscript: void,
     store_global: Atom,
     store_local: usize,
+    store_upvalue: usize,
     store_subscript: void,
     make_array: usize,
     make_map: u32,
-    make_closure: usize,
+    make_closure: MakeClosure,
     call: usize,
     neg: void,
     not: void,
@@ -312,6 +314,18 @@ pub const Instruction = union(enum) {
     duplicate: void,
     pop: void,
     @"return": void,
+
+    pub const MakeClosure = struct {
+        function_constant_index: usize,
+        upvalues: Upvalues,
+
+        pub const Upvalues = std.ArrayList(Upvalue);
+
+        pub const Upvalue = struct {
+            local_index: ?usize,
+            pointer_index: ?usize,
+        };
+    };
 };
 
 pub fn addConstant(self: *Code, value: Value) std.mem.Allocator.Error!usize {

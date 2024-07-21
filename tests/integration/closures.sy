@@ -1,19 +1,69 @@
 tester = import("tester.sy")
 
-tester.run("first level capture", fn () {
-    make_closure = fn () {
+tester.run("1 level closure", fn () {
+    high = fn () {
         x = 5
 
-        closure = fn () {
+        low = fn () {
             return x
         }
 
-        return closure
+        return low
     }
 
-    closure = make_closure()
+    low = high()
 
-    return closure() == 5
+    return low() == 5
+})
+
+tester.run("2 levels closure", fn () {
+    high = fn () {
+        x = 5
+
+        medium = fn () {
+            low = fn () {
+                return x
+            }
+
+            return low
+        }
+
+        return medium
+    }
+
+    medium = high()
+
+    low = medium()
+
+    return low() == 5
+})
+
+tester.run("while loop closure", fn () {
+    closures = []
+
+    fn () {
+        i = 0
+
+        while i < 10 {
+            low = fn () {
+                return i
+            }
+
+            array_push(closures, low)
+
+            i += 1
+        } 
+    }()
+
+    passed = length(closures) != 0
+
+    foreach(closures, fn (closure) {
+        if closure() != 10 {
+            passed = false
+        }
+    })
+
+    return passed
 })
 
 tester.end()

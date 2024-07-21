@@ -121,12 +121,14 @@ pub fn run(self: *VirtualMachine) Error!void {
             },
 
             .load_global => try self.executeLoadGlobal(instruction.load_global, source_loc),
-            .load_local => try self.stack.append(self.stack.items[frame.stack_start + instruction.load_local]),
+            .load_local => |index| try self.stack.append(self.stack.items[frame.stack_start + index]),
+            .load_upvalue => |index| try self.stack.append(frame.closure.upvalues.items[index].*),
             .load_constant => try self.stack.append(frame.closure.function.code.constants.items[instruction.load_constant]),
             .load_subscript => try self.executeLoadSubscript(source_loc),
 
             .store_global => try self.executeStoreGlobal(instruction.store_global),
-            .store_local => self.stack.items[frame.stack_start + instruction.store_local] = self.stack.pop(),
+            .store_local => |index| self.stack.items[frame.stack_start + index] = self.stack.pop(),
+            .store_upvalue => |index| frame.closure.upvalues.items[index].* = self.stack.pop(),
             .store_subscript => try self.executeStoreSubscript(source_loc),
 
             .make_array => try self.executeMakeArray(instruction.make_array),
@@ -354,10 +356,20 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
     try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));
 }
 
-fn executeMakeClosure(self: *VirtualMachine, constant_index: usize, frame: *Frame) Error!void {
-    const function = frame.closure.function.code.constants.items[constant_index].object.function;
+fn executeMakeClosure(self: *VirtualMachine, info: Code.Instruction.MakeClosure, frame: *Frame) Error!void {
+    const function = frame.closure.function.code.constants.items[info.function_constant_index].object.function;
 
-    const upvalues = std.ArrayList(*Code.Value).init(self.allocator);
+    var upvalues = std.ArrayList(*Code.Value).init(self.allocator);
+
+    for (info.upvalues.items) |upvalue| {
+        if (upvalue.local_index) |local_index| {
+            try upvalues.append(&self.stack.items[frame.stack_start + local_index]);
+        }
+
+        if (upvalue.pointer_index) |pointer_index| {
+            try upvalues.append(frame.closure.upvalues.items[pointer_index]);
+        }
+    }
 
     try self.stack.append(try Code.Value.Object.Closure.init(self.allocator, function, upvalues));
 }

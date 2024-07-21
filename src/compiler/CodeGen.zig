@@ -10,9 +10,13 @@ const CodeGen = @This();
 
 allocator: std.mem.Allocator,
 
+parent: ?*CodeGen = null,
+
 scope: Scope,
 
 code: Code,
+
+upvalues: Upvalues,
 
 context: Context,
 
@@ -31,12 +35,18 @@ pub const ErrorInfo = struct {
     source_loc: SourceLoc,
 };
 
+pub const Upvalues = std.AutoHashMap(Atom, Upvalue);
+
+pub const Upvalue = struct {
+    index: usize,
+    local_index: ?usize = null,
+    pointer_index: ?usize = null,
+};
+
 pub const Scope = struct {
+    parent: ?*Scope = null,
     tag: Tag = .global,
-
     locals: Locals,
-
-    parent: ?*const Scope = null,
 
     pub const Tag = enum {
         global,
@@ -51,13 +61,15 @@ pub const Scope = struct {
         index: usize,
     };
 
-    pub fn get(self: Scope, atom: Atom) ?Local {
+    pub fn getLocal(self: Scope, atom: Atom) ?Local {
         var maybe_current: ?*const Scope = &self;
 
         while (maybe_current) |current| {
             if (current.locals.get(atom)) |local| {
                 return local;
             }
+
+            if (current.tag == .function) break;
 
             maybe_current = current.parent;
         }
@@ -114,12 +126,45 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.
             .instructions = std.ArrayList(Code.Instruction).init(allocator),
             .source_locations = std.ArrayList(SourceLoc).init(allocator),
         },
+        .upvalues = Upvalues.init(allocator),
         .context = .{
             .mode = mode,
             .break_points = std.ArrayList(usize).init(allocator),
             .continue_points = std.ArrayList(usize).init(allocator),
         },
     };
+}
+
+pub fn getUpvalue(self: *CodeGen, atom: Atom) std.mem.Allocator.Error!?Upvalue {
+    if (self.upvalues.get(atom)) |upvalue| {
+        return upvalue;
+    }
+
+    var maybe_current: ?*CodeGen = self.parent;
+
+    while (maybe_current) |current| {
+        if (current.context.mode == .script) break;
+
+        if (current.scope.getLocal(atom)) |local| {
+            const upvalue: Upvalue = .{ .index = self.upvalues.count(), .local_index = local.index };
+
+            try self.upvalues.put(atom, upvalue);
+
+            return upvalue;
+        }
+
+        if (try current.getUpvalue(atom)) |other_upvalue| {
+            const upvalue: Upvalue = .{ .index = self.upvalues.count(), .pointer_index = other_upvalue.index };
+
+            try self.upvalues.put(atom, upvalue);
+
+            return upvalue;
+        }
+
+        maybe_current = current.parent;
+    }
+
+    return null;
 }
 
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
@@ -186,7 +231,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     const was_compiling_conditional = self.context.compiling_conditional;
     self.context.compiling_conditional = true;
 
-    const parent_scope = self.scope;
+    var parent_scope = self.scope;
 
     for (0..conditional.conditions.len) |i| {
         const condition_point = self.code.instructions.items.len;
@@ -196,7 +241,11 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         try self.code.source_locations.append(.{});
         try self.code.instructions.append(.{ .jump_if_false = 0 });
 
-        self.scope = .{ .tag = .conditional, .locals = Scope.Locals.init(self.allocator), .parent = &parent_scope };
+        self.scope = .{
+            .parent = &parent_scope,
+            .tag = .conditional,
+            .locals = Scope.Locals.init(self.allocator),
+        };
 
         try self.compileNodes(conditional.possiblities[i]);
 
@@ -260,9 +309,13 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     const previous_continue_points_len = self.context.continue_points.items.len;
 
-    const parent_scope = self.scope;
+    var parent_scope = self.scope;
 
-    self.scope = .{ .tag = .loop, .locals = Scope.Locals.init(self.allocator), .parent = &parent_scope };
+    self.scope = .{
+        .parent = &parent_scope,
+        .tag = .loop,
+        .locals = Scope.Locals.init(self.allocator),
+    };
 
     try self.compileNodes(while_loop.body);
 
@@ -371,9 +424,12 @@ fn compileNoneExpr(self: *CodeGen, none: ast.Node.Expr.None) Error!void {
 fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) Error!void {
     const atom = try Atom.new(identifier.name.buffer);
 
-    if (self.scope.get(atom)) |local| {
+    if (self.scope.getLocal(atom)) |local| {
         try self.code.source_locations.append(identifier.name.source_loc);
         try self.code.instructions.append(.{ .load_local = local.index });
+    } else if (try self.getUpvalue(atom)) |upvalue| {
+        try self.code.source_locations.append(identifier.name.source_loc);
+        try self.code.instructions.append(.{ .load_upvalue = upvalue.index });
     } else {
         try self.code.source_locations.append(identifier.name.source_loc);
         try self.code.instructions.append(.{ .load_global = atom });
@@ -426,30 +482,43 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
         try parameters.append(try Atom.new(ast_parameter.buffer));
     }
 
+    var gen = try init(self.allocator, .function);
+
+    gen.parent = self;
+    gen.scope.parent = &self.scope;
+
+    gen.scope.tag = .function;
+
+    for (parameters.items, 0..) |parameter, i| {
+        try gen.scope.put(parameter, .{ .index = i });
+    }
+
+    try gen.compileNodes(ast_function.body);
+
+    try gen.endCode();
+
     const function: Code.Value.Object.Function = .{
         .parameters = parameters.items,
-        .code = blk: {
-            var gen = try init(self.allocator, .function);
-
-            gen.scope.tag = .function;
-
-            for (parameters.items, 0..) |parameter, i| {
-                try gen.scope.put(parameter, .{ .index = i });
-            }
-
-            try gen.compileNodes(ast_function.body);
-
-            try gen.endCode();
-
-            break :blk gen.code;
-        },
+        .code = gen.code,
     };
 
     const function_on_heap = try self.allocator.create(Code.Value.Object.Function);
     function_on_heap.* = function;
 
+    const function_constant_index = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } });
+
+    var upvalues = Code.Instruction.MakeClosure.Upvalues.init(self.allocator);
+
+    try upvalues.appendNTimes(undefined, gen.upvalues.count());
+
+    var gen_upvalue_iterator = gen.upvalues.valueIterator();
+
+    while (gen_upvalue_iterator.next()) |gen_upvalue| {
+        upvalues.items[gen_upvalue.index] = .{ .local_index = gen_upvalue.local_index, .pointer_index = gen_upvalue.pointer_index };
+    }
+
     try self.code.source_locations.append(ast_function.source_loc);
-    try self.code.instructions.append(.{ .make_closure = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } }) });
+    try self.code.instructions.append(.{ .make_closure = .{ .function_constant_index = function_constant_index, .upvalues = upvalues } });
 }
 
 fn compileSubscriptExpr(self: *CodeGen, subscript: ast.Node.Expr.Subscript) Error!void {
@@ -793,19 +862,34 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
             try self.compileExpr(assignment.target.*);
         }
 
+        const atom = try Atom.new(assignment.target.identifier.name.buffer);
+
+        if (assignment.value.* == .function and self.context.mode == .function and self.scope.getLocal(atom) == null and (try self.getUpvalue(atom)) == null) {
+            const index = self.scope.countLocals();
+
+            try self.scope.put(atom, .{ .index = index });
+
+            try self.code.source_locations.append(.{});
+            try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
+        }
+
         try self.compileExpr(assignment.value.*);
 
         try handleAssignmentOperator(self, assignment);
 
-        const atom = try Atom.new(assignment.target.identifier.name.buffer);
-
         if (self.context.mode == .function) {
-            if (self.scope.get(atom)) |local| {
+            if (self.scope.getLocal(atom)) |local| {
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.duplicate);
 
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.{ .store_local = local.index });
+            } else if (try self.getUpvalue(atom)) |upvalue| {
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.duplicate);
+
+                try self.code.source_locations.append(assignment.source_loc);
+                try self.code.instructions.append(.{ .store_upvalue = upvalue.index });
             } else {
                 const index = self.scope.countLocals();
 

@@ -298,6 +298,7 @@ pub const Instruction = union(enum) {
     make_array: usize,
     make_map: u32,
     make_closure: MakeClosure,
+    close_upvalue: usize,
     call: usize,
     neg: void,
     not: void,

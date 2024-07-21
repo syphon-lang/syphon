@@ -17,6 +17,8 @@ frames_start: usize = 0,
 
 stack: std.ArrayList(Code.Value),
 
+open_upvalues: std.ArrayList(**Code.Value),
+
 globals: std.AutoHashMap(Atom, Code.Value),
 
 internal_vms: std.ArrayList(VirtualMachine),
@@ -56,6 +58,7 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .allocator = allocator,
         .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
         .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
+        .open_upvalues = std.ArrayList(**Code.Value).init(allocator),
         .globals = std.AutoHashMap(Atom, Code.Value).init(allocator),
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
         .internal_functions = std.AutoHashMap(*Code.Value.Object.Closure, *VirtualMachine).init(allocator),
@@ -133,7 +136,9 @@ pub fn run(self: *VirtualMachine) Error!void {
 
             .make_array => try self.executeMakeArray(instruction.make_array),
             .make_map => try self.executeMakeMap(instruction.make_map),
-            .make_closure => try self.executeMakeClosure(instruction.make_closure, frame),
+            .make_closure => try self.executeMakeClosure(instruction.make_closure, frame.*),
+
+            .close_upvalue => try self.executeCloseUpvalue(instruction.close_upvalue, frame.*),
 
             .call => {
                 try self.executeCall(instruction.call, source_loc);
@@ -356,19 +361,42 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
     try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));
 }
 
-fn executeMakeClosure(self: *VirtualMachine, info: Code.Instruction.MakeClosure, frame: *Frame) Error!void {
+fn executeCloseUpvalue(self: *VirtualMachine, index: usize, frame: Frame) Error!void {
+    var i: usize = 0;
+
+    while (i < self.open_upvalues.items.len) {
+        const open_upvalue = self.open_upvalues.items[i];
+
+        if (open_upvalue.* == &self.stack.items[frame.stack_start + index]) {
+            const closed_upvalue = try self.allocator.create(Code.Value);
+            closed_upvalue.* = self.stack.items[frame.stack_start + index];
+
+            open_upvalue.* = closed_upvalue;
+
+            _ = self.open_upvalues.swapRemove(i);
+        } else {
+            i += 1;
+        }
+    }
+}
+
+fn executeMakeClosure(self: *VirtualMachine, info: Code.Instruction.MakeClosure, frame: Frame) Error!void {
     const function = frame.closure.function.code.constants.items[info.function_constant_index].object.function;
 
     var upvalues = std.ArrayList(*Code.Value).init(self.allocator);
 
     for (info.upvalues.items) |upvalue| {
+        const upvalue_destination = try upvalues.addOne();
+
         if (upvalue.local_index) |local_index| {
-            try upvalues.append(&self.stack.items[frame.stack_start + local_index]);
+            upvalue_destination.* = &self.stack.items[frame.stack_start + local_index];
         }
 
         if (upvalue.pointer_index) |pointer_index| {
-            try upvalues.append(frame.closure.upvalues.items[pointer_index]);
+            upvalue_destination.* = frame.closure.upvalues.items[pointer_index];
         }
+
+        try self.open_upvalues.append(upvalue_destination);
     }
 
     try self.stack.append(try Code.Value.Object.Closure.init(self.allocator, function, upvalues));

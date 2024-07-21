@@ -59,6 +59,7 @@ pub const Scope = struct {
 
     pub const Local = struct {
         index: usize,
+        captured: bool = false,
     };
 
     pub fn getLocal(self: Scope, atom: Atom) ?Local {
@@ -66,6 +67,22 @@ pub const Scope = struct {
 
         while (maybe_current) |current| {
             if (current.locals.get(atom)) |local| {
+                return local;
+            }
+
+            if (current.tag == .function) break;
+
+            maybe_current = current.parent;
+        }
+
+        return null;
+    }
+
+    pub fn getLocalPtr(self: *Scope, atom: Atom) ?*Local {
+        var maybe_current: ?*Scope = self;
+
+        while (maybe_current) |current| {
+            if (current.locals.getPtr(atom)) |local| {
                 return local;
             }
 
@@ -135,7 +152,7 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.
     };
 }
 
-pub fn getUpvalue(self: *CodeGen, atom: Atom) std.mem.Allocator.Error!?Upvalue {
+fn getUpvalue(self: *CodeGen, atom: Atom) std.mem.Allocator.Error!?Upvalue {
     if (self.upvalues.get(atom)) |upvalue| {
         return upvalue;
     }
@@ -145,10 +162,12 @@ pub fn getUpvalue(self: *CodeGen, atom: Atom) std.mem.Allocator.Error!?Upvalue {
     while (maybe_current) |current| {
         if (current.context.mode == .script) break;
 
-        if (current.scope.getLocal(atom)) |local| {
+        if (current.scope.getLocalPtr(atom)) |local| {
             const upvalue: Upvalue = .{ .index = self.upvalues.count(), .local_index = local.index };
 
             try self.upvalues.put(atom, upvalue);
+
+            local.captured = true;
 
             return upvalue;
         }
@@ -167,12 +186,26 @@ pub fn getUpvalue(self: *CodeGen, atom: Atom) std.mem.Allocator.Error!?Upvalue {
     return null;
 }
 
+fn closeUpvalues(self: *CodeGen) std.mem.Allocator.Error!void {
+    var scope_local_iterator = self.scope.locals.valueIterator();
+
+    while (scope_local_iterator.next()) |scope_local| {
+        if (scope_local.captured) {
+            try self.code.source_locations.append(.{});
+            try self.code.instructions.append(.{ .close_upvalue = scope_local.index });
+        }
+    }
+}
+
 pub fn compileRoot(self: *CodeGen, root: ast.Root) Error!void {
     try self.compileNodes(root.body);
+
     try self.endCode();
 }
 
 fn endCode(self: *CodeGen) Error!void {
+    try self.closeUpvalues();
+
     try self.code.source_locations.append(.{});
     try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
 
@@ -249,6 +282,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
 
         try self.compileNodes(conditional.possiblities[i]);
 
+        try self.closeUpvalues();
         try self.popScopeLocals(.conditional);
 
         const jump_point = self.code.instructions.items.len;
@@ -264,6 +298,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
 
     try self.compileNodes(conditional.fallback);
 
+    try self.closeUpvalues();
     try self.popScopeLocals(.conditional);
 
     self.scope = parent_scope;
@@ -319,6 +354,8 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
 
     try self.compileNodes(while_loop.body);
 
+    try self.closeUpvalues();
+
     try self.popScopeLocals(.loop);
 
     self.scope = parent_scope;
@@ -350,6 +387,8 @@ fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {
         return error.UnexpectedBreak;
     }
 
+    try self.closeUpvalues();
+
     try self.popScopeLocals(.loop);
 
     try self.context.break_points.append(self.code.instructions.items.len);
@@ -364,6 +403,8 @@ fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Erro
         return error.UnexpectedContinue;
     }
 
+    try self.closeUpvalues();
+
     try self.popScopeLocals(.loop);
 
     try self.context.continue_points.append(self.code.instructions.items.len);
@@ -377,6 +418,8 @@ fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void
 
         return error.UnexpectedReturn;
     }
+
+    try self.closeUpvalues();
 
     try self.compileExpr(@"return".value);
 

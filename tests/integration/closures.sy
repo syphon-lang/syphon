@@ -55,7 +55,7 @@ tester.run("while loop closure", fn () {
         } 
     }()
 
-    passed = length(closures) != 0
+    passed = length(closures) == 10
 
     foreach(closures, fn (closure) {
         if closure() != 10 {
@@ -64,6 +64,31 @@ tester.run("while loop closure", fn () {
     })
 
     return passed
+})
+
+tester.run("multiple closures capture the same value", fn () {
+    first = none
+    second = none
+
+    fn () {
+        x = 5
+
+        first = fn () {
+            return x
+        }
+
+        second = fn () {
+            return x + 1
+        }
+
+        x = 10
+    }()
+
+    if first() != 10 {
+        return false
+    }
+
+    return second() == 11
 })
 
 tester.end()

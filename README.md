@@ -22,7 +22,7 @@ You would think "yeah, all people say that", and yes all people say that, we are
 
 - **Is it fast?** Not quite... But there is incremental improvements:
 
-> Currently, on my Core2Duo E6300 machine I can get up to 1.8s speed on average for fibonacci not-cached recursive function, morever, only a couple of microseconds for fibonacci cached recursive function, you can check up the benchmark [here](tests/benchmarks/fibonacci.sy)
+> Currently, on my Core2Duo E6300 machine I can get up to 800ms speed on average for fibonacci not-cached recursive function, morever, only a couple of microseconds for fibonacci cached recursive function, you can check up the benchmark [here](tests/benchmarks/fibonacci.sy)
 
 - **How simple is it?** Yes
 

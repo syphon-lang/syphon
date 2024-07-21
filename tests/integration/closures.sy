@@ -1,0 +1,94 @@
+tester = import("tester.sy")
+
+tester.run("1 level closure", fn () {
+    high = fn () {
+        x = 5
+
+        low = fn () {
+            return x
+        }
+
+        return low
+    }
+
+    low = high()
+
+    return low() == 5
+})
+
+tester.run("2 levels closure", fn () {
+    high = fn () {
+        x = 5
+
+        medium = fn () {
+            low = fn () {
+                return x
+            }
+
+            return low
+        }
+
+        return medium
+    }
+
+    medium = high()
+
+    low = medium()
+
+    return low() == 5
+})
+
+tester.run("while loop closure", fn () {
+    closures = []
+
+    fn () {
+        i = 0
+
+        while i < 10 {
+            low = fn () {
+                return i
+            }
+
+            array_push(closures, low)
+
+            i += 1
+        } 
+    }()
+
+    passed = length(closures) == 10
+
+    foreach(closures, fn (closure) {
+        if closure() != 10 {
+            passed = false
+        }
+    })
+
+    return passed
+})
+
+tester.run("multiple closures capture the same value", fn () {
+    first = none
+    second = none
+
+    fn () {
+        x = 5
+
+        first = fn () {
+            return x
+        }
+
+        second = fn () {
+            return x + 1
+        }
+
+        x = 10
+    }()
+
+    if first() != 10 {
+        return false
+    }
+
+    return second() == 11
+})
+
+tester.end()

@@ -75,7 +75,7 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
                     _ = try buffered_writer.write("}");
                 },
 
-                .function => try buffered_writer.writer().print("<function>", .{}),
+                .closure, .function => try buffered_writer.writer().print("<function>", .{}),
 
                 .native_function => try buffered_writer.writer().print("<native function>", .{}),
             },

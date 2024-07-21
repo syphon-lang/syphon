@@ -172,8 +172,8 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn addForeignFunction(vm: *VirtualMachine, internal_vm: *VirtualMachine, value: Code.Value) void {
     switch (value) {
         .object => switch (value.object) {
-            .function => {
-                vm.internal_functions.put(value.object.function, internal_vm) catch |err| switch (err) {
+            .closure => {
+                vm.internal_functions.put(value.object.closure, internal_vm) catch |err| switch (err) {
                     else => return,
                 };
             },

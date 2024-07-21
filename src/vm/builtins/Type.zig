@@ -25,7 +25,7 @@ fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             .string => "string",
             .array => "array",
             .map => "map",
-            .function, .native_function => "function",
+            .closure, .function, .native_function => "function",
         },
     };
 

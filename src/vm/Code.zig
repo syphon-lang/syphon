@@ -23,6 +23,7 @@ pub const Value = union(enum) {
         string: String,
         array: *Array,
         map: *Map,
+        closure: *Closure,
         function: *Function,
         native_function: NativeFunction,
 
@@ -71,9 +72,9 @@ pub const Value = union(enum) {
             pub fn fromStringHashMap(allocator: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
                 var inner = Inner.init(allocator);
 
-                var from_iterator = from.iterator();
+                var from_entry_iterator = from.iterator();
 
-                while (from_iterator.next()) |from_entry| {
+                while (from_entry_iterator.next()) |from_entry| {
                     const key: Value = .{ .object = .{ .string = .{ .content = from_entry.key_ptr.* } } };
                     const value = from_entry.value_ptr.*;
 
@@ -86,9 +87,9 @@ pub const Value = union(enum) {
             pub fn fromEnvMap(allocator: std.mem.Allocator, from: std.process.EnvMap) std.mem.Allocator.Error!Value {
                 var inner = Inner.init(allocator);
 
-                var from_iterator = from.iterator();
+                var from_entry_iterator = from.iterator();
 
-                while (from_iterator.next()) |from_entry| {
+                while (from_entry_iterator.next()) |from_entry| {
                     const key: Value = .{ .object = .{ .string = .{ .content = from_entry.key_ptr.* } } };
                     const value: Value = .{ .object = .{ .string = .{ .content = from_entry.value_ptr.* } } };
 
@@ -103,20 +104,20 @@ pub const Value = union(enum) {
             }
         };
 
-        pub const Function = struct {
-            parameters: []const Atom,
-            code: Code,
+        pub const Closure = struct {
+            function: *Function,
+            upvalues: std.ArrayList(*Value),
 
-            pub fn init(allocator: std.mem.Allocator, parameters: []const Atom, code: Code) std.mem.Allocator.Error!Value {
-                const function: Function = .{ .parameters = parameters, .code = code };
+            pub fn init(allocator: std.mem.Allocator, function: *Function, upvalues: std.ArrayList(*Value)) std.mem.Allocator.Error!Value {
+                const closure: Closure = .{ .function = function, .upvalues = upvalues };
 
-                const function_on_heap = try allocator.create(Function);
-                function_on_heap.* = function;
+                const closure_on_heap = try allocator.create(Closure);
+                closure_on_heap.* = closure;
 
-                return Value{ .object = .{ .function = function_on_heap } };
+                return Value{ .object = .{ .closure = closure_on_heap } };
             }
 
-            pub fn call(self: *Function, vm: *VirtualMachine, arguments: []const Value) Value {
+            pub fn call(self: *Closure, vm: *VirtualMachine, arguments: []const Value) Value {
                 for (arguments) |argument| {
                     vm.stack.append(argument) catch return .none;
                 }
@@ -130,6 +131,20 @@ pub const Value = union(enum) {
                 vm.frames_start = previous_frames_start;
 
                 return vm.stack.pop();
+            }
+        };
+
+        pub const Function = struct {
+            parameters: []const Atom,
+            code: Code,
+
+            pub fn init(allocator: std.mem.Allocator, parameters: []const Atom, code: Code) std.mem.Allocator.Error!Value {
+                const function: Function = .{ .parameters = parameters, .code = code };
+
+                const function_on_heap = try allocator.create(Function);
+                function_on_heap.* = function;
+
+                return Value{ .object = .{ .function = function_on_heap } };
             }
         };
 
@@ -257,6 +272,7 @@ pub const Value = union(enum) {
                 },
 
                 // Comparing with pointers instead of checking everything is used here because when you do "function == other_function" you are just comparing function pointers
+                .closure => return rhs == .object and rhs.object == .closure and lhs.object.closure == rhs.object.closure,
                 .function => return rhs == .object and rhs.object == .function and lhs.object.function == rhs.object.function,
                 .native_function => return rhs == .object and rhs.object == .native_function and lhs.object.native_function.call == rhs.object.native_function.call,
             },
@@ -273,12 +289,16 @@ pub const Instruction = union(enum) {
     load_constant: usize,
     load_global: Atom,
     load_local: usize,
+    load_upvalue: usize,
     load_subscript: void,
     store_global: Atom,
     store_local: usize,
+    store_upvalue: usize,
     store_subscript: void,
     make_array: usize,
     make_map: u32,
+    make_closure: MakeClosure,
+    close_upvalue: usize,
     call: usize,
     neg: void,
     not: void,
@@ -295,6 +315,18 @@ pub const Instruction = union(enum) {
     duplicate: void,
     pop: void,
     @"return": void,
+
+    pub const MakeClosure = struct {
+        function_constant_index: usize,
+        upvalues: Upvalues,
+
+        pub const Upvalues = std.ArrayList(Upvalue);
+
+        pub const Upvalue = struct {
+            local_index: ?usize,
+            pointer_index: ?usize,
+        };
+    };
 };
 
 pub fn addConstant(self: *Code, value: Value) std.mem.Allocator.Error!usize {

@@ -13,7 +13,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 }
 
 fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .function)) {
+    if (!(arguments[0] == .object and arguments[0].object == .closure)) {
         return .none;
     }
 
@@ -21,15 +21,15 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    const thread_function = arguments[0].object.function;
+    const thread_closure = arguments[0].object.closure;
 
     const thread_arguments = arguments[1].object.array;
 
-    if (thread_arguments.values.items.len != thread_function.parameters.len) {
+    if (thread_arguments.values.items.len != thread_closure.function.parameters.len) {
         return .none;
     }
 
-    const thread = std.Thread.spawn(.{ .allocator = vm.allocator }, callThreadFunction, .{ vm, thread_function, thread_arguments.values.items }) catch |err| switch (err) {
+    const thread = std.Thread.spawn(.{ .allocator = vm.allocator }, callThreadFunction, .{ vm, thread_closure, thread_arguments.values.items }) catch |err| switch (err) {
         else => return .none,
     };
 
@@ -47,7 +47,7 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(thread_on_heap))) };
 }
 
-fn callThreadFunction(vm: *VirtualMachine, function: *Code.Value.Object.Function, arguments: []const Code.Value) void {
+fn callThreadFunction(vm: *VirtualMachine, closure: *Code.Value.Object.Closure, arguments: []const Code.Value) void {
     vm.mutex.lock();
     defer vm.mutex.unlock();
 
@@ -55,7 +55,7 @@ fn callThreadFunction(vm: *VirtualMachine, function: *Code.Value.Object.Function
         else => return,
     };
 
-    vm.callUserFunction(function) catch |err| switch (err) {
+    vm.callUserFunction(closure) catch |err| switch (err) {
         else => return,
     };
 

@@ -116,17 +116,17 @@ fn reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[1] == .object and arguments[1].object == .function)) {
+    if (!(arguments[1] == .object and arguments[1].object == .closure)) {
         return .none;
     }
 
     const iterable = arguments[0];
-    const callback = arguments[1].object.function;
+    const callback = arguments[1].object.closure;
 
     switch (iterable) {
         .object => switch (iterable.object) {
             .array => {
-                if (callback.parameters.len != 1) return .none;
+                if (callback.function.parameters.len != 1) return .none;
 
                 const array = arguments[0].object.array;
                 var new_array = std.ArrayList(Code.Value).init(vm.allocator);
@@ -150,7 +150,7 @@ fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             },
 
             .string => {
-                if (callback.parameters.len != 1) return .none;
+                if (callback.function.parameters.len != 1) return .none;
 
                 const string = arguments[0].object.string;
                 var new_string = std.ArrayList(u8).init(vm.allocator);
@@ -174,7 +174,7 @@ fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             },
 
             .map => {
-                if (callback.parameters.len != 2) return .none;
+                if (callback.function.parameters.len != 2) return .none;
 
                 const map = arguments[0].object.map;
                 var new_map = Code.Value.Object.Map.Inner.init(vm.allocator);
@@ -208,17 +208,17 @@ fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[1] == .object and arguments[1].object == .function)) {
+    if (!(arguments[1] == .object and arguments[1].object == .closure)) {
         return .none;
     }
 
     const iterable = arguments[0];
-    const callback = arguments[1].object.function;
+    const callback = arguments[1].object.closure;
 
     switch (iterable) {
         .object => switch (iterable.object) {
             .array => {
-                if (callback.parameters.len != 1) return .none;
+                if (callback.function.parameters.len != 1) return .none;
 
                 const array = arguments[0].object.array;
                 var new_array = std.ArrayList(Code.Value).init(vm.allocator);
@@ -233,7 +233,7 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             },
 
             .string => {
-                if (callback.parameters.len != 1) return .none;
+                if (callback.function.parameters.len != 1) return .none;
 
                 const string = arguments[0].object.string;
                 var new_string = std.ArrayList(u8).init(vm.allocator);
@@ -252,7 +252,7 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             },
 
             .map => {
-                if (callback.parameters.len != 2) return .none;
+                if (callback.function.parameters.len != 2) return .none;
 
                 const map = arguments[0].object.map;
                 var new_map = Code.Value.Object.Map.Inner.init(vm.allocator);
@@ -284,17 +284,17 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[1] == .object and arguments[1].object == .function)) {
+    if (!(arguments[1] == .object and arguments[1].object == .closure)) {
         return .none;
     }
 
     const iterable = arguments[0];
-    const callback = arguments[1].object.function;
+    const callback = arguments[1].object.closure;
 
     switch (iterable) {
         .object => switch (iterable.object) {
             .array => {
-                if (callback.parameters.len != 1) return .none;
+                if (callback.function.parameters.len != 1) return .none;
 
                 const array = arguments[0].object.array;
 
@@ -304,7 +304,7 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             },
 
             .string => {
-                if (callback.parameters.len != 1) return .none;
+                if (callback.function.parameters.len != 1) return .none;
 
                 const string = arguments[0].object.string;
 
@@ -314,9 +314,7 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             },
 
             .map => {
-                if (callback.parameters.len != 2) {
-                    return .none;
-                }
+                if (callback.function.parameters.len != 2) return .none;
 
                 const map = arguments[0].object.map;
 

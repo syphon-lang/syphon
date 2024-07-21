@@ -283,6 +283,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         try self.compileNodes(conditional.possiblities[i]);
 
         try self.closeUpvalues();
+
         try self.popScopeLocals(.conditional);
 
         const jump_point = self.code.instructions.items.len;
@@ -299,6 +300,7 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
     try self.compileNodes(conditional.fallback);
 
     try self.closeUpvalues();
+
     try self.popScopeLocals(.conditional);
 
     self.scope = parent_scope;
@@ -419,9 +421,9 @@ fn compileReturnStmt(self: *CodeGen, @"return": ast.Node.Stmt.Return) Error!void
         return error.UnexpectedReturn;
     }
 
-    try self.closeUpvalues();
-
     try self.compileExpr(@"return".value);
+
+    try self.closeUpvalues();
 
     try self.code.source_locations.append(@"return".source_loc);
     try self.code.instructions.append(.@"return");

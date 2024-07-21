@@ -78,17 +78,19 @@ tester.run("multiple closures capture the same value", fn () {
         }
 
         second = fn () {
-            return x + 1
+            x += 1
+
+            return x
         }
 
         x = 10
     }()
 
-    if first() != 10 {
+    if second() != 11 {
         return false
     }
 
-    return second() == 11
+    return first() == 11
 })
 
 tester.end()

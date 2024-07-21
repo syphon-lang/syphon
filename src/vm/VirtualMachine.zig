@@ -362,15 +362,15 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
 }
 
 fn executeCloseUpvalue(self: *VirtualMachine, index: usize, frame: Frame) Error!void {
+    const closed_upvalue = try self.allocator.create(Code.Value);
+    closed_upvalue.* = self.stack.items[frame.stack_start + index];
+
     var i: usize = 0;
 
     while (i < self.open_upvalues.items.len) {
         const open_upvalue = self.open_upvalues.items[i];
 
         if (open_upvalue.* == &self.stack.items[frame.stack_start + index]) {
-            const closed_upvalue = try self.allocator.create(Code.Value);
-            closed_upvalue.* = self.stack.items[frame.stack_start + index];
-
             open_upvalue.* = closed_upvalue;
 
             _ = self.open_upvalues.swapRemove(i);

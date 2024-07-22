@@ -1,5 +1,30 @@
 benchmarker = import("benchmarker.sy")
 
+benchmarker.run("fibonacci linear function", fn () {
+    fib = fn (n) {
+        a = 0
+        b = 1
+        c = none
+
+        if n == 0 {
+            return a
+        }
+
+        i = 1
+
+        while (i += 1) < n + 1 {
+            c = a + b
+
+            a = b
+            b = c
+        }
+
+        return c
+    }
+
+    println(fib(30))
+})
+
 benchmarker.run("fibonacci recursive function (cached)", fn () {
     cache = {}
 

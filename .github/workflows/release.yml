@@ -75,7 +75,7 @@ jobs:
           version: master
 
       - run: |
-          zig build -Doptimize=ReleaseSafe -Dtarget={{ matrix.target }} -Dstrip
+          zig build -Doptimize=ReleaseSafe -Dtarget=${{ matrix.target }} -Dstrip
           mv zig-out/bin/${{ matrix.artifact_name }} zig-out/bin/${{ matrix.asset_name }}
 
       - env:

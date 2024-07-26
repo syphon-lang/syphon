@@ -1,0 +1,84 @@
+name: Build and release Syphon
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+        matrix:
+            include:
+                - os: ubuntu-latest
+                  target: x86-linux
+                  artifact_name: ${{ github.event.repository.name }}
+                  asset_name: ${{ github.event.repository.name }}-linux-x86
+
+                - os: ubuntu-latest
+                  target: arm-linux
+                  artifact_name: ${{ github.event.repository.name }}
+                  asset_name: ${{ github.event.repository.name }}-linux-arm
+
+                - os: ubuntu-latest
+                  target: x86_64-linux
+                  artifact_name: ${{ github.event.repository.name }}
+                  asset_name: ${{ github.event.repository.name }}-linux-x86_64
+
+                - os: ubuntu-latest
+                  target: aarch64-linux
+                  artifact_name: ${{ github.event.repository.name }}
+                  asset_name: ${{ github.event.repository.name }}-linux-aarch64
+
+
+                - os: windows-latest
+                  target: x86-windows
+                  artifact_name: ${{ github.event.repository.name }}.exe
+                  asset_name: ${{ github.event.repository.name }}-windows-x86.exe
+
+                - os: windows-latest
+                  target: arm-windows
+                  artifact_name: ${{ github.event.repository.name }}.exe
+                  asset_name: ${{ github.event.repository.name }}-windows-arm.exe
+
+                - os: windows-latest
+                  target: x86_64-windows
+                  artifact_name: ${{ github.event.repository.name }}.exe
+                  asset_name: ${{ github.event.repository.name }}-windows-x86_64.exe
+
+                - os: windows-latest
+                  target: aarch64-windows
+                  artifact_name: ${{ github.event.repository.name }}.exe
+                  asset_name: ${{ github.event.repository.name }}-windows-aarch64.exe
+
+
+                - os: darwin-latest
+                  target: x86_64-macos
+                  artifact_name: ${{ github.event.repository.name }}.exe
+                  asset_name: ${{ github.event.repository.name }}-darwin-x86_64.exe
+
+                - os: darwin-latest
+                  target: aarch64-macos
+                  artifact_name: ${{ github.event.repository.name }}.exe
+                  asset_name: ${{ github.event.repository.name }}-darwin-aarch64.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: master
+
+      - run: |
+          zig build -Doptimize=ReleaseSafe -Dtarget={{ matrix.target }} -Dstrip
+          mv zig-out/bin/${{ matrix.artifact_name }} zig-out/bin/${{ matrix.asset_name }}
+
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} zig-out/bin/${{ matrix.asset_name }}

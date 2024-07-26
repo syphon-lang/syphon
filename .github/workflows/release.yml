@@ -13,16 +13,6 @@ jobs:
         matrix:
             include:
                 - os: ubuntu-latest
-                  target: x86-linux
-                  artifact_name: ${{ github.event.repository.name }}
-                  asset_name: ${{ github.event.repository.name }}-linux-x86
-
-                - os: ubuntu-latest
-                  target: arm-linux
-                  artifact_name: ${{ github.event.repository.name }}
-                  asset_name: ${{ github.event.repository.name }}-linux-arm
-
-                - os: ubuntu-latest
                   target: x86_64-linux
                   artifact_name: ${{ github.event.repository.name }}
                   asset_name: ${{ github.event.repository.name }}-linux-x86_64
@@ -31,17 +21,6 @@ jobs:
                   target: aarch64-linux
                   artifact_name: ${{ github.event.repository.name }}
                   asset_name: ${{ github.event.repository.name }}-linux-aarch64
-
-
-                - os: windows-latest
-                  target: x86-windows
-                  artifact_name: ${{ github.event.repository.name }}.exe
-                  asset_name: ${{ github.event.repository.name }}-windows-x86.exe
-
-                - os: windows-latest
-                  target: arm-windows
-                  artifact_name: ${{ github.event.repository.name }}.exe
-                  asset_name: ${{ github.event.repository.name }}-windows-arm.exe
 
                 - os: windows-latest
                   target: x86_64-windows
@@ -53,15 +32,14 @@ jobs:
                   artifact_name: ${{ github.event.repository.name }}.exe
                   asset_name: ${{ github.event.repository.name }}-windows-aarch64.exe
 
-
                 - os: darwin-latest
                   target: x86_64-macos
-                  artifact_name: ${{ github.event.repository.name }}.exe
+                  artifact_name: ${{ github.event.repository.name }}
                   asset_name: ${{ github.event.repository.name }}-darwin-x86_64.exe
 
                 - os: darwin-latest
                   target: aarch64-macos
-                  artifact_name: ${{ github.event.repository.name }}.exe
+                  artifact_name: ${{ github.event.repository.name }}
                   asset_name: ${{ github.event.repository.name }}-darwin-aarch64.exe
 
     runs-on: ${{ matrix.os }}

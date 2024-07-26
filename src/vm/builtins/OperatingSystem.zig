@@ -24,7 +24,6 @@ fn getArchName(arch: std.Target.Cpu.Arch) []const u8 {
         .powerpc64le => "powerpc64",
         .amdgcn => "amdgpu",
         .sparcel => "sparc",
-        .tcele => "tce",
         else => @tagName(arch),
     };
 }

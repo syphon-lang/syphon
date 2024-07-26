@@ -353,7 +353,7 @@ fn putArgumentInFFIArguments(allocator: std.mem.Allocator, argument: Code.Value,
 fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*anyopaque, return_type: i64) Code.Value {
     switch (return_type) {
         ffi.FFI_TYPE_VOID => {
-            ffi.ffi_call(cif, @ptrCast(function_pointer), null, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), null, arguments.ptr);
 
             return .none;
         },
@@ -361,7 +361,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_UINT8 => {
             var result: ffi.ffi_arg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(@as(u8, @truncate(result))) };
         },
@@ -369,7 +369,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_UINT16 => {
             var result: ffi.ffi_arg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(@as(u16, @truncate(result))) };
         },
@@ -377,7 +377,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_UINT32 => {
             var result: ffi.ffi_arg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(@as(u32, @truncate(result))) };
         },
@@ -385,7 +385,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_UINT64 => {
             var result: ffi.ffi_arg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(result) };
         },
@@ -393,7 +393,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_SINT8 => {
             var result: ffi.ffi_sarg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(@as(i8, @truncate(result))) };
         },
@@ -401,7 +401,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_SINT16 => {
             var result: ffi.ffi_sarg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(@as(i16, @truncate(result))) };
         },
@@ -409,7 +409,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_SINT32 => {
             var result: ffi.ffi_sarg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(@as(i32, @truncate(result))) };
         },
@@ -417,7 +417,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_SINT64 => {
             var result: ffi.ffi_sarg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(result) };
         },
@@ -425,7 +425,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_FLOAT => {
             var result: ffi.ffi_arg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .float = @floatCast(@as(f32, @bitCast(@as(u32, @truncate(result))))) };
         },
@@ -433,7 +433,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_DOUBLE => {
             var result: ffi.ffi_arg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .float = @floatFromInt(result) };
         },
@@ -441,7 +441,7 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
         ffi.FFI_TYPE_POINTER => {
             var result: ffi.ffi_arg = undefined;
 
-            ffi.ffi_call(cif, @ptrCast(function_pointer), &result, arguments.ptr);
+            ffi.ffi_call(cif, @ptrCast(@alignCast(function_pointer)), &result, arguments.ptr);
 
             return .{ .int = @intCast(result) };
         },

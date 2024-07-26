@@ -27,11 +27,6 @@ jobs:
                   artifact_name: ${{ github.event.repository.name }}.exe
                   asset_name: ${{ github.event.repository.name }}-windows-x86_64.exe
 
-                - os: windows-latest
-                  target: aarch64-windows
-                  artifact_name: ${{ github.event.repository.name }}.exe
-                  asset_name: ${{ github.event.repository.name }}-windows-aarch64.exe
-
                 - os: darwin-latest
                   target: x86_64-macos
                   artifact_name: ${{ github.event.repository.name }}

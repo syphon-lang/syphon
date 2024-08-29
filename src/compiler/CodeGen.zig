@@ -13,12 +13,9 @@ allocator: std.mem.Allocator,
 parent: ?*CodeGen = null,
 
 scope: Scope,
-
-code: Code,
-
 upvalues: Upvalues,
-
 context: Context,
+code: Code,
 
 error_info: ?ErrorInfo = null,
 
@@ -35,14 +32,6 @@ pub const ErrorInfo = struct {
     source_loc: SourceLoc,
 };
 
-pub const Upvalues = std.AutoHashMap(Atom, Upvalue);
-
-pub const Upvalue = struct {
-    index: usize,
-    local_index: ?usize = null,
-    pointer_index: ?usize = null,
-};
-
 pub const Scope = struct {
     parent: ?*Scope = null,
     tag: Tag = .global,
@@ -53,13 +42,6 @@ pub const Scope = struct {
         function,
         loop,
         conditional,
-    };
-
-    pub const Locals = std.AutoHashMap(Atom, Local);
-
-    pub const Local = struct {
-        index: usize,
-        captured: bool = false,
     };
 
     pub fn getLocal(self: Scope, atom: Atom) ?Local {
@@ -94,7 +76,7 @@ pub const Scope = struct {
         return null;
     }
 
-    pub fn put(self: *Scope, atom: Atom, local: Local) std.mem.Allocator.Error!void {
+    pub fn putLocal(self: *Scope, atom: Atom, local: Local) std.mem.Allocator.Error!void {
         return self.locals.put(atom, local);
     }
 
@@ -117,6 +99,28 @@ pub const Scope = struct {
 
         return total;
     }
+
+    pub fn popLocalsUntil(self: Scope, code: *Code, tag: Scope.Tag) Error!void {
+        for (0..self.countLocalsUntil(tag)) |_| {
+            try code.source_locations.append(.{});
+            try code.instructions.append(.pop);
+        }
+    }
+};
+
+pub const Upvalues = std.AutoHashMap(Atom, Upvalue);
+
+pub const Upvalue = struct {
+    index: usize,
+    local_index: ?usize = null,
+    pointer_index: ?usize = null,
+};
+
+pub const Locals = std.AutoHashMap(Atom, Local);
+
+pub const Local = struct {
+    index: usize,
+    captured: bool = false,
 };
 
 pub const Context = struct {
@@ -136,18 +140,18 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.
     return CodeGen{
         .allocator = allocator,
         .scope = .{
-            .locals = Scope.Locals.init(allocator),
-        },
-        .code = .{
-            .constants = std.ArrayList(Code.Value).init(allocator),
-            .instructions = std.ArrayList(Code.Instruction).init(allocator),
-            .source_locations = std.ArrayList(SourceLoc).init(allocator),
+            .locals = Locals.init(allocator),
         },
         .upvalues = Upvalues.init(allocator),
         .context = .{
             .mode = mode,
             .break_points = std.ArrayList(usize).init(allocator),
             .continue_points = std.ArrayList(usize).init(allocator),
+        },
+        .code = .{
+            .constants = std.ArrayList(Code.Value).init(allocator),
+            .instructions = std.ArrayList(Code.Instruction).init(allocator),
+            .source_locations = std.ArrayList(SourceLoc).init(allocator),
         },
     };
 }
@@ -213,13 +217,6 @@ fn endCode(self: *CodeGen) Error!void {
     try self.code.instructions.append(.@"return");
 }
 
-fn popScopeLocals(self: *CodeGen, tag: Scope.Tag) Error!void {
-    for (0..self.scope.countLocalsUntil(tag)) |_| {
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.pop);
-    }
-}
-
 fn compileNodes(self: *CodeGen, nodes: []const ast.Node) Error!void {
     for (nodes) |node| {
         try self.compileNode(node);
@@ -277,14 +274,14 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
         self.scope = .{
             .parent = &parent_scope,
             .tag = .conditional,
-            .locals = Scope.Locals.init(self.allocator),
+            .locals = Locals.init(self.allocator),
         };
 
         try self.compileNodes(conditional.possiblities[i]);
 
         try self.closeUpvalues();
 
-        try self.popScopeLocals(.conditional);
+        try self.scope.popLocalsUntil(&self.code, .conditional);
 
         const jump_point = self.code.instructions.items.len;
         try self.code.source_locations.append(.{});
@@ -295,13 +292,13 @@ fn compileConditionalStmt(self: *CodeGen, conditional: ast.Node.Stmt.Conditional
 
     const fallback_point = self.code.instructions.items.len;
 
-    self.scope.locals = Scope.Locals.init(self.allocator);
+    self.scope.locals = Locals.init(self.allocator);
 
     try self.compileNodes(conditional.fallback);
 
     try self.closeUpvalues();
 
-    try self.popScopeLocals(.conditional);
+    try self.scope.popLocalsUntil(&self.code, .conditional);
 
     self.scope = parent_scope;
 
@@ -351,14 +348,14 @@ fn compileWhileLoopStmt(self: *CodeGen, while_loop: ast.Node.Stmt.WhileLoop) Err
     self.scope = .{
         .parent = &parent_scope,
         .tag = .loop,
-        .locals = Scope.Locals.init(self.allocator),
+        .locals = Locals.init(self.allocator),
     };
 
     try self.compileNodes(while_loop.body);
 
     try self.closeUpvalues();
 
-    try self.popScopeLocals(.loop);
+    try self.scope.popLocalsUntil(&self.code, .loop);
 
     self.scope = parent_scope;
 
@@ -391,7 +388,7 @@ fn compileBreakStmt(self: *CodeGen, @"break": ast.Node.Stmt.Break) Error!void {
 
     try self.closeUpvalues();
 
-    try self.popScopeLocals(.loop);
+    try self.scope.popLocalsUntil(&self.code, .loop);
 
     try self.context.break_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"break".source_loc);
@@ -407,7 +404,7 @@ fn compileContinueStmt(self: *CodeGen, @"continue": ast.Node.Stmt.Continue) Erro
 
     try self.closeUpvalues();
 
-    try self.popScopeLocals(.loop);
+    try self.scope.popLocalsUntil(&self.code, .loop);
 
     try self.context.continue_points.append(self.code.instructions.items.len);
     try self.code.source_locations.append(@"continue".source_loc);
@@ -535,7 +532,7 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
     gen.scope.tag = .function;
 
     for (parameters.items, 0..) |parameter, i| {
-        try gen.scope.put(parameter, .{ .index = i });
+        try gen.scope.putLocal(parameter, .{ .index = i });
     }
 
     try gen.compileNodes(ast_function.body);
@@ -912,7 +909,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
         if (assignment.value.* == .function and self.context.mode == .function and self.scope.getLocal(atom) == null and (try self.getUpvalue(atom)) == null) {
             const index = self.scope.countLocals();
 
-            try self.scope.put(atom, .{ .index = index });
+            try self.scope.putLocal(atom, .{ .index = index });
 
             try self.code.source_locations.append(.{});
             try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
@@ -938,7 +935,7 @@ fn compileAssignmentExpr(self: *CodeGen, assignment: ast.Node.Expr.Assignment) E
             } else {
                 const index = self.scope.countLocals();
 
-                try self.scope.put(atom, .{ .index = index });
+                try self.scope.putLocal(atom, .{ .index = index });
 
                 try self.code.source_locations.append(assignment.source_loc);
                 try self.code.instructions.append(.duplicate);

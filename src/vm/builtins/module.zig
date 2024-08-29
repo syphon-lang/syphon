@@ -7,15 +7,15 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 const Atom = @import("../Atom.zig");
 
 const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
-    .{ "fs", &(@import("FileSystem.zig").getExports) },
-    .{ "ffi", &(@import("ForeignFunctionInterface.zig").getExports) },
-    .{ "io", &(@import("InputOutput.zig").getExports) },
-    .{ "math", &(@import("Math.zig").getExports) },
-    .{ "os", &(@import("OperatingSystem.zig").getExports) },
-    .{ "process", &(@import("Process.zig").getExports) },
-    .{ "shell", &(@import("Shell.zig").getExports) },
-    .{ "threading", &(@import("Threading.zig").getExports) },
-    .{ "time", &(@import("Time.zig").getExports) },
+    .{ "fs", &(@import("file_system.zig").getExports) },
+    .{ "ffi", &(@import("foreign_function_interface.zig").getExports) },
+    .{ "io", &(@import("input_output.zig").getExports) },
+    .{ "math", &(@import("math.zig").getExports) },
+    .{ "os", &(@import("operating_system.zig").getExports) },
+    .{ "process", &(@import("process.zig").getExports) },
+    .{ "shell", &(@import("shell.zig").getExports) },
+    .{ "threading", &(@import("threading.zig").getExports) },
+    .{ "time", &(@import("time.zig").getExports) },
 });
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {

@@ -89,12 +89,12 @@ pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Console = @import("Console.zig");
+    const console = @import("console.zig");
 
     var result = std.ArrayList(u8).init(vm.allocator);
     var buffered_writer = std.io.bufferedWriter(result.writer());
 
-    Console._print(std.ArrayList(u8).Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
+    console.printImpl(std.ArrayList(u8).Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
         else => return .none,
     };
 

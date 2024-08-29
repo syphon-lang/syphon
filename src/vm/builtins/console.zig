@@ -9,7 +9,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
     try vm.globals.put(try Atom.new("println"), Code.Value.Object.NativeFunction.init(null, &println));
 }
 
-pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B), arguments: []const Code.Value, debug: bool) !void {
+pub fn printImpl(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B), arguments: []const Code.Value, debug: bool) !void {
     for (arguments, 0..) |argument, i| {
         switch (argument) {
             .none => {
@@ -36,7 +36,7 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
                         if (array_value == .object and array_value.object == .array and array_value.object.array == argument.object.array) {
                             _ = try buffered_writer.write("[..]");
                         } else {
-                            try _print(B, buffered_writer, &.{array_value}, true);
+                            try printImpl(B, buffered_writer, &.{array_value}, true);
                         }
 
                         if (j < argument.object.array.values.items.len - 1) {
@@ -55,14 +55,14 @@ pub fn _print(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096, B)
                     var j: usize = 0;
 
                     for (map.inner.keys(), map.inner.values()) |map_key, map_value| {
-                        try _print(B, buffered_writer, &.{map_key}, true);
+                        try printImpl(B, buffered_writer, &.{map_key}, true);
 
                         _ = try buffered_writer.write(": ");
 
                         if (map_value == .object and map_value.object == .map and map_value.object.map == argument.object.map) {
                             _ = try buffered_writer.write("{..}");
                         } else {
-                            try _print(B, buffered_writer, &.{map_value}, true);
+                            try printImpl(B, buffered_writer, &.{map_value}, true);
                         }
 
                         if (j < argument.object.map.inner.count() - 1) {
@@ -93,7 +93,7 @@ fn print(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const stdout = std.io.getStdOut();
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
-    _print(std.fs.File.Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
+    printImpl(std.fs.File.Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
         else => return .none,
     };
 
@@ -114,7 +114,7 @@ fn println(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => return .none,
     };
 
-    _print(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch |err| switch (err) {
+    printImpl(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch |err| switch (err) {
         else => return .none,
     };
 

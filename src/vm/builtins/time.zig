@@ -28,9 +28,9 @@ pub fn nowMs(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 pub fn sleep(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Type = @import("Type.zig");
+    const cast = @import("cast.zig");
 
-    const seconds = Type.toFloat(vm, &.{arguments[0]});
+    const seconds = cast.toFloat(vm, &.{arguments[0]});
 
     std.time.sleep(@intFromFloat(seconds.float * std.math.pow(f64, 10.0, 9.0)));
 

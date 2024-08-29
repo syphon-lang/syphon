@@ -73,27 +73,27 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
 }
 
 pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
-    const Map = @import("./builtins/Map.zig");
-    const Array = @import("./builtins/Array.zig");
-    const String = @import("./builtins/String.zig");
-    const IterableUtils = @import("./builtins/IterableUtils.zig");
-    const Console = @import("./builtins/Console.zig");
-    const Hash = @import("./builtins/Hash.zig");
-    const Module = @import("./builtins/Module.zig");
-    const Process = @import("./builtins/Process.zig");
-    const Random = @import("./builtins/Random.zig");
-    const Type = @import("./builtins/Type.zig");
+    const array = @import("./builtins/array.zig");
+    const cast = @import("./builtins/cast.zig");
+    const string = @import("./builtins/string.zig");
+    const iterable = @import("./builtins/iterable.zig");
+    const console = @import("./builtins/console.zig");
+    const hash = @import("./builtins/hash.zig");
+    const map = @import("./builtins/map.zig");
+    const module = @import("./builtins/module.zig");
+    const process = @import("./builtins/process.zig");
+    const random = @import("./builtins/random.zig");
 
-    try Map.addGlobals(self);
-    try Array.addGlobals(self);
-    try String.addGlobals(self);
-    try IterableUtils.addGlobals(self);
-    try Console.addGlobals(self);
-    try Hash.addGlobals(self);
-    try Module.addGlobals(self);
-    try Process.addGlobals(self);
-    try Random.addGlobals(self);
-    try Type.addGlobals(self);
+    try array.addGlobals(self);
+    try cast.addGlobals(self);
+    try string.addGlobals(self);
+    try iterable.addGlobals(self);
+    try console.addGlobals(self);
+    try hash.addGlobals(self);
+    try map.addGlobals(self);
+    try module.addGlobals(self);
+    try process.addGlobals(self);
+    try random.addGlobals(self);
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
@@ -247,7 +247,7 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
                     return self.stack.append(value);
                 }
 
-                const Console = @import("./builtins/Console.zig");
+                const console = @import("./builtins/console.zig");
 
                 var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
@@ -255,7 +255,7 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
 
                 _ = try buffered_writer.write("undefined key '");
 
-                try Console._print(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
+                try console.printImpl(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
 
                 _ = try buffered_writer.write("' in map");
 
@@ -658,10 +658,10 @@ fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
 }
 
 fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
-    const Type = @import("builtins/Type.zig");
+    const cast = @import("builtins/cast.zig");
 
-    const rhs = Type.toFloat(self, &.{self.stack.pop()});
-    const lhs = Type.toFloat(self, &.{self.stack.pop()});
+    const rhs = cast.toFloat(self, &.{self.stack.pop()});
+    const lhs = cast.toFloat(self, &.{self.stack.pop()});
 
     if (!(lhs == .float and rhs == .float)) {
         self.error_info = .{ .message = "bad operand for '/' binary operator", .source_loc = source_loc };
@@ -713,10 +713,10 @@ fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
 }
 
 fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
-    const Type = @import("builtins/Type.zig");
+    const cast = @import("builtins/cast.zig");
 
-    const rhs = Type.toFloat(self, &.{self.stack.pop()});
-    const lhs = Type.toFloat(self, &.{self.stack.pop()});
+    const rhs = cast.toFloat(self, &.{self.stack.pop()});
+    const lhs = cast.toFloat(self, &.{self.stack.pop()});
 
     if (!(lhs == .float and rhs == .float)) {
         self.error_info = .{ .message = "bad operand for '**' binary operator", .source_loc = source_loc };

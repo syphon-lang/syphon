@@ -21,41 +21,41 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 }
 
 fn sqrt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Type = @import("Type.zig");
+    const cast = @import("cast.zig");
 
-    const value = Type.toFloat(vm, arguments);
+    const value = cast.toFloat(vm, arguments);
 
     return Code.Value{ .float = @sqrt(value.float) };
 }
 
 fn sin(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Type = @import("Type.zig");
+    const cast = @import("cast.zig");
 
-    const value = Type.toFloat(vm, arguments);
+    const value = cast.toFloat(vm, arguments);
 
     return Code.Value{ .float = @sin(value.float) };
 }
 
 fn cos(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Type = @import("Type.zig");
+    const cast = @import("cast.zig");
 
-    const value = Type.toFloat(vm, arguments);
+    const value = cast.toFloat(vm, arguments);
 
     return Code.Value{ .float = @cos(value.float) };
 }
 
 fn tan(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Type = @import("Type.zig");
+    const cast = @import("cast.zig");
 
-    const value = Type.toFloat(vm, arguments);
+    const value = cast.toFloat(vm, arguments);
 
     return Code.Value{ .float = @tan(value.float) };
 }
 
 fn abs(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Type = @import("Type.zig");
+    const cast = @import("cast.zig");
 
-    const value = Type.toFloat(vm, arguments);
+    const value = cast.toFloat(vm, arguments);
 
     return Code.Value{ .float = @abs(value.float) };
 }

@@ -151,7 +151,7 @@ fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     file.reader().readAllArrayList(&file_content, std.math.maxInt(u32)) catch |err| {
         switch (err) {
             error.OutOfMemory => {
-                std.debug.print("{s}\n", .{ file_path, errorDescription(err) });
+                std.debug.print("{s}\n", .{errorDescription(err)});
             },
 
             else => {
@@ -163,13 +163,13 @@ fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     };
 
     file_content.append(0) catch |err| {
-        std.debug.print("{s}\n", .{ file_path, errorDescription(err) });
+        std.debug.print("{s}\n", .{errorDescription(err)});
 
         return null;
     };
 
     const file_content_z = file_content.toOwnedSliceSentinel(0) catch |err| {
-        std.debug.print("{s}\n", .{ file_path, errorDescription(err) });
+        std.debug.print("{s}\n", .{errorDescription(err)});
 
         return null;
     };

@@ -15,7 +15,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    const Type = @import("Type.zig");
+    const cast = @import("cast.zig");
 
     if (arguments.len < 1 or arguments.len > 3) {
         return .none;
@@ -27,31 +27,31 @@ fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     switch (arguments.len) {
         1 => {
-            const first_argument_casted = Type.toInt(vm, arguments[0..1]);
+            const first_argument_casted = cast.toInt(vm, arguments[0..1]);
             if (first_argument_casted == .none) return first_argument_casted;
             end = first_argument_casted.int;
         },
 
         2 => {
-            const first_argument_casted = Type.toInt(vm, arguments[0..1]);
+            const first_argument_casted = cast.toInt(vm, arguments[0..1]);
             if (first_argument_casted == .none) return first_argument_casted;
             start = first_argument_casted.int;
 
-            const second_argument_casted = Type.toInt(vm, arguments[1..2]);
+            const second_argument_casted = cast.toInt(vm, arguments[1..2]);
             if (second_argument_casted == .none) return second_argument_casted;
             end = second_argument_casted.int;
         },
 
         3 => {
-            const first_argument_casted = Type.toInt(vm, arguments[0..1]);
+            const first_argument_casted = cast.toInt(vm, arguments[0..1]);
             if (first_argument_casted == .none) return first_argument_casted;
             start = first_argument_casted.int;
 
-            const second_argument_casted = Type.toInt(vm, arguments[1..2]);
+            const second_argument_casted = cast.toInt(vm, arguments[1..2]);
             if (second_argument_casted == .none) return second_argument_casted;
             end = second_argument_casted.int;
 
-            const third_argument_casted = Type.toInt(vm, arguments[2..3]);
+            const third_argument_casted = cast.toInt(vm, arguments[2..3]);
             if (third_argument_casted == .none) return third_argument_casted;
             step = third_argument_casted.int;
 

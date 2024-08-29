@@ -10,21 +10,18 @@ allocator: std.mem.Allocator,
 
 mutex: std.Thread.Mutex = .{},
 
+argv: []const []const u8,
+
+stack: std.ArrayList(Code.Value),
+globals: std.AutoHashMap(Atom, Code.Value),
+open_upvalues: std.ArrayList(**Code.Value),
 exported: Code.Value = .none,
 
 frames: std.ArrayList(Frame),
 frames_start: usize = 0,
 
-stack: std.ArrayList(Code.Value),
-
-open_upvalues: std.ArrayList(**Code.Value),
-
-globals: std.AutoHashMap(Atom, Code.Value),
-
 internal_vms: std.ArrayList(VirtualMachine),
 internal_functions: std.AutoHashMap(*Code.Value.Object.Closure, *VirtualMachine),
-
-argv: []const []const u8,
 
 error_info: ?ErrorInfo = null,
 

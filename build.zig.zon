@@ -3,12 +3,12 @@
     .version = "0.0.0",
     .dependencies = .{
         .bdwgc = .{
-            .url = "git+https://github.com/ivmai/bdwgc?ref=master#0a23b211b558137de7ee654c5527a54113142517",
-            .hash = "12200ce6e143367577284f796ac2a9f6d84b4dc3a79d20773720d5eba594ad82edf8",
+            .url = "git+https://github.com/ivmai/bdwgc?ref=master#02c9d85a1740a301d0e0dd35b62ef3621a65ef25",
+            .hash = "1220bdaf65696e7f47b874cf12aec33026e3375843e2ddf5cb7dfce076d3a67d694a",
         },
         .ffi = .{
-            .url = "git+https://github.com/vezel-dev/libffi?ref=v3.4.6-4#23be3c19aa246f9022bb6032eb566db50832d3ce",
-            .hash = "1220e0349d9b4272baa0d28a5248e70d875ace1329d954376718cd791e7868c35304",
+            .url = "git+https://github.com/vezel-dev/libffi?ref=v3.4.6-6#2e2a0527a080149f2e15c6827e56a656fbb6b41b",
+            .hash = "1220870d4bcd70fe7dc9b65f23006f0c4d6ed0a08575d9835b3c4e0341c1ad2ec95f",
         },
     },
     .paths = .{""},

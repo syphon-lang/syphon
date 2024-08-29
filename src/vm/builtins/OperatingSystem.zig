@@ -16,14 +16,13 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 fn getArchName(arch: std.Target.Cpu.Arch) []const u8 {
     return switch (arch) {
         .arm, .armeb, .thumb, .thumbeb => "aarch",
-        .aarch64, .aarch64_be, .aarch64_32 => "aarch64",
+        .aarch64, .aarch64_be => "aarch64",
         .bpfel, .bpfeb => "bpf",
         .mipsel => "mips",
         .mips64el => "mips64",
         .powerpcle => "powerpc",
         .powerpc64le => "powerpc64",
         .amdgcn => "amdgpu",
-        .sparcel => "sparc",
         else => @tagName(arch),
     };
 }

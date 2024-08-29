@@ -1,11 +1,10 @@
 const std = @import("std");
 
-const GarbageCollector = @import("gc/GarbageCollector.zig");
-
 const Driver = @import("Driver.zig");
+const gc = @import("gc.zig");
 
 pub fn main() u8 {
-    const allocator = GarbageCollector.allocator();
+    const allocator = gc.allocator();
 
     var arg_iterator = std.process.argsWithAllocator(allocator) catch |err| {
         std.debug.print("{s}\n", .{Driver.errorDescription(err)});

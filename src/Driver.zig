@@ -10,9 +10,9 @@ const Driver = @This();
 
 allocator: std.mem.Allocator,
 
-cli: CLI,
+cli: Cli = .{},
 
-const CLI = struct {
+const Cli = struct {
     program: []const u8 = "",
     command: ?Command = null,
 
@@ -70,7 +70,6 @@ pub fn errorDescription(e: anyerror) []const u8 {
 pub fn init(allocator: std.mem.Allocator) Driver {
     return Driver{
         .allocator = allocator,
-        .cli = .{},
     };
 }
 
@@ -87,7 +86,7 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
                 argv.append(remaining_arg) catch |err| {
                     std.debug.print("{s}\n", .{errorDescription(err)});
 
-                    return true;
+                    return false;
                 };
             }
 
@@ -96,7 +95,7 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
 
                 std.debug.print("Error: expected a file_path\n", .{});
 
-                return true;
+                return false;
             }
 
             self.cli.command = .{ .run = .{ .argv = argv.items } };
@@ -109,7 +108,7 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
 
             std.debug.print("Error: {s} is an unknown command\n", .{arg});
 
-            return true;
+            return false;
         }
     }
 
@@ -118,14 +117,16 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
 
         std.debug.print("Error: no command provided\n", .{});
 
-        return true;
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 pub fn run(self: *Driver, arg_iterator: *std.process.ArgIterator) u8 {
-    if (self.parseArgs(arg_iterator)) return 1;
+    if (!self.parseArgs(arg_iterator)) {
+        return 1;
+    }
 
     switch (self.cli.command.?) {
         .run => return self.executeRunCommand(),
@@ -145,17 +146,33 @@ fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
 
     defer file.close();
 
-    const file_content = file.reader().readAllAlloc(allocator, std.math.maxInt(u32)) catch |err| {
-        std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
+    var file_content = std.ArrayList(u8).init(allocator);
+
+    file.reader().readAllArrayList(&file_content, std.math.maxInt(u32)) catch |err| {
+        switch (err) {
+            error.OutOfMemory => {
+                std.debug.print("{s}\n", .{ file_path, errorDescription(err) });
+            },
+
+            else => {
+                std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
+            },
+        }
 
         return null;
     };
 
-    const file_content_z = @as([:0]u8, @ptrCast(file_content));
+    file_content.append(0) catch |err| {
+        std.debug.print("{s}\n", .{ file_path, errorDescription(err) });
 
-    if (file_content.len != 0) {
-        file_content_z[file_content.len] = 0;
-    }
+        return null;
+    };
+
+    const file_content_z = file_content.toOwnedSliceSentinel(0) catch |err| {
+        std.debug.print("{s}\n", .{ file_path, errorDescription(err) });
+
+        return null;
+    };
 
     return file_content_z;
 }

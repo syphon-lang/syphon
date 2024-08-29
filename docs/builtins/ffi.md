@@ -67,20 +67,12 @@ Closes an open dynamic link library
 ffi.dll.close(libc)
 ```
 
-- call
-
-Calls a foreign function
-
-```
-ffi.call(libc.exit, [4])
-```
-
 - to_cstring
 
 Casts a Syphon string to a C string (which also called "null-terminated string")
 
 ```
-ffi.call(libc.puts, [ffi.to_cstring("Hello, world!")])
+libc.puts(ffi.to_cstring("Hello, world!"))
 ```
 
 - allocate_callback

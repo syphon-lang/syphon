@@ -478,7 +478,11 @@ pub fn callUserFunction(self: *VirtualMachine, closure: *Code.Value.Object.Closu
 fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Error!void {
     const stack_start = self.stack.items.len - arguments_count;
 
-    const return_value = native_function.call(self, self.stack.items[stack_start..]);
+    const stack_arguments = self.stack.items[stack_start..];
+
+    const arguments_with_context = if (native_function.maybe_context) |context| try std.mem.concat(self.allocator, Code.Value, &.{ &.{context.*}, stack_arguments }) else stack_arguments;
+
+    const return_value = native_function.call(self, arguments_with_context);
 
     self.stack.shrinkRetainingCapacity(stack_start);
 

@@ -39,13 +39,13 @@ if raylib == none {
     exit(1)
 }
 
-ffi.call(raylib.InitWindow, [800, 600, ffi.to_cstring("Some Blank Example")])
+raylib.InitWindow(800, 600, ffi.to_cstring("Some Blank Example"))
 
-while !ffi.call(raylib.WindowShouldClose, []) {
-    ffi.call(raylib.BeginDrawing, [])
-    ffi.call(raylib.EndDrawing, [])
+while !raylib.WindowShouldClose() {
+    raylib.BeginDrawing()
+    raylib.EndDrawing()
 }
 
-ffi.call(raylib.CloseWindow, [])
+raylib.CloseWindow()
 
 ffi.dll.close(raylib)

@@ -135,8 +135,8 @@ pub const Value = union(enum) {
         };
 
         pub const Function = struct {
-            parameters: []const Atom,
             code: Code,
+            parameters: []const Atom,
 
             pub fn init(allocator: std.mem.Allocator, parameters: []const Atom, code: Code) std.mem.Allocator.Error!Value {
                 const function: Function = .{ .parameters = parameters, .code = code };
@@ -149,6 +149,7 @@ pub const Value = union(enum) {
         };
 
         pub const NativeFunction = struct {
+            maybe_context: ?*Value = null,
             required_arguments_count: ?usize,
             call: Call,
 

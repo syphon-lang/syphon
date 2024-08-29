@@ -8,7 +8,6 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
-    try exports.put("call", Code.Value.Object.NativeFunction.init(2, &call));
     try exports.put("to_cstring", Code.Value.Object.NativeFunction.init(1, &toCstring));
     try exports.put("allocate_callback", Code.Value.Object.NativeFunction.init(2, &allocateCallback));
     try exports.put("free_callback", Code.Value.Object.NativeFunction.init(1, &freeCallback));
@@ -105,24 +104,47 @@ fn dllOpen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             else => return .none,
         };
 
-        var dll_function = std.StringHashMap(Code.Value).init(vm.allocator);
+        const dll_wanted_function_parameters = dll_wanted_function.value_ptr.object.map.getWithString("parameters") orelse return .none;
+
+        if (!(dll_wanted_function_parameters == .object and dll_wanted_function_parameters.object == .array)) {
+            return .none;
+        }
+
+        const dll_wanted_function_parameter_count = dll_wanted_function_parameters.object.array.values.items.len;
+
+        var dll_function = Code.Value.Object.NativeFunction.init(dll_wanted_function_parameter_count, &call);
+
+        var dll_function_metadata = std.StringHashMap(Code.Value).init(vm.allocator);
 
         const dll_function_pointer = dll_on_heap.lookup(*anyopaque, dll_wanted_function_name_z) orelse return .none;
 
-        dll_function.put("pointer", .{ .int = @bitCast(@as(u64, @intFromPtr(dll_function_pointer))) }) catch |err| switch (err) {
+        dll_function_metadata.put("pointer", .{ .int = @bitCast(@as(u64, @intFromPtr(dll_function_pointer))) }) catch |err| switch (err) {
             else => return .none,
         };
 
-        dll_function.put("prototype", dll_wanted_function.value_ptr.*) catch |err| switch (err) {
+        dll_function_metadata.put("prototype", dll_wanted_function.value_ptr.*) catch |err| switch (err) {
             else => return .none,
         };
 
-        dll_map.put(dll_wanted_function_name, Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_function) catch return .none) catch |err| switch (err) {
+        dll_function.object.native_function.maybe_context = vm.allocator.create(Code.Value) catch |err| switch (err) {
+            else => return .none,
+        };
+
+        dll_function.object.native_function.maybe_context.?.* = Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_function_metadata) catch return .none;
+
+        dll_map.put(dll_wanted_function_name, dll_function) catch |err| switch (err) {
             else => return .none,
         };
     }
 
     return Code.Value.Object.Map.fromStringHashMap(vm.allocator, dll_map) catch .none;
+}
+
+fn getPointerFromMap(comptime T: type, map: Code.Value) ?*T {
+    const pointer = map.object.map.getWithString("pointer") orelse return null;
+    if (pointer != .int) return null;
+
+    return @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(pointer.int)))));
 }
 
 fn dllClose(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -137,13 +159,6 @@ fn dllClose(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     dll.close();
 
     return .none;
-}
-
-fn getPointerFromMap(comptime T: type, map: Code.Value) ?*T {
-    const pointer = map.object.map.getWithString("pointer") orelse return null;
-    if (pointer != .int) return null;
-
-    return @ptrFromInt(@as(usize, @intCast(@as(u64, @bitCast(pointer.int)))));
 }
 
 fn getFFITypeFromInt(from: i64) !*ffi.ffi_type {
@@ -451,17 +466,9 @@ fn doFFICall(cif: *ffi.ffi_cif, function_pointer: *anyopaque, arguments: []?*any
 }
 
 fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .map)) {
-        return .none;
-    }
-
-    if (!(arguments[1] == .object and arguments[1].object == .array)) {
-        return .none;
-    }
-
     const dll_function_pointer = getPointerFromMap(anyopaque, arguments[0]) orelse return .none;
 
-    const dll_function_prototype = arguments[0].object.map.getWithString("prototype") orelse return .none;
+    const dll_function_prototype = arguments[0].object.map.getWithString("prototype").?;
     if (!(dll_function_prototype == .object and dll_function_prototype.object == .map)) {
         return .none;
     }
@@ -476,7 +483,7 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    const dll_function_arguments = arguments[1].object.array;
+    const dll_function_arguments = arguments[1..];
 
     var ffi_cif: ffi.ffi_cif = undefined;
 
@@ -498,11 +505,7 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         };
     }
 
-    if (dll_function_arguments.values.items.len != ffi_parameter_types.items.len) {
-        return .none;
-    }
-
-    for (dll_function_arguments.values.items, 0..) |dll_function_argument, i| {
+    for (dll_function_arguments, 0..) |dll_function_argument, i| {
         putArgumentInFFIArguments(vm.allocator, dll_function_argument, dll_function_parameter_types.object.array.values.items[i].int, &ffi_arguments) catch return .none;
     }
 

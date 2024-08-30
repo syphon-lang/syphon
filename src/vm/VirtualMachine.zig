@@ -43,7 +43,7 @@ pub const ErrorInfo = struct {
 
 pub const Frame = struct {
     closure: *Code.Value.Object.Closure,
-    ip: usize = 0,
+    program_counter: usize = 0,
     stack_start: usize = 0,
 };
 
@@ -108,16 +108,16 @@ pub fn run(self: *VirtualMachine) Error!void {
             return error.StackOverflow;
         }
 
-        const instruction = frame.closure.function.code.instructions.items[frame.ip];
-        const source_loc = frame.closure.function.code.source_locations.items[frame.ip];
+        const instruction = frame.closure.function.code.instructions.items[frame.program_counter];
+        const source_loc = frame.closure.function.code.source_locations.items[frame.program_counter];
 
-        frame.ip += 1;
+        frame.program_counter += 1;
 
         switch (instruction) {
-            .jump => |offset| frame.ip += offset,
-            .back => |offset| frame.ip -= offset,
+            .jump => |offset| frame.program_counter += offset,
+            .back => |offset| frame.program_counter -= offset,
             .jump_if_false => |offset| {
-                if (!self.stack.pop().is_truthy()) frame.ip += offset;
+                if (!self.stack.pop().is_truthy()) frame.program_counter += offset;
             },
 
             .load_global => |atom| try self.executeLoadGlobal(atom, source_loc),

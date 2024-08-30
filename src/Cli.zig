@@ -6,24 +6,20 @@ const CodeGen = @import("compiler/CodeGen.zig");
 const VirtualMachine = @import("vm/VirtualMachine.zig");
 const Atom = @import("vm/Atom.zig");
 
-const Driver = @This();
+const Cli = @This();
 
 allocator: std.mem.Allocator,
 
-cli: Cli = .{},
+program: []const u8 = "",
+command: ?Command = null,
 
-const Cli = struct {
-    program: []const u8 = "",
-    command: ?Command = null,
+const Command = union(enum) {
+    run: Run,
+    version: void,
+    help: void,
 
-    const Command = union(enum) {
-        run: Run,
-        version: void,
-        help: void,
-
-        const Run = struct {
-            argv: []const []const u8,
-        };
+    const Run = struct {
+        argv: []const []const u8,
     };
 };
 
@@ -67,16 +63,11 @@ pub fn errorDescription(e: anyerror) []const u8 {
     };
 }
 
-pub fn init(allocator: std.mem.Allocator) Driver {
-    return Driver{
+pub fn parse(allocator: std.mem.Allocator, arg_iterator: *std.process.ArgIterator) ?Cli {
+    var self: Cli = .{
         .allocator = allocator,
+        .program = arg_iterator.next().?,
     };
-}
-
-fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
-    const program = arg_iterator.next().?;
-
-    self.cli.program = program;
 
     while (arg_iterator.next()) |arg| {
         if (std.mem.eql(u8, arg, "run")) {
@@ -86,49 +77,45 @@ fn parseArgs(self: *Driver, arg_iterator: *std.process.ArgIterator) bool {
                 argv.append(remaining_arg) catch |err| {
                     std.debug.print("{s}\n", .{errorDescription(err)});
 
-                    return false;
+                    return null;
                 };
             }
 
             if (argv.items.len == 0) {
-                std.debug.print(run_command_usage, .{program});
+                std.debug.print(run_command_usage, .{self.program});
 
                 std.debug.print("Error: expected a file_path\n", .{});
 
-                return false;
+                return null;
             }
 
-            self.cli.command = .{ .run = .{ .argv = argv.items } };
+            self.command = .{ .run = .{ .argv = argv.items } };
         } else if (std.mem.eql(u8, arg, "version")) {
-            self.cli.command = .version;
+            self.command = .version;
         } else if (std.mem.eql(u8, arg, "help")) {
-            self.cli.command = .help;
+            self.command = .help;
         } else {
-            std.debug.print(usage, .{program});
+            std.debug.print(usage, .{self.program});
 
             std.debug.print("Error: {s} is an unknown command\n", .{arg});
 
-            return false;
+            return null;
         }
     }
 
-    if (self.cli.command == null) {
-        std.debug.print(usage, .{program});
+    if (self.command == null) {
+        std.debug.print(usage, .{self.program});
 
         std.debug.print("Error: no command provided\n", .{});
 
-        return false;
+        return null;
     }
 
-    return true;
+    return self;
 }
 
-pub fn run(self: *Driver, arg_iterator: *std.process.ArgIterator) u8 {
-    if (!self.parseArgs(arg_iterator)) {
-        return 1;
-    }
-
-    switch (self.cli.command.?) {
+pub fn run(self: Cli) u8 {
+    switch (self.command.?) {
         .run => return self.executeRunCommand(),
         .version => return executeVersionCommand(),
         .help => return self.executeHelpCommand(),
@@ -177,8 +164,8 @@ fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
     return file_content_z;
 }
 
-fn executeRunCommand(self: *Driver) u8 {
-    const options = self.cli.command.?.run;
+fn executeRunCommand(self: Cli) u8 {
+    const options = self.command.?.run;
 
     const file_path = options.argv[0];
 
@@ -297,8 +284,8 @@ fn executeVersionCommand() u8 {
     return 0;
 }
 
-fn executeHelpCommand(self: Driver) u8 {
-    std.debug.print(usage, .{self.cli.program});
+fn executeHelpCommand(self: Cli) u8 {
+    std.debug.print(usage, .{self.program});
 
     return 0;
 }

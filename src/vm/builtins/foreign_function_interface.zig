@@ -110,9 +110,9 @@ fn dllOpen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             return .none;
         }
 
-        const dll_wanted_function_parameter_count = dll_wanted_function_parameters.object.array.values.items.len;
+        const dll_wanted_function_parameters_count = dll_wanted_function_parameters.object.array.values.items.len;
 
-        var dll_function = Code.Value.Object.NativeFunction.init(dll_wanted_function_parameter_count, &call);
+        var dll_function = Code.Value.Object.NativeFunction.init(dll_wanted_function_parameters_count, &call);
 
         var dll_function_metadata = std.StringHashMap(Code.Value).init(vm.allocator);
 

@@ -53,13 +53,13 @@ pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
 pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
     var vm: VirtualMachine = .{
         .allocator = allocator,
+        .argv = argv,
         .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
         .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
         .open_upvalues = std.ArrayList(**Code.Value).init(allocator),
         .globals = std.AutoHashMap(Atom, Code.Value).init(allocator),
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
         .internal_functions = std.AutoHashMap(*Code.Value.Object.Closure, *VirtualMachine).init(allocator),
-        .argv = argv,
     };
 
     vm.mutex.lock();
@@ -114,31 +114,31 @@ pub fn run(self: *VirtualMachine) Error!void {
         frame.ip += 1;
 
         switch (instruction) {
-            .jump => frame.ip += instruction.jump,
-            .back => frame.ip -= instruction.back,
-            .jump_if_false => {
-                if (!self.stack.pop().is_truthy()) frame.ip += instruction.jump_if_false;
+            .jump => |offset| frame.ip += offset,
+            .back => |offset| frame.ip -= offset,
+            .jump_if_false => |offset| {
+                if (!self.stack.pop().is_truthy()) frame.ip += offset;
             },
 
-            .load_global => try self.executeLoadGlobal(instruction.load_global, source_loc),
+            .load_global => |atom| try self.executeLoadGlobal(atom, source_loc),
             .load_local => |index| try self.stack.append(self.stack.items[frame.stack_start + index]),
             .load_upvalue => |index| try self.stack.append(frame.closure.upvalues.items[index].*),
-            .load_constant => try self.stack.append(frame.closure.function.code.constants.items[instruction.load_constant]),
+            .load_constant => |index| try self.stack.append(frame.closure.function.code.constants.items[index]),
             .load_subscript => try self.executeLoadSubscript(source_loc),
 
-            .store_global => try self.executeStoreGlobal(instruction.store_global),
+            .store_global => |atom| try self.executeStoreGlobal(atom),
             .store_local => |index| self.stack.items[frame.stack_start + index] = self.stack.pop(),
             .store_upvalue => |index| frame.closure.upvalues.items[index].* = self.stack.pop(),
             .store_subscript => try self.executeStoreSubscript(source_loc),
 
-            .make_array => try self.executeMakeArray(instruction.make_array),
-            .make_map => try self.executeMakeMap(instruction.make_map),
-            .make_closure => try self.executeMakeClosure(instruction.make_closure, frame.*),
+            .make_array => |length| try self.executeMakeArray(length),
+            .make_map => |length| try self.executeMakeMap(length),
+            .make_closure => |info| try self.executeMakeClosure(info, frame.*),
 
-            .close_upvalue => try self.executeCloseUpvalue(instruction.close_upvalue, frame.*),
+            .close_upvalue => |index| try self.executeCloseUpvalue(index, frame.*),
 
-            .call => {
-                try self.executeCall(instruction.call, source_loc);
+            .call => |arguments_count| {
+                try self.executeCall(arguments_count, source_loc);
 
                 frame = &self.frames.items[self.frames.items.len - 1];
             },
@@ -162,8 +162,7 @@ pub fn run(self: *VirtualMachine) Error!void {
             .pop => _ = self.stack.pop(),
 
             .@"return" => {
-                const end_loop = try self.executeReturn();
-                if (end_loop) break;
+                if (try self.executeReturn()) break;
 
                 frame = &self.frames.items[self.frames.items.len - 1];
             },

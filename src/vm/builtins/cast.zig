@@ -94,13 +94,9 @@ pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var result = std.ArrayList(u8).init(vm.allocator);
     var buffered_writer = std.io.bufferedWriter(result.writer());
 
-    console.printImpl(std.ArrayList(u8).Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
-        else => return .none,
-    };
+    console.printImpl(std.ArrayList(u8).Writer, &buffered_writer, arguments, false) catch return .none;
 
-    buffered_writer.flush() catch |err| switch (err) {
-        else => return .none,
-    };
+    buffered_writer.flush() catch return .none;
 
     return Code.Value{ .object = .{ .string = .{ .content = result.items } } };
 }

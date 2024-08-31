@@ -20,9 +20,7 @@ fn arrayPush(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const value = arguments[1];
 
-    array.values.append(value) catch |err| switch (err) {
-        else => return .none,
-    };
+    array.values.append(value) catch return .none;
 
     return .none;
 }

@@ -58,9 +58,7 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         }
     };
 
-    const resolved_file_path = std.fs.path.resolve(vm.allocator, &.{ source_dir_path, file_path }) catch |err| switch (err) {
-        else => return .none,
-    };
+    const resolved_file_path = std.fs.path.resolve(vm.allocator, &.{ source_dir_path, file_path }) catch return .none;
 
     const file_content = blk: {
         const file = std.fs.cwd().openFile(resolved_file_path, .{}) catch return .none;
@@ -73,41 +71,25 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         return .none;
     }
 
-    var parser = Parser.init(vm.allocator, file_content) catch |err| switch (err) {
-        else => return .none,
-    };
+    var parser = Parser.init(vm.allocator, file_content) catch return .none;
 
-    const root = parser.parseRoot() catch |err| switch (err) {
-        else => return .none,
-    };
+    const root = parser.parseRoot() catch return .none;
 
-    var gen = CodeGen.init(vm.allocator, .script) catch |err| switch (err) {
-        else => return .none,
-    };
+    var gen = CodeGen.init(vm.allocator, .script) catch return .none;
 
-    gen.compileRoot(root) catch |err| switch (err) {
-        else => return .none,
-    };
+    gen.compileRoot(root) catch return .none;
 
     const internal_vm = vm.internal_vms.addOneAssumeCapacity();
 
-    const internal_vm_argv = vm.allocator.alloc([]const u8, 1) catch |err| switch (err) {
-        else => return .none,
-    };
+    const internal_vm_argv = vm.allocator.alloc([]const u8, 1) catch return .none;
 
     internal_vm_argv[0] = resolved_file_path;
 
-    internal_vm.* = VirtualMachine.init(vm.allocator, internal_vm_argv) catch |err| switch (err) {
-        else => return .none,
-    };
+    internal_vm.* = VirtualMachine.init(vm.allocator, internal_vm_argv) catch return .none;
 
-    internal_vm.setCode(gen.code) catch |err| switch (err) {
-        else => return .none,
-    };
+    internal_vm.setCode(gen.code) catch return .none;
 
-    internal_vm.run() catch |err| switch (err) {
-        else => return .none,
-    };
+    internal_vm.run() catch return .none;
 
     addForeignFunction(vm, internal_vm, internal_vm.exported);
 
@@ -123,39 +105,23 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    const source_code = vm.allocator.dupeZ(u8, arguments[0].object.string.content) catch |err| switch (err) {
-        else => return .none,
-    };
+    const source_code = vm.allocator.dupeZ(u8, arguments[0].object.string.content) catch return .none;
 
-    var parser = Parser.init(vm.allocator, source_code) catch |err| switch (err) {
-        else => return .none,
-    };
+    var parser = Parser.init(vm.allocator, source_code) catch return .none;
 
-    const root = parser.parseRoot() catch |err| switch (err) {
-        else => return .none,
-    };
+    const root = parser.parseRoot() catch return .none;
 
-    var gen = CodeGen.init(vm.allocator, .script) catch |err| switch (err) {
-        else => return .none,
-    };
+    var gen = CodeGen.init(vm.allocator, .script) catch return .none;
 
-    gen.compileRoot(root) catch |err| switch (err) {
-        else => return .none,
-    };
+    gen.compileRoot(root) catch return .none;
 
     const internal_vm = vm.internal_vms.addOneAssumeCapacity();
 
-    internal_vm.* = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch |err| switch (err) {
-        else => return .none,
-    };
+    internal_vm.* = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch return .none;
 
-    internal_vm.setCode(gen.code) catch |err| switch (err) {
-        else => return .none,
-    };
+    internal_vm.setCode(gen.code) catch return .none;
 
-    internal_vm.run() catch |err| switch (err) {
-        else => return .none,
-    };
+    internal_vm.run() catch return .none;
 
     addForeignFunction(vm, internal_vm, internal_vm.exported);
 

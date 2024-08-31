@@ -28,17 +28,13 @@ fn stringSplit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     if (delimiter.len == 0) {
         for (0..string.len) |i| {
-            new_strings.append(string[i .. i + 1]) catch |err| switch (err) {
-                else => return .none,
-            };
+            new_strings.append(string[i .. i + 1]) catch return .none;
         }
     } else {
         var new_string_iterator = std.mem.splitSequence(u8, string, delimiter);
 
         while (new_string_iterator.next()) |new_string| {
-            new_strings.append(new_string) catch |err| switch (err) {
-                else => return .none,
-            };
+            new_strings.append(new_string) catch return .none;
         }
     }
 
@@ -94,9 +90,7 @@ fn chr(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    const content_on_heap = vm.allocator.alloc(u8, 1) catch |err| switch (err) {
-        else => return .none,
-    };
+    const content_on_heap = vm.allocator.alloc(u8, 1) catch return .none;
 
     content_on_heap[0] = @intCast(arguments[0].int);
 

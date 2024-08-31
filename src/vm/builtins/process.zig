@@ -13,9 +13,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 
     try exports.put("argv", try Code.Value.Object.Array.fromStringSlices(vm.allocator, vm.argv));
 
-    const env_map = std.process.getEnvMap(vm.allocator) catch |err| switch (err) {
-        else => std.process.EnvMap.init(vm.allocator),
-    };
+    const env_map = std.process.getEnvMap(vm.allocator) catch std.process.EnvMap.init(vm.allocator);
 
     try exports.put("env", Code.Value.Object.Map.fromEnvMap(vm.allocator, env_map) catch .none);
 
@@ -28,9 +26,7 @@ fn exit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const status_code = arguments[0];
 
     switch (status_code) {
-        .int => std.process.exit(@intCast(std.math.mod(i64, status_code.int, 256) catch |err| switch (err) {
-            else => std.process.exit(1),
-        })),
+        .int => std.process.exit(@intCast(std.math.mod(i64, status_code.int, 256) catch std.process.exit(1))),
 
         else => std.process.exit(1),
     }

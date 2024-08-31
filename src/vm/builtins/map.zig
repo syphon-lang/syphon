@@ -46,14 +46,10 @@ fn mapFromKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     for (keys.values.items) |key| {
         const value = .none;
 
-        inner.put(key, value) catch |err| switch (err) {
-            else => return .none,
-        };
+        inner.put(key, value) catch return .none;
     }
 
-    const map = Code.Value.Object.Map.init(vm.allocator, inner) catch |err| switch (err) {
-        else => return .none,
-    };
+    const map = Code.Value.Object.Map.init(vm.allocator, inner) catch return .none;
 
     return map;
 }

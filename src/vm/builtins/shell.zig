@@ -21,69 +21,45 @@ fn run(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var arg_iterator = std.mem.splitAny(u8, arguments[0].object.string.content, " ");
 
     while (arg_iterator.next()) |arg| {
-        argv.append(arg) catch |err| switch (err) {
-            else => return .none,
-        };
+        argv.append(arg) catch return .none;
     }
 
     const raw_result = std.process.Child.run(.{
         .allocator = vm.allocator,
         .argv = argv.items,
-    }) catch |err| switch (err) {
-        else => return .none,
-    };
+    }) catch return .none;
 
     var result = std.StringHashMap(Code.Value).init(vm.allocator);
 
     switch (raw_result.term) {
         .Exited => {
-            result.put("termination", .{ .object = .{ .string = .{ .content = "exited" } } }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("termination", .{ .object = .{ .string = .{ .content = "exited" } } }) catch return .none;
 
-            result.put("status_code", .{ .int = @intCast(raw_result.term.Exited) }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("status_code", .{ .int = @intCast(raw_result.term.Exited) }) catch return .none;
         },
 
         .Signal => {
-            result.put("termination", .{ .object = .{ .string = .{ .content = "signal" } } }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("termination", .{ .object = .{ .string = .{ .content = "signal" } } }) catch return .none;
 
-            result.put("status_code", .{ .int = @intCast(raw_result.term.Signal) }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("status_code", .{ .int = @intCast(raw_result.term.Signal) }) catch return .none;
         },
 
         .Stopped => {
-            result.put("termination", .{ .object = .{ .string = .{ .content = "stopped" } } }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("termination", .{ .object = .{ .string = .{ .content = "stopped" } } }) catch return .none;
 
-            result.put("status_code", .{ .int = @intCast(raw_result.term.Stopped) }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("status_code", .{ .int = @intCast(raw_result.term.Stopped) }) catch return .none;
         },
 
         .Unknown => {
-            result.put("termination", .{ .object = .{ .string = .{ .content = "unknown" } } }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("termination", .{ .object = .{ .string = .{ .content = "unknown" } } }) catch return .none;
 
-            result.put("status_code", .{ .int = @intCast(raw_result.term.Unknown) }) catch |err| switch (err) {
-                else => return .none,
-            };
+            result.put("status_code", .{ .int = @intCast(raw_result.term.Unknown) }) catch return .none;
         },
     }
 
-    result.put("stdout", .{ .object = .{ .string = .{ .content = raw_result.stdout } } }) catch |err| switch (err) {
-        else => return .none,
-    };
+    result.put("stdout", .{ .object = .{ .string = .{ .content = raw_result.stdout } } }) catch return .none;
 
-    result.put("stderr", .{ .object = .{ .string = .{ .content = raw_result.stdout } } }) catch |err| switch (err) {
-        else => return .none,
-    };
+    result.put("stderr", .{ .object = .{ .string = .{ .content = raw_result.stdout } } }) catch return .none;
 
     return Code.Value.Object.Map.fromStringHashMap(vm.allocator, result) catch .none;
 }

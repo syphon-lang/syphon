@@ -93,13 +93,9 @@ fn print(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const stdout = std.io.getStdOut();
     var buffered_writer = std.io.bufferedWriter(stdout.writer());
 
-    printImpl(std.fs.File.Writer, &buffered_writer, arguments, false) catch |err| switch (err) {
-        else => return .none,
-    };
+    printImpl(std.fs.File.Writer, &buffered_writer, arguments, false) catch return .none;
 
-    buffered_writer.flush() catch |err| switch (err) {
-        else => return .none,
-    };
+    buffered_writer.flush() catch return .none;
 
     return .none;
 }
@@ -110,17 +106,11 @@ fn println(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const new_line_value: Code.Value = .{ .object = .{ .string = .{ .content = "\n" } } };
 
-    const new_arguments = std.mem.concat(vm.allocator, Code.Value, &.{ arguments, &.{new_line_value} }) catch |err| switch (err) {
-        else => return .none,
-    };
+    const new_arguments = std.mem.concat(vm.allocator, Code.Value, &.{ arguments, &.{new_line_value} }) catch return .none;
 
-    printImpl(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch |err| switch (err) {
-        else => return .none,
-    };
+    printImpl(std.fs.File.Writer, &buffered_writer, new_arguments, false) catch return .none;
 
-    buffered_writer.flush() catch |err| switch (err) {
-        else => return .none,
-    };
+    buffered_writer.flush() catch return .none;
 
     return .none;
 }

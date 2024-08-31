@@ -78,9 +78,7 @@ fn reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             .array => {
                 const array = arguments[0].object.array;
 
-                var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.values.items.len) catch |err| switch (err) {
-                    else => return .none,
-                };
+                var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.values.items.len) catch return .none;
 
                 var i = array.values.items.len;
                 while (i > 0) {
@@ -93,9 +91,7 @@ fn reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             .string => {
                 const string = arguments[0].object.string;
 
-                var new_string = std.ArrayList(u8).initCapacity(vm.allocator, string.content.len) catch |err| switch (err) {
-                    else => return .none,
-                };
+                var new_string = std.ArrayList(u8).initCapacity(vm.allocator, string.content.len) catch return .none;
 
                 var i = string.content.len;
                 while (i > 0) {

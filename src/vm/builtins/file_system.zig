@@ -31,9 +31,7 @@ fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_path = arguments[0].object.string.content;
 
-    const file = std.fs.cwd().openFile(file_path, .{ .mode = .read_write }) catch |err| switch (err) {
-        else => return .none,
-    };
+    const file = std.fs.cwd().openFile(file_path, .{ .mode = .read_write }) catch return .none;
 
     if (builtin.os.tag == .windows) {
         return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(file.handle))) };
@@ -51,9 +49,7 @@ fn create(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_path = arguments[0].object.string.content;
 
-    const file = std.fs.cwd().createFile(file_path, .{ .truncate = false, .read = true }) catch |err| switch (err) {
-        else => return .none,
-    };
+    const file = std.fs.cwd().createFile(file_path, .{ .truncate = false, .read = true }) catch return .none;
 
     if (builtin.os.tag == .windows) {
         return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(file.handle))) };
@@ -79,9 +75,7 @@ fn delete(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_path = arguments[0].object.string.content;
 
-    std.fs.cwd().deleteFile(file_path) catch |err| switch (err) {
-        else => return .none,
-    };
+    std.fs.cwd().deleteFile(file_path) catch return .none;
 
     return .none;
 }
@@ -103,9 +97,7 @@ fn close(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn cwd(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = arguments;
 
-    const cwd_file_path = std.fs.cwd().realpathAlloc(vm.allocator, ".") catch |err| switch (err) {
-        else => return .none,
-    };
+    const cwd_file_path = std.fs.cwd().realpathAlloc(vm.allocator, ".") catch return .none;
 
     return Code.Value{ .object = .{ .string = .{ .content = cwd_file_path } } };
 }
@@ -119,13 +111,9 @@ fn chdir(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const dir_path = arguments[0].object.string.content;
 
-    const dir = std.fs.cwd().openDir(dir_path, .{}) catch |err| switch (err) {
-        else => return .none,
-    };
+    const dir = std.fs.cwd().openDir(dir_path, .{}) catch return .none;
 
-    dir.setAsCwd() catch |err| switch (err) {
-        else => return .none,
-    };
+    dir.setAsCwd() catch return .none;
 
     return .none;
 }
@@ -139,9 +127,7 @@ fn access(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_path = arguments[0].object.string.content;
 
-    std.fs.cwd().access(file_path, .{ .mode = .read_write }) catch |err| switch (err) {
-        else => return Code.Value{ .boolean = false },
-    };
+    std.fs.cwd().access(file_path, .{ .mode = .read_write }) catch return Code.Value{ .boolean = false };
 
     return Code.Value{ .boolean = true };
 }
@@ -163,13 +149,9 @@ fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     var buffered_writer = std.io.bufferedWriter(file.writer());
 
-    buffered_writer.writer().writeAll(write_content) catch |err| switch (err) {
-        else => return .none,
-    };
+    buffered_writer.writer().writeAll(write_content) catch return .none;
 
-    buffered_writer.flush() catch |err| switch (err) {
-        else => return .none,
-    };
+    buffered_writer.flush() catch return .none;
 
     return .none;
 }
@@ -181,13 +163,9 @@ fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const buf = vm.allocator.alloc(u8, 1) catch |err| switch (err) {
-        else => return .none,
-    };
+    const buf = vm.allocator.alloc(u8, 1) catch return .none;
 
-    const n = file.reader().read(buf) catch |err| switch (err) {
-        else => return .none,
-    };
+    const n = file.reader().read(buf) catch return .none;
 
     if (n == 0) {
         return .none;
@@ -203,9 +181,7 @@ fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.allocator, '\n', std.math.maxInt(u32)) catch |err| switch (err) {
-        else => return .none,
-    };
+    const file_content = file.reader().readUntilDelimiterOrEofAlloc(vm.allocator, '\n', std.math.maxInt(u32)) catch return .none;
 
     if (file_content == null) {
         return .none;
@@ -221,9 +197,7 @@ fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const file_content = file.readToEndAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
-        else => return .none,
-    };
+    const file_content = file.readToEndAlloc(vm.allocator, std.math.maxInt(u32)) catch return .none;
 
     return Code.Value{ .object = .{ .string = .{ .content = file_content } } };
 }

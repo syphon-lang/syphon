@@ -29,18 +29,14 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    const thread = std.Thread.spawn(.{ .allocator = vm.allocator }, callThreadFunction, .{ vm, thread_closure, thread_arguments.values.items }) catch |err| switch (err) {
-        else => return .none,
-    };
+    const thread = std.Thread.spawn(.{ .allocator = vm.allocator }, callThreadFunction, .{ vm, thread_closure, thread_arguments.values.items }) catch return .none;
 
     vm.mutex.unlock();
     defer vm.mutex.lock();
 
     std.Thread.yield() catch {};
 
-    const thread_on_heap = vm.allocator.create(std.Thread) catch |err| switch (err) {
-        else => return .none,
-    };
+    const thread_on_heap = vm.allocator.create(std.Thread) catch return .none;
 
     thread_on_heap.* = thread;
 
@@ -51,17 +47,11 @@ fn callThreadFunction(vm: *VirtualMachine, closure: *Code.Value.Object.Closure, 
     vm.mutex.lock();
     defer vm.mutex.unlock();
 
-    vm.stack.appendSlice(arguments) catch |err| switch (err) {
-        else => return,
-    };
+    vm.stack.appendSlice(arguments) catch return;
 
-    vm.callUserFunction(closure) catch |err| switch (err) {
-        else => return,
-    };
+    vm.callUserFunction(closure) catch return;
 
-    vm.run() catch |err| switch (err) {
-        else => return,
-    };
+    vm.run() catch return;
 }
 
 fn join(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

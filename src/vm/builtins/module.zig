@@ -62,25 +62,18 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         else => return .none,
     };
 
-    const file = std.fs.cwd().openFile(resolved_file_path, .{}) catch |err| switch (err) {
-        else => return .none,
-    };
+    const file_content = blk: {
+        const file = std.fs.cwd().openFile(resolved_file_path, .{}) catch return .none;
+        defer file.close();
 
-    defer file.close();
-
-    const file_content = file.reader().readAllAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
-        else => return .none,
+        break :blk file.readToEndAllocOptions(vm.allocator, std.math.maxInt(u32), null, @alignOf(u8), 0) catch return .none;
     };
 
     if (file_content.len == 0) {
         return .none;
     }
 
-    const file_content_z = @as([:0]u8, @ptrCast(file_content));
-
-    file_content_z[file_content.len] = 0;
-
-    var parser = Parser.init(vm.allocator, file_content_z) catch |err| switch (err) {
+    var parser = Parser.init(vm.allocator, file_content) catch |err| switch (err) {
         else => return .none,
     };
 

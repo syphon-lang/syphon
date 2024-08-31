@@ -2,7 +2,7 @@
 
 ### Build from source
 
-You need the latest version of Zig tools (Recommeneded to get the dev version)
+You need the latest version of Zig tools
 
 Choose one of the following ways of compilation, the binary file will be at `zig-out/bin/syphon`
 

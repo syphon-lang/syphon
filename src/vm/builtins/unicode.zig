@@ -18,11 +18,11 @@ fn utf8Encode(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    const content_on_heap = vm.allocator.alloc(u8, 4) catch return .none;
+    const encoded = vm.allocator.alloc(u8, 4) catch return .none;
 
-    const encoded_len = std.unicode.utf8Encode(@intCast(arguments[0].int), content_on_heap) catch return .none;
+    const encoded_len = std.unicode.utf8Encode(@intCast(arguments[0].int), encoded) catch return .none;
 
-    return Code.Value{ .object = .{ .string = .{ .content = content_on_heap[0..encoded_len] } } };
+    return Code.Value{ .object = .{ .string = .{ .content = encoded[0..encoded_len] } } };
 }
 
 fn utf8Decode(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

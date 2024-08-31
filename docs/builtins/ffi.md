@@ -43,7 +43,7 @@ Can be "so" or "dll" or "dylib" depending on the platform
 
 - dll.open
 
-Opens a dynamic link library (searches in the libraries directory of the user by default (e.g. /usr/lib), use a relative path if you want it to be based on the current working directory (e.g. "./libadd.so")
+Opens a dynamic link library, searches in the libraries directory of the user by default (e.g. /usr/lib), use a relative path if you want it to be based on the current working directory (e.g. "./libadd.so")
 
 ```
 libc = ffi.dll.open("libc.so.6", {

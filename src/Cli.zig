@@ -124,52 +124,34 @@ pub fn run(self: Cli) u8 {
     return 0;
 }
 
-fn readAllZ(allocator: std.mem.Allocator, file_path: []const u8) ?[:0]u8 {
-    const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
-        std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
-
-        return null;
-    };
-
-    defer file.close();
-
-    var file_content = std.ArrayList(u8).init(allocator);
-
-    file.reader().readAllArrayList(&file_content, std.math.maxInt(u32)) catch |err| {
-        switch (err) {
-            error.OutOfMemory => {
-                std.debug.print("{s}\n", .{errorDescription(err)});
-            },
-
-            else => {
-                std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
-            },
-        }
-
-        return null;
-    };
-
-    file_content.append(0) catch |err| {
-        std.debug.print("{s}\n", .{errorDescription(err)});
-
-        return null;
-    };
-
-    const file_content_z = file_content.toOwnedSliceSentinel(0) catch |err| {
-        std.debug.print("{s}\n", .{errorDescription(err)});
-
-        return null;
-    };
-
-    return file_content_z;
-}
-
 fn executeRunCommand(self: Cli) u8 {
     const options = self.command.?.run;
 
     const file_path = options.argv[0];
 
-    const file_content = readAllZ(self.allocator, file_path) orelse return 1;
+    const file_content = blk: {
+        const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
+            std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
+
+            return 1;
+        };
+
+        defer file.close();
+
+        break :blk file.readToEndAllocOptions(self.allocator, std.math.maxInt(u32), null, 1, 0) catch |err| switch (err) {
+            error.OutOfMemory => {
+                std.debug.print("{s}\n", .{errorDescription(err)});
+
+                return 1;
+            },
+
+            else => {
+                std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
+
+                return 1;
+            },
+        };
+    };
 
     if (file_content.len == 0) {
         return 0;

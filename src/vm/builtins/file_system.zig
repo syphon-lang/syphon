@@ -221,7 +221,7 @@ fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const file_content = file.reader().readAllAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
+    const file_content = file.readToEndAlloc(vm.allocator, std.math.maxInt(u32)) catch |err| switch (err) {
         else => return .none,
     };
 

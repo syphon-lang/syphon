@@ -138,7 +138,7 @@ fn executeRunCommand(self: Cli) u8 {
 
         defer file.close();
 
-        break :blk file.readToEndAllocOptions(self.allocator, std.math.maxInt(u32), null, 1, 0) catch |err| switch (err) {
+        break :blk file.readToEndAllocOptions(self.allocator, std.math.maxInt(u32), null, @alignOf(u8), 0) catch |err| switch (err) {
             error.OutOfMemory => {
                 std.debug.print("{s}\n", .{errorDescription(err)});
 

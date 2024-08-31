@@ -333,24 +333,6 @@ Gives you a lowercased copy of the passed in string, it acts as the opposite of 
 string_lower("FOO, BAR") # foo, bar
 ```
 
-- ord
-
-Gives you the unicode representation of a one character
-
-```
-ord("?") # 63
-ord(2) # none
-```
-
-- chr
-
-Converts the unicode representation to a character
-
-```
-chr(63) # "?"
-chr("jdlf") # none
-```
-
 - export
 
 Changes the value exported to the users of this module, by default it exports none

@@ -16,6 +16,7 @@ const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.
     .{ "shell", &(@import("shell.zig").getExports) },
     .{ "threading", &(@import("threading.zig").getExports) },
     .{ "time", &(@import("time.zig").getExports) },
+    .{ "unicode", &(@import("unicode.zig").getExports) },
 });
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {

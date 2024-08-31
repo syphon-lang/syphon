@@ -17,7 +17,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
         else => std.process.EnvMap.init(vm.allocator),
     };
 
-    try exports.put("env", Code.Value.Object.Map.fromEnvMap(vm.allocator, env_map) catch Code.Value{ .none = {} });
+    try exports.put("env", Code.Value.Object.Map.fromEnvMap(vm.allocator, env_map) catch .none);
 
     return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
 }

@@ -15,8 +15,8 @@ command: ?Command = null,
 
 const Command = union(enum) {
     run: Run,
-    version: void,
-    help: void,
+    version,
+    help,
 
     const Run = struct {
         argv: []const []const u8,

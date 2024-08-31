@@ -22,3 +22,5 @@ fn () {
         return unicode.utf8_decode("ا") == 1575
     })
 }()
+
+tester.end()

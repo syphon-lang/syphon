@@ -43,7 +43,7 @@ fn mapFromKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     var inner = Code.Value.Object.Map.Inner.init(vm.allocator);
 
-    for (keys.values.items) |key| {
+    for (keys.inner.items) |key| {
         const value = .none;
 
         inner.put(key, value) catch return .none;

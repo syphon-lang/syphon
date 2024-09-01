@@ -32,14 +32,14 @@ pub fn printImpl(comptime B: type, buffered_writer: *std.io.BufferedWriter(4096,
                 .array => {
                     _ = try buffered_writer.write("[");
 
-                    for (argument.object.array.values.items, 0..) |array_value, j| {
+                    for (argument.object.array.inner.items, 0..) |array_value, j| {
                         if (array_value == .object and array_value.object == .array and array_value.object.array == argument.object.array) {
                             _ = try buffered_writer.write("[..]");
                         } else {
                             try printImpl(B, buffered_writer, &.{array_value}, true);
                         }
 
-                        if (j < argument.object.array.values.items.len - 1) {
+                        if (j < argument.object.array.inner.items.len - 1) {
                             _ = try buffered_writer.write(", ");
                         }
                     }

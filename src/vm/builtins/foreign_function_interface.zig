@@ -102,7 +102,7 @@ fn dllOpen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             return .none;
         }
 
-        const dll_wanted_function_parameters_count = dll_wanted_function_parameters.object.array.values.items.len;
+        const dll_wanted_function_parameters_count = dll_wanted_function_parameters.object.array.inner.items.len;
 
         var dll_function = Code.Value.Object.NativeFunction.init(dll_wanted_function_parameters_count, &call);
 
@@ -477,7 +477,7 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     var ffi_arguments = std.ArrayList(?*anyopaque).init(vm.allocator);
 
-    for (dll_function_parameter_types.object.array.values.items) |dll_function_parameter_type| {
+    for (dll_function_parameter_types.object.array.inner.items) |dll_function_parameter_type| {
         if (dll_function_parameter_type != .int) {
             return .none;
         }
@@ -488,7 +488,7 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     }
 
     for (dll_function_arguments, 0..) |dll_function_argument, i| {
-        putArgumentInFFIArguments(vm.allocator, dll_function_argument, dll_function_parameter_types.object.array.values.items[i].int, &ffi_arguments) catch return .none;
+        putArgumentInFFIArguments(vm.allocator, dll_function_argument, dll_function_parameter_types.object.array.inner.items[i].int, &ffi_arguments) catch return .none;
     }
 
     switch (ffi.ffi_prep_cif(&ffi_cif, ffi.FFI_DEFAULT_ABI, @intCast(ffi_parameter_types.items.len), ffi_return_type, ffi_parameter_types.items.ptr)) {
@@ -629,7 +629,7 @@ fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Val
 
     const ffi_return_type = getFFITypeFromInt(user_function_return_type.int) catch return .none;
 
-    for (user_function_parameter_types.object.array.values.items) |dll_function_parameter_type| {
+    for (user_function_parameter_types.object.array.inner.items) |dll_function_parameter_type| {
         if (dll_function_parameter_type != .int) {
             return .none;
         }

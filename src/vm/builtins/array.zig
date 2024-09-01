@@ -20,7 +20,7 @@ fn arrayPush(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const value = arguments[1];
 
-    array.values.append(value) catch return .none;
+    array.inner.append(value) catch return .none;
 
     return .none;
 }
@@ -34,5 +34,5 @@ fn arrayPop(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const array = arguments[0].object.array;
 
-    return array.values.popOrNull() orelse .none;
+    return array.inner.popOrNull() orelse .none;
 }

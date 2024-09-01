@@ -198,16 +198,16 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
                 }
 
                 if (index.int < 0) {
-                    index.int += @as(i64, @intCast(target.object.array.values.items.len));
+                    index.int += @as(i64, @intCast(target.object.array.inner.items.len));
                 }
 
-                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
+                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.inner.items.len))) {
                     self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                     return error.IndexOverflow;
                 }
 
-                return self.stack.append(target.object.array.values.items[@as(usize, @intCast(index.int))]);
+                return self.stack.append(target.object.array.inner.items[@as(usize, @intCast(index.int))]);
             },
 
             .string => {
@@ -294,16 +294,16 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!voi
                 }
 
                 if (index.int < 0) {
-                    index.int += @as(i64, @intCast(target.object.array.values.items.len));
+                    index.int += @as(i64, @intCast(target.object.array.inner.items.len));
                 }
 
-                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.values.items.len))) {
+                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.inner.items.len))) {
                     self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                     return error.IndexOverflow;
                 }
 
-                target.object.array.values.items[@as(usize, @intCast(index.int))] = value;
+                target.object.array.inner.items[@as(usize, @intCast(index.int))] = value;
 
                 return;
             },
@@ -332,15 +332,15 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!voi
 }
 
 fn executeMakeArray(self: *VirtualMachine, length: usize) Error!void {
-    var values = try std.ArrayList(Code.Value).initCapacity(self.allocator, length);
+    var inner = try Code.Value.Object.Array.Inner.initCapacity(self.allocator, length);
 
     for (0..length) |_| {
         const value = self.stack.pop();
 
-        values.insertAssumeCapacity(0, value);
+        inner.insertAssumeCapacity(0, value);
     }
 
-    try self.stack.append(try Code.Value.Object.Array.init(self.allocator, values));
+    try self.stack.append(try Code.Value.Object.Array.init(self.allocator, inner));
 }
 
 fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
@@ -570,9 +570,9 @@ fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
             .array => switch (rhs) {
                 .object => switch (rhs.object) {
                     .array => {
-                        const concatenated_array: Code.Value = try Code.Value.Object.Array.init(self.allocator, try lhs.object.array.values.clone());
+                        const concatenated_array: Code.Value = try Code.Value.Object.Array.init(self.allocator, try lhs.object.array.inner.clone());
 
-                        try concatenated_array.object.array.values.appendSlice(rhs.object.array.values.items);
+                        try concatenated_array.object.array.inner.appendSlice(rhs.object.array.inner.items);
 
                         return self.stack.append(concatenated_array);
                     },

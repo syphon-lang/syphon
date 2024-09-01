@@ -78,12 +78,12 @@ fn reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             .array => {
                 const array = arguments[0].object.array;
 
-                var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.values.items.len) catch return .none;
+                var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.inner.items.len) catch return .none;
 
-                var i = array.values.items.len;
+                var i = array.inner.items.len;
                 while (i > 0) {
                     i -= 1;
-                    new_array.append(array.values.items[i]) catch return .none;
+                    new_array.append(array.inner.items[i]) catch return .none;
                 }
                 return Code.Value.Object.Array.init(vm.allocator, new_array) catch .none;
             },
@@ -127,15 +127,15 @@ fn filter(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                 const array = arguments[0].object.array;
                 var new_array = std.ArrayList(Code.Value).init(vm.allocator);
 
-                for (0..array.values.items.len) |i| {
-                    const return_value = callback.call(vm, &.{array.values.items[i]});
+                for (0..array.inner.items.len) |i| {
+                    const return_value = callback.call(vm, &.{array.inner.items[i]});
 
                     switch (return_value) {
                         .boolean => {
                             if (return_value != .boolean) continue;
                             if (!return_value.boolean) continue;
 
-                            new_array.append(array.values.items[i]) catch return .none;
+                            new_array.append(array.inner.items[i]) catch return .none;
                         },
 
                         else => {},
@@ -219,8 +219,8 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
                 const array = arguments[0].object.array;
                 var new_array = std.ArrayList(Code.Value).init(vm.allocator);
 
-                for (0..array.values.items.len) |i| {
-                    const return_value = callback.call(vm, &.{array.values.items[i]});
+                for (0..array.inner.items.len) |i| {
+                    const return_value = callback.call(vm, &.{array.inner.items[i]});
 
                     new_array.append(return_value) catch return .none;
                 }
@@ -260,8 +260,8 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
                     const return_value = callback.call(vm, new_map_entry);
 
-                    if ((return_value == .object and return_value.object == .array) and (return_value.object.array.values.items.len == 2)) {
-                        new_map_entry = return_value.object.array.values.items;
+                    if ((return_value == .object and return_value.object == .array) and (return_value.object.array.inner.items.len == 2)) {
+                        new_map_entry = return_value.object.array.inner.items;
                     }
 
                     new_map.put(new_map_entry[0], new_map_entry[1]) catch return .none;
@@ -294,8 +294,8 @@ fn foreach(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
                 const array = arguments[0].object.array;
 
-                for (0..array.values.items.len) |i| {
-                    _ = callback.call(vm, array.values.items[i .. i + 1]);
+                for (0..array.inner.items.len) |i| {
+                    _ = callback.call(vm, array.inner.items[i .. i + 1]);
                 }
             },
 
@@ -337,7 +337,7 @@ fn length(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     switch (value) {
         .object => switch (value.object) {
-            .array => return Code.Value{ .int = @intCast(value.object.array.values.items.len) },
+            .array => return Code.Value{ .int = @intCast(value.object.array.inner.items.len) },
             .string => return Code.Value{ .int = @intCast(value.object.string.content.len) },
             .map => return Code.Value{ .int = @intCast(value.object.map.inner.count()) },
 
@@ -359,7 +359,7 @@ fn contains(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     switch (target) {
         .object => switch (target.object) {
             .array => {
-                for (target.object.array.values.items) |other_value| {
+                for (target.object.array.inner.items) |other_value| {
                     if (value.eql(other_value, false)) {
                         return Code.Value{ .boolean = true };
                     }

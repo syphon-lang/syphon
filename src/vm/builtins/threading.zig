@@ -25,11 +25,11 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const thread_arguments = arguments[1].object.array;
 
-    if (thread_arguments.values.items.len != thread_closure.function.parameters.len) {
+    if (thread_arguments.inner.items.len != thread_closure.function.parameters.len) {
         return .none;
     }
 
-    const thread = std.Thread.spawn(.{ .allocator = vm.allocator }, callThreadFunction, .{ vm, thread_closure, thread_arguments.values.items }) catch return .none;
+    const thread = std.Thread.spawn(.{ .allocator = vm.allocator }, callThreadFunction, .{ vm, thread_closure, thread_arguments.inner.items }) catch return .none;
 
     vm.mutex.unlock();
     defer vm.mutex.lock();

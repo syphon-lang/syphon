@@ -32,10 +32,12 @@ pub const Value = union(enum) {
         };
 
         pub const Array = struct {
-            values: std.ArrayList(Value),
+            pub const Inner = std.ArrayList(Value);
 
-            pub fn init(allocator: std.mem.Allocator, values: std.ArrayList(Value)) std.mem.Allocator.Error!Value {
-                const array: Array = .{ .values = values };
+            inner: Inner,
+
+            pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
+                const array: Array = .{ .inner = inner };
 
                 const array_on_heap = try allocator.create(Array);
                 array_on_heap.* = array;
@@ -210,7 +212,7 @@ pub const Value = union(enum) {
             .boolean => self.boolean,
             .object => switch (self.object) {
                 .string => self.object.string.content.len != 0,
-                .array => self.object.array.values.items.len != 0,
+                .array => self.object.array.inner.items.len != 0,
                 .map => self.object.map.inner.count() != 0,
                 else => true,
             },
@@ -235,16 +237,16 @@ pub const Value = union(enum) {
                 .string => return rhs == .object and rhs.object == .string and std.mem.eql(u8, lhs.object.string.content, rhs.object.string.content),
 
                 .array => {
-                    if (!(rhs == .object and rhs.object == .array and lhs.object.array.values.items.len == rhs.object.array.values.items.len)) {
+                    if (!(rhs == .object and rhs.object == .array and lhs.object.array.inner.items.len == rhs.object.array.inner.items.len)) {
                         return false;
                     }
 
-                    for (0..lhs.object.array.values.items.len) |i| {
-                        if (lhs.object.array.values.items[i] == .object and lhs.object.array.values.items[i].object == .array and lhs.object.array.values.items[i].object.array == lhs.object.array) {
-                            if (!(rhs.object.array.values.items[i] == .object and rhs.object.array.values.items[i].object == .array and rhs.object.array.values.items[i].object.array == lhs.object.array)) {
+                    for (0..lhs.object.array.inner.items.len) |i| {
+                        if (lhs.object.array.inner.items[i] == .object and lhs.object.array.inner.items[i].object == .array and lhs.object.array.inner.items[i].object.array == lhs.object.array) {
+                            if (!(rhs.object.array.inner.items[i] == .object and rhs.object.array.inner.items[i].object == .array and rhs.object.array.inner.items[i].object.array == lhs.object.array)) {
                                 return false;
                             }
-                        } else if (!lhs.object.array.values.items[i].eql(rhs.object.array.values.items[i], false)) {
+                        } else if (!lhs.object.array.inner.items[i].eql(rhs.object.array.inner.items[i], false)) {
                             return false;
                         }
                     }

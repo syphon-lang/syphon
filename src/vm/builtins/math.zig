@@ -11,13 +11,13 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     try exports.put("phi", .{ .float = std.math.phi });
     try exports.put("tau", .{ .float = std.math.tau });
 
-    try exports.put("sqrt", Code.Value.Object.NativeFunction.init(1, &sqrt));
-    try exports.put("sin", Code.Value.Object.NativeFunction.init(1, &sin));
-    try exports.put("cos", Code.Value.Object.NativeFunction.init(1, &cos));
-    try exports.put("tan", Code.Value.Object.NativeFunction.init(1, &tan));
-    try exports.put("abs", Code.Value.Object.NativeFunction.init(1, &abs));
+    try exports.put("sqrt", try Code.Value.NativeFunction.init(vm.allocator, 1, &sqrt));
+    try exports.put("sin", try Code.Value.NativeFunction.init(vm.allocator, 1, &sin));
+    try exports.put("cos", try Code.Value.NativeFunction.init(vm.allocator, 1, &cos));
+    try exports.put("tan", try Code.Value.NativeFunction.init(vm.allocator, 1, &tan));
+    try exports.put("abs", try Code.Value.NativeFunction.init(vm.allocator, 1, &abs));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
+    return Code.Value.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn sqrt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

@@ -5,17 +5,17 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put(try Atom.new("map_keys"), Code.Value.Object.NativeFunction.init(1, &mapKeys));
-    try vm.globals.put(try Atom.new("map_from_keys"), Code.Value.Object.NativeFunction.init(1, &mapFromKeys));
-    try vm.globals.put(try Atom.new("map_values"), Code.Value.Object.NativeFunction.init(1, &mapValues));
+    try vm.globals.put(try Atom.new("map_keys"), try Code.Value.NativeFunction.init(vm.allocator, 1, &mapKeys));
+    try vm.globals.put(try Atom.new("map_from_keys"), try Code.Value.NativeFunction.init(vm.allocator, 1, &mapFromKeys));
+    try vm.globals.put(try Atom.new("map_values"), try Code.Value.NativeFunction.init(vm.allocator, 1, &mapValues));
 }
 
 fn mapKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .map)) {
+    if (arguments[0] != .map) {
         return .none;
     }
 
-    const map = arguments[0].object.map;
+    const map = arguments[0].map;
 
     var keys = std.ArrayList(Code.Value).initCapacity(vm.allocator, map.inner.count()) catch |err| switch (err) {
         else => {
@@ -27,7 +27,7 @@ fn mapKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         keys.appendAssumeCapacity(map_key);
     }
 
-    return Code.Value.Object.Array.init(vm.allocator, keys) catch |err| switch (err) {
+    return Code.Value.Array.init(vm.allocator, keys) catch |err| switch (err) {
         else => {
             return .none;
         },
@@ -35,13 +35,13 @@ fn mapKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn mapFromKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .array)) {
+    if (arguments[0] != .array) {
         return .none;
     }
 
-    const keys = arguments[0].object.array;
+    const keys = arguments[0].array;
 
-    var inner = Code.Value.Object.Map.Inner.init(vm.allocator);
+    var inner = Code.Value.Map.Inner.init(vm.allocator);
 
     for (keys.inner.items) |key| {
         const value = .none;
@@ -49,17 +49,17 @@ fn mapFromKeys(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         inner.put(key, value) catch return .none;
     }
 
-    const map = Code.Value.Object.Map.init(vm.allocator, inner) catch return .none;
+    const map = Code.Value.Map.init(vm.allocator, inner) catch return .none;
 
     return map;
 }
 
 fn mapValues(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .map)) {
+    if (arguments[0] != .map) {
         return .none;
     }
 
-    const map = arguments[0].object.map;
+    const map = arguments[0].map;
 
     var values = std.ArrayList(Code.Value).initCapacity(vm.allocator, map.inner.count()) catch |err| switch (err) {
         else => {
@@ -71,7 +71,7 @@ fn mapValues(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         values.appendAssumeCapacity(map_value);
     }
 
-    return Code.Value.Object.Array.init(vm.allocator, values) catch |err| switch (err) {
+    return Code.Value.Array.init(vm.allocator, values) catch |err| switch (err) {
         else => {
             return .none;
         },

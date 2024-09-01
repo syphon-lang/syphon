@@ -17,160 +17,159 @@ pub const Value = union(enum) {
     int: i64,
     float: f64,
     boolean: bool,
-    object: Object,
+    string: String,
+    array: *Array,
+    map: *Map,
+    closure: *Closure,
+    function: *Function,
+    native_function: *NativeFunction,
 
-    pub const Object = union(enum) {
-        string: String,
-        array: *Array,
-        map: *Map,
-        closure: *Closure,
+    pub const String = struct {
+        content: []const u8,
+    };
+
+    pub const Array = struct {
+        pub const Inner = std.ArrayList(Value);
+
+        inner: Inner,
+
+        pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
+            const array: Array = .{ .inner = inner };
+
+            const array_on_heap = try allocator.create(Array);
+            array_on_heap.* = array;
+
+            return Value{ .array = array_on_heap };
+        }
+
+        pub fn fromStringSlices(allocator: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
+            var values = try std.ArrayList(Value).initCapacity(allocator, from.len);
+
+            for (from) |content| {
+                const value: Value = .{ .string = .{ .content = content } };
+                values.appendAssumeCapacity(value);
+            }
+
+            return init(allocator, values);
+        }
+    };
+
+    pub const Map = struct {
+        pub const Inner = std.ArrayHashMap(Value, Value, Value.HashContext, true);
+
+        inner: Inner,
+
+        pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
+            const map: Map = .{ .inner = inner };
+
+            const map_on_heap = try allocator.create(Map);
+            map_on_heap.* = map;
+
+            return Value{ .map = map_on_heap };
+        }
+
+        pub fn fromStringHashMap(allocator: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
+            var inner = Inner.init(allocator);
+
+            var from_entry_iterator = from.iterator();
+
+            while (from_entry_iterator.next()) |from_entry| {
+                const key: Value = .{ .string = .{ .content = from_entry.key_ptr.* } };
+                const value = from_entry.value_ptr.*;
+
+                try inner.put(key, value);
+            }
+
+            return init(allocator, inner);
+        }
+
+        pub fn fromEnvMap(allocator: std.mem.Allocator, from: std.process.EnvMap) std.mem.Allocator.Error!Value {
+            var inner = Inner.init(allocator);
+
+            var from_entry_iterator = from.iterator();
+
+            while (from_entry_iterator.next()) |from_entry| {
+                const key: Value = .{ .string = .{ .content = from_entry.key_ptr.* } };
+                const value: Value = .{ .string = .{ .content = from_entry.value_ptr.* } };
+
+                try inner.put(key, value);
+            }
+
+            return init(allocator, inner);
+        }
+
+        pub fn getWithString(self: Map, key: []const u8) ?Value {
+            return self.inner.get(.{ .string = .{ .content = key } });
+        }
+    };
+
+    pub const Closure = struct {
         function: *Function,
-        native_function: NativeFunction,
+        upvalues: std.ArrayList(*Value),
 
-        pub const String = struct {
-            content: []const u8,
-        };
+        pub fn init(allocator: std.mem.Allocator, function: *Function, upvalues: std.ArrayList(*Value)) std.mem.Allocator.Error!Value {
+            const closure: Closure = .{ .function = function, .upvalues = upvalues };
 
-        pub const Array = struct {
-            pub const Inner = std.ArrayList(Value);
+            const closure_on_heap = try allocator.create(Closure);
+            closure_on_heap.* = closure;
 
-            inner: Inner,
+            return Value{ .closure = closure_on_heap };
+        }
 
-            pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
-                const array: Array = .{ .inner = inner };
-
-                const array_on_heap = try allocator.create(Array);
-                array_on_heap.* = array;
-
-                return Value{ .object = .{ .array = array_on_heap } };
+        pub fn call(self: *Closure, vm: *VirtualMachine, arguments: []const Value) Value {
+            for (arguments) |argument| {
+                vm.stack.append(argument) catch return .none;
             }
 
-            pub fn fromStringSlices(allocator: std.mem.Allocator, from: []const []const u8) std.mem.Allocator.Error!Value {
-                var values = try std.ArrayList(Value).initCapacity(allocator, from.len);
+            const previous_frames_start = vm.frames_start;
+            vm.frames_start = vm.frames.items.len;
 
-                for (from) |content| {
-                    const value: Value = .{ .object = .{ .string = .{ .content = content } } };
-                    values.appendAssumeCapacity(value);
-                }
+            vm.callUserFunction(self) catch return .none;
+            vm.run() catch return .none;
 
-                return init(allocator, values);
-            }
-        };
+            vm.frames_start = previous_frames_start;
 
-        pub const Map = struct {
-            pub const Inner = std.ArrayHashMap(Value, Value, Value.HashContext, true);
+            return vm.stack.pop();
+        }
+    };
 
-            inner: Inner,
+    pub const Function = struct {
+        code: Code,
+        parameters: []const Atom,
 
-            pub fn init(allocator: std.mem.Allocator, inner: Inner) std.mem.Allocator.Error!Value {
-                const map: Map = .{ .inner = inner };
+        pub fn init(allocator: std.mem.Allocator, parameters: []const Atom, code: Code) std.mem.Allocator.Error!Value {
+            const function: Function = .{ .parameters = parameters, .code = code };
 
-                const map_on_heap = try allocator.create(Map);
-                map_on_heap.* = map;
+            const function_on_heap = try allocator.create(Function);
+            function_on_heap.* = function;
 
-                return Value{ .object = .{ .map = map_on_heap } };
-            }
+            return Value{ .function = function_on_heap };
+        }
+    };
 
-            pub fn fromStringHashMap(allocator: std.mem.Allocator, from: std.StringHashMap(Value)) std.mem.Allocator.Error!Value {
-                var inner = Inner.init(allocator);
+    pub const NativeFunction = struct {
+        maybe_context: ?*Value = null,
+        required_arguments_count: ?usize,
+        call: Call,
 
-                var from_entry_iterator = from.iterator();
+        const Call = *const fn (*VirtualMachine, []const Value) Value;
 
-                while (from_entry_iterator.next()) |from_entry| {
-                    const key: Value = .{ .object = .{ .string = .{ .content = from_entry.key_ptr.* } } };
-                    const value = from_entry.value_ptr.*;
+        pub fn init(allocator: std.mem.Allocator, required_arguments_count: ?usize, call: Call) std.mem.Allocator.Error!Value {
+            const native_function: NativeFunction = .{ .required_arguments_count = required_arguments_count, .call = call };
 
-                    try inner.put(key, value);
-                }
+            const native_function_on_heap = try allocator.create(NativeFunction);
+            native_function_on_heap.* = native_function;
 
-                return init(allocator, inner);
-            }
-
-            pub fn fromEnvMap(allocator: std.mem.Allocator, from: std.process.EnvMap) std.mem.Allocator.Error!Value {
-                var inner = Inner.init(allocator);
-
-                var from_entry_iterator = from.iterator();
-
-                while (from_entry_iterator.next()) |from_entry| {
-                    const key: Value = .{ .object = .{ .string = .{ .content = from_entry.key_ptr.* } } };
-                    const value: Value = .{ .object = .{ .string = .{ .content = from_entry.value_ptr.* } } };
-
-                    try inner.put(key, value);
-                }
-
-                return init(allocator, inner);
-            }
-
-            pub fn getWithString(self: Map, key: []const u8) ?Value {
-                return self.inner.get(.{ .object = .{ .string = .{ .content = key } } });
-            }
-        };
-
-        pub const Closure = struct {
-            function: *Function,
-            upvalues: std.ArrayList(*Value),
-
-            pub fn init(allocator: std.mem.Allocator, function: *Function, upvalues: std.ArrayList(*Value)) std.mem.Allocator.Error!Value {
-                const closure: Closure = .{ .function = function, .upvalues = upvalues };
-
-                const closure_on_heap = try allocator.create(Closure);
-                closure_on_heap.* = closure;
-
-                return Value{ .object = .{ .closure = closure_on_heap } };
-            }
-
-            pub fn call(self: *Closure, vm: *VirtualMachine, arguments: []const Value) Value {
-                for (arguments) |argument| {
-                    vm.stack.append(argument) catch return .none;
-                }
-
-                const previous_frames_start = vm.frames_start;
-                vm.frames_start = vm.frames.items.len;
-
-                vm.callUserFunction(self) catch return .none;
-                vm.run() catch return .none;
-
-                vm.frames_start = previous_frames_start;
-
-                return vm.stack.pop();
-            }
-        };
-
-        pub const Function = struct {
-            code: Code,
-            parameters: []const Atom,
-
-            pub fn init(allocator: std.mem.Allocator, parameters: []const Atom, code: Code) std.mem.Allocator.Error!Value {
-                const function: Function = .{ .parameters = parameters, .code = code };
-
-                const function_on_heap = try allocator.create(Function);
-                function_on_heap.* = function;
-
-                return Value{ .object = .{ .function = function_on_heap } };
-            }
-        };
-
-        pub const NativeFunction = struct {
-            maybe_context: ?*Value = null,
-            required_arguments_count: ?usize,
-            call: Call,
-
-            const Call = *const fn (*VirtualMachine, []const Value) Value;
-
-            pub fn init(required_arguments_count: ?usize, call: Call) Value {
-                return Value{ .object = .{ .native_function = .{ .required_arguments_count = required_arguments_count, .call = call } } };
-            }
-        };
+            return Value{ .native_function = native_function_on_heap };
+        }
     };
 
     pub const HashContext = struct {
         pub fn hashable(key: Value) bool {
             return switch (key) {
-                .object => switch (key.object) {
-                    .string => true,
+                .string => true,
 
-                    else => false,
-                },
+                .array, .map, .closure, .function, .native_function => false,
 
                 else => true,
             };
@@ -188,11 +187,9 @@ pub const Value = union(enum) {
 
                 .boolean => @intFromBool(key.boolean),
 
-                .object => switch (key.object) {
-                    .string => @truncate(std.hash.Wyhash.hash(0, key.object.string.content)),
+                .string => @truncate(std.hash.Wyhash.hash(0, key.string.content)),
 
-                    else => unreachable,
-                },
+                else => unreachable,
             };
         }
 
@@ -210,12 +207,11 @@ pub const Value = union(enum) {
             .int => self.int != 0,
             .float => self.float != 0.0,
             .boolean => self.boolean,
-            .object => switch (self.object) {
-                .string => self.object.string.content.len != 0,
-                .array => self.object.array.inner.items.len != 0,
-                .map => self.object.map.inner.count() != 0,
-                else => true,
-            },
+            .string => self.string.content.len != 0,
+            .array => self.array.inner.items.len != 0,
+            .map => self.map.inner.count() != 0,
+
+            else => true,
         };
     }
 
@@ -233,52 +229,50 @@ pub const Value = union(enum) {
 
             .boolean => return (rhs == .boolean and lhs.boolean == rhs.boolean) or (!strict and rhs == .int and @as(i64, @intFromBool(lhs.boolean)) == rhs.int) or (!strict and rhs == .float and @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) == rhs.float),
 
-            .object => switch (lhs.object) {
-                .string => return rhs == .object and rhs.object == .string and std.mem.eql(u8, lhs.object.string.content, rhs.object.string.content),
+            .string => return rhs == .string and std.mem.eql(u8, lhs.string.content, rhs.string.content),
 
-                .array => {
-                    if (!(rhs == .object and rhs.object == .array and lhs.object.array.inner.items.len == rhs.object.array.inner.items.len)) {
-                        return false;
-                    }
+            .array => {
+                if (!(rhs == .array and lhs.array.inner.items.len == rhs.array.inner.items.len)) {
+                    return false;
+                }
 
-                    for (0..lhs.object.array.inner.items.len) |i| {
-                        if (lhs.object.array.inner.items[i] == .object and lhs.object.array.inner.items[i].object == .array and lhs.object.array.inner.items[i].object.array == lhs.object.array) {
-                            if (!(rhs.object.array.inner.items[i] == .object and rhs.object.array.inner.items[i].object == .array and rhs.object.array.inner.items[i].object.array == lhs.object.array)) {
-                                return false;
-                            }
-                        } else if (!lhs.object.array.inner.items[i].eql(rhs.object.array.inner.items[i], false)) {
+                for (0..lhs.array.inner.items.len) |i| {
+                    if (lhs.array.inner.items[i] == .array and lhs.array.inner.items[i].array == lhs.array) {
+                        if (!(rhs.array.inner.items[i] == .array and rhs.array.inner.items[i].array == lhs.array)) {
                             return false;
                         }
-                    }
-                },
-
-                .map => {
-                    if (!(rhs == .object and rhs.object == .map)) {
+                    } else if (!lhs.array.inner.items[i].eql(rhs.array.inner.items[i], false)) {
                         return false;
                     }
-
-                    var lhs_map_iterator = lhs.object.map.inner.iterator();
-
-                    while (lhs_map_iterator.next()) |lhs_entry| {
-                        if (rhs.object.map.inner.get(lhs_entry.key_ptr.*)) |rhs_entry_value| {
-                            if (lhs_entry.value_ptr.* == .object and lhs_entry.value_ptr.object == .map and lhs_entry.value_ptr.object.map == lhs.object.map) {
-                                if (!(rhs_entry_value == .object and rhs_entry_value.object == .map and rhs_entry_value.object.map == lhs.object.map)) {
-                                    return false;
-                                }
-                            } else if (!lhs_entry.value_ptr.eql(rhs_entry_value, false)) {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
-                    }
-                },
-
-                // Comparing with pointers instead of checking everything is used here because when you do "function == other_function" you are just comparing function pointers
-                .closure => return rhs == .object and rhs.object == .closure and lhs.object.closure == rhs.object.closure,
-                .function => return rhs == .object and rhs.object == .function and lhs.object.function == rhs.object.function,
-                .native_function => return rhs == .object and rhs.object == .native_function and lhs.object.native_function.call == rhs.object.native_function.call,
+                }
             },
+
+            .map => {
+                if (!(rhs == .map)) {
+                    return false;
+                }
+
+                var lhs_map_iterator = lhs.map.inner.iterator();
+
+                while (lhs_map_iterator.next()) |lhs_entry| {
+                    if (rhs.map.inner.get(lhs_entry.key_ptr.*)) |rhs_entry_value| {
+                        if (lhs_entry.value_ptr.* == .map and lhs_entry.value_ptr.map == lhs.map) {
+                            if (!(rhs_entry_value == .map and rhs_entry_value.map == lhs.map)) {
+                                return false;
+                            }
+                        } else if (!lhs_entry.value_ptr.eql(rhs_entry_value, false)) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+            },
+
+            // Comparing with pointers instead of checking everything is used here because when you do "function == other_function" you are just comparing function pointers
+            .closure => return rhs == .closure and lhs.closure == rhs.closure,
+            .function => return rhs == .function and lhs.function == rhs.function,
+            .native_function => return rhs == .native_function and lhs.native_function.call == rhs.native_function.call,
         }
 
         return true;

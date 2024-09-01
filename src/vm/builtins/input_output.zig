@@ -21,5 +21,5 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
         try exports.put("stderr", .{ .int = @intCast(stderr.handle) });
     }
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
+    return Code.Value.Map.fromStringHashMap(vm.allocator, exports);
 }

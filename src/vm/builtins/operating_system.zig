@@ -7,10 +7,10 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
-    try exports.put("name", .{ .object = .{ .string = .{ .content = @tagName(builtin.os.tag) } } });
-    try exports.put("arch", .{ .object = .{ .string = .{ .content = comptime getArchName(builtin.cpu.arch) } } });
+    try exports.put("name", .{ .string = .{ .content = @tagName(builtin.os.tag) } });
+    try exports.put("arch", .{ .string = .{ .content = comptime getArchName(builtin.cpu.arch) } });
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
+    return Code.Value.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn getArchName(arch: std.Target.Cpu.Arch) []const u8 {

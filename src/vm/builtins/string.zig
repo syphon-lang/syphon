@@ -5,22 +5,22 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put(try Atom.new("string_split"), Code.Value.Object.NativeFunction.init(2, &stringSplit));
-    try vm.globals.put(try Atom.new("string_upper"), Code.Value.Object.NativeFunction.init(1, &stringUpper));
-    try vm.globals.put(try Atom.new("string_lower"), Code.Value.Object.NativeFunction.init(1, &stringLower));
+    try vm.globals.put(try Atom.new("string_split"), try Code.Value.NativeFunction.init(vm.allocator, 2, &stringSplit));
+    try vm.globals.put(try Atom.new("string_upper"), try Code.Value.NativeFunction.init(vm.allocator, 1, &stringUpper));
+    try vm.globals.put(try Atom.new("string_lower"), try Code.Value.NativeFunction.init(vm.allocator, 1, &stringLower));
 }
 
 fn stringSplit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
-    if (!(arguments[1] == .object and arguments[1].object == .string)) {
+    if (arguments[1] != .string) {
         return .none;
     }
 
-    const string = arguments[0].object.string.content;
-    const delimiter = arguments[1].object.string.content;
+    const string = arguments[0].string.content;
+    const delimiter = arguments[1].string.content;
 
     var new_strings = std.ArrayList([]const u8).init(vm.allocator);
 
@@ -36,15 +36,15 @@ fn stringSplit(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         }
     }
 
-    return Code.Value.Object.Array.fromStringSlices(vm.allocator, new_strings.items) catch .none;
+    return Code.Value.Array.fromStringSlices(vm.allocator, new_strings.items) catch .none;
 }
 
 fn stringUpper(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
-    const string = arguments[0].object.string;
+    const string = arguments[0].string;
     var new_string = std.ArrayList(u8).init(vm.allocator);
 
     for (0..string.content.len) |i| {
@@ -53,15 +53,15 @@ fn stringUpper(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         new_string.append(new_char) catch new_string.append(new_char) catch continue;
     }
 
-    return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
+    return Code.Value{ .string = .{ .content = new_string.items } };
 }
 
 fn stringLower(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
-    const string = arguments[0].object.string;
+    const string = arguments[0].string;
     var new_string = std.ArrayList(u8).init(vm.allocator);
 
     for (0..string.content.len) |i| {
@@ -70,5 +70,5 @@ fn stringLower(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         new_string.append(new_char) catch new_string.append(new_char) catch continue;
     }
 
-    return Code.Value{ .object = .{ .string = .{ .content = new_string.items } } };
+    return Code.Value{ .string = .{ .content = new_string.items } };
 }

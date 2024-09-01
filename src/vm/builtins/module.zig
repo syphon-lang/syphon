@@ -20,9 +20,9 @@ const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.
 });
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put(try Atom.new("export"), Code.Value.Object.NativeFunction.init(1, &@"export"));
-    try vm.globals.put(try Atom.new("import"), Code.Value.Object.NativeFunction.init(1, &import));
-    try vm.globals.put(try Atom.new("eval"), Code.Value.Object.NativeFunction.init(1, &eval));
+    try vm.globals.put(try Atom.new("export"), try Code.Value.NativeFunction.init(vm.allocator, 1, &@"export"));
+    try vm.globals.put(try Atom.new("import"), try Code.Value.NativeFunction.init(vm.allocator, 1, &import));
+    try vm.globals.put(try Atom.new("eval"), try Code.Value.NativeFunction.init(vm.allocator, 1, &eval));
 }
 
 fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -32,11 +32,11 @@ fn @"export"(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 }
 
 fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
-    const file_path = arguments[0].object.string.content;
+    const file_path = arguments[0].string.content;
 
     if (NativeModuleGetters.get(file_path)) |getNativeModule| {
         return getNativeModule(vm) catch .none;
@@ -98,15 +98,15 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
 }
 
 fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
-    if (arguments[0].object.string.content.len == 0) {
+    if (arguments[0].string.content.len == 0) {
         return .none;
     }
 
-    const source_code = vm.allocator.dupeZ(u8, arguments[0].object.string.content) catch return .none;
+    const source_code = vm.allocator.dupeZ(u8, arguments[0].string.content) catch return .none;
 
     var parser = Parser.init(vm.allocator, source_code) catch return .none;
 
@@ -131,20 +131,16 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
 fn addForeignFunction(vm: *VirtualMachine, internal_vm: *VirtualMachine, value: Code.Value) void {
     switch (value) {
-        .object => switch (value.object) {
-            .closure => {
-                vm.internal_functions.put(value.object.closure, internal_vm) catch |err| switch (err) {
-                    else => return,
-                };
-            },
+        .closure => {
+            vm.internal_functions.put(value.closure, internal_vm) catch |err| switch (err) {
+                else => return,
+            };
+        },
 
-            .map => {
-                for (value.object.map.inner.values()) |map_value| {
-                    addForeignFunction(vm, internal_vm, map_value);
-                }
-            },
-
-            else => {},
+        .map => {
+            for (value.map.inner.values()) |map_value| {
+                addForeignFunction(vm, internal_vm, map_value);
+            }
         },
 
         else => {},

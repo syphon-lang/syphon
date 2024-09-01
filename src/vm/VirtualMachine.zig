@@ -21,7 +21,7 @@ frames: std.ArrayList(Frame),
 frames_start: usize = 0,
 
 internal_vms: std.ArrayList(VirtualMachine),
-internal_functions: std.AutoHashMap(*Code.Value.Object.Closure, *VirtualMachine),
+internal_functions: std.AutoHashMap(*Code.Value.Closure, *VirtualMachine),
 
 error_info: ?ErrorInfo = null,
 
@@ -42,7 +42,7 @@ pub const ErrorInfo = struct {
 };
 
 pub const Frame = struct {
-    closure: *Code.Value.Object.Closure,
+    closure: *Code.Value.Closure,
     program_counter: usize = 0,
     stack_start: usize = 0,
 };
@@ -59,7 +59,7 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
         .open_upvalues = std.ArrayList(**Code.Value).init(allocator),
         .globals = std.AutoHashMap(Atom, Code.Value).init(allocator),
         .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
-        .internal_functions = std.AutoHashMap(*Code.Value.Object.Closure, *VirtualMachine).init(allocator),
+        .internal_functions = std.AutoHashMap(*Code.Value.Closure, *VirtualMachine).init(allocator),
     };
 
     vm.mutex.lock();
@@ -94,8 +94,8 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
-    const function = (try Code.Value.Object.Function.init(self.allocator, &.{}, code)).object.function;
-    const closure = (try Code.Value.Object.Closure.init(self.allocator, function, std.ArrayList(*Code.Value).init(self.allocator))).object.closure;
+    const function = (try Code.Value.Function.init(self.allocator, &.{}, code)).function;
+    const closure = (try Code.Value.Closure.init(self.allocator, function, std.ArrayList(*Code.Value).init(self.allocator))).closure;
 
     try self.frames.append(.{ .closure = closure });
 }
@@ -189,80 +189,76 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void
     const target = self.stack.pop();
 
     switch (target) {
-        .object => switch (target.object) {
-            .array => {
-                if (index != .int) {
-                    self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
+        .array => {
+            if (index != .int) {
+                self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
-                    return error.UnexpectedValue;
-                }
+                return error.UnexpectedValue;
+            }
 
-                if (index.int < 0) {
-                    index.int += @as(i64, @intCast(target.object.array.inner.items.len));
-                }
+            if (index.int < 0) {
+                index.int += @as(i64, @intCast(target.array.inner.items.len));
+            }
 
-                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.inner.items.len))) {
-                    self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target.array.inner.items.len))) {
+                self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
-                    return error.IndexOverflow;
-                }
+                return error.IndexOverflow;
+            }
 
-                return self.stack.append(target.object.array.inner.items[@as(usize, @intCast(index.int))]);
-            },
+            return self.stack.append(target.array.inner.items[@as(usize, @intCast(index.int))]);
+        },
 
-            .string => {
-                if (index != .int) {
-                    self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
+        .string => {
+            if (index != .int) {
+                self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
-                    return error.UnexpectedValue;
-                }
+                return error.UnexpectedValue;
+            }
 
-                if (index.int < 0) {
-                    index.int += @as(i64, @intCast(target.object.string.content.len));
-                }
+            if (index.int < 0) {
+                index.int += @as(i64, @intCast(target.string.content.len));
+            }
 
-                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.string.content.len))) {
-                    self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target.string.content.len))) {
+                self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
-                    return error.IndexOverflow;
-                }
+                return error.IndexOverflow;
+            }
 
-                const index_casted: usize = @intCast(index.int);
+            const index_casted: usize = @intCast(index.int);
 
-                return self.stack.append(.{ .object = .{ .string = .{ .content = target.object.string.content[index_casted .. index_casted + 1] } } });
-            },
+            return self.stack.append(.{ .string = .{ .content = target.string.content[index_casted .. index_casted + 1] } });
+        },
 
-            .map => {
-                if (!Code.Value.HashContext.hashable(index)) {
-                    self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
+        .map => {
+            if (!Code.Value.HashContext.hashable(index)) {
+                self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
-                    return error.UnexpectedValue;
-                }
+                return error.UnexpectedValue;
+            }
 
-                if (target.object.map.inner.get(index)) |value| {
-                    return self.stack.append(value);
-                }
+            if (target.map.inner.get(index)) |value| {
+                return self.stack.append(value);
+            }
 
-                const console = @import("./builtins/console.zig");
+            const console = @import("./builtins/console.zig");
 
-                var error_message_buf = std.ArrayList(u8).init(self.allocator);
+            var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
-                var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
+            var buffered_writer = std.io.bufferedWriter(error_message_buf.writer());
 
-                _ = try buffered_writer.write("undefined key '");
+            _ = try buffered_writer.write("undefined key '");
 
-                try console.printImpl(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
+            try console.printImpl(std.ArrayList(u8).Writer, &buffered_writer, &.{index}, false);
 
-                _ = try buffered_writer.write("' in map");
+            _ = try buffered_writer.write("' in map");
 
-                try buffered_writer.flush();
+            try buffered_writer.flush();
 
-                self.error_info = .{ .message = error_message_buf.items, .source_loc = source_loc };
+            self.error_info = .{ .message = error_message_buf.items, .source_loc = source_loc };
 
-                return error.UndefinedKey;
-            },
-
-            else => {},
+            return error.UndefinedKey;
         },
 
         else => {},
@@ -285,42 +281,38 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!voi
     const value = self.stack.pop();
 
     switch (target) {
-        .object => switch (target.object) {
-            .array => {
-                if (index != .int) {
-                    self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
+        .array => {
+            if (index != .int) {
+                self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
-                    return error.UnexpectedValue;
-                }
+                return error.UnexpectedValue;
+            }
 
-                if (index.int < 0) {
-                    index.int += @as(i64, @intCast(target.object.array.inner.items.len));
-                }
+            if (index.int < 0) {
+                index.int += @as(i64, @intCast(target.array.inner.items.len));
+            }
 
-                if (index.int < 0 or index.int >= @as(i64, @intCast(target.object.array.inner.items.len))) {
-                    self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target.array.inner.items.len))) {
+                self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
-                    return error.IndexOverflow;
-                }
+                return error.IndexOverflow;
+            }
 
-                target.object.array.inner.items[@as(usize, @intCast(index.int))] = value;
+            target.array.inner.items[@as(usize, @intCast(index.int))] = value;
 
-                return;
-            },
+            return;
+        },
 
-            .map => {
-                if (!Code.Value.HashContext.hashable(index)) {
-                    self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
+        .map => {
+            if (!Code.Value.HashContext.hashable(index)) {
+                self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
-                    return error.UnexpectedValue;
-                }
+                return error.UnexpectedValue;
+            }
 
-                try target.object.map.inner.put(index, value);
+            try target.map.inner.put(index, value);
 
-                return;
-            },
-
-            else => {},
+            return;
         },
 
         else => {},
@@ -332,7 +324,7 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!voi
 }
 
 fn executeMakeArray(self: *VirtualMachine, length: usize) Error!void {
-    var inner = try Code.Value.Object.Array.Inner.initCapacity(self.allocator, length);
+    var inner = try Code.Value.Array.Inner.initCapacity(self.allocator, length);
 
     for (0..length) |_| {
         const value = self.stack.pop();
@@ -340,11 +332,11 @@ fn executeMakeArray(self: *VirtualMachine, length: usize) Error!void {
         inner.insertAssumeCapacity(0, value);
     }
 
-    try self.stack.append(try Code.Value.Object.Array.init(self.allocator, inner));
+    try self.stack.append(try Code.Value.Array.init(self.allocator, inner));
 }
 
 fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
-    var inner = Code.Value.Object.Map.Inner.init(self.allocator);
+    var inner = Code.Value.Map.Inner.init(self.allocator);
     try inner.ensureTotalCapacity(length);
 
     for (0..length) |_| {
@@ -354,7 +346,7 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
         inner.putAssumeCapacity(key, value);
     }
 
-    try self.stack.append(try Code.Value.Object.Map.init(self.allocator, inner));
+    try self.stack.append(try Code.Value.Map.init(self.allocator, inner));
 }
 
 fn executeCloseUpvalue(self: *VirtualMachine, index: usize, frame: Frame) Error!void {
@@ -377,7 +369,7 @@ fn executeCloseUpvalue(self: *VirtualMachine, index: usize, frame: Frame) Error!
 }
 
 fn executeMakeClosure(self: *VirtualMachine, info: Code.Instruction.MakeClosure, frame: Frame) Error!void {
-    const function = frame.closure.function.code.constants.items[info.function_constant_index].object.function;
+    const function = frame.closure.function.code.constants.items[info.function_constant_index].function;
 
     var upvalues = std.ArrayList(*Code.Value).init(self.allocator);
 
@@ -395,29 +387,25 @@ fn executeMakeClosure(self: *VirtualMachine, info: Code.Instruction.MakeClosure,
         try self.open_upvalues.append(upvalue_destination);
     }
 
-    try self.stack.append(try Code.Value.Object.Closure.init(self.allocator, function, upvalues));
+    try self.stack.append(try Code.Value.Closure.init(self.allocator, function, upvalues));
 }
 
 fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: SourceLoc) Error!void {
     const callable = self.stack.pop();
 
     switch (callable) {
-        .object => switch (callable.object) {
-            .closure => {
-                try self.checkArgumentsCount(callable.object.closure.function.parameters.len, arguments_count, source_loc);
+        .closure => {
+            try self.checkArgumentsCount(callable.closure.function.parameters.len, arguments_count, source_loc);
 
-                return self.callUserFunction(callable.object.closure);
-            },
+            return self.callUserFunction(callable.closure);
+        },
 
-            .native_function => {
-                if (callable.object.native_function.required_arguments_count != null) {
-                    try self.checkArgumentsCount(callable.object.native_function.required_arguments_count.?, arguments_count, source_loc);
-                }
+        .native_function => {
+            if (callable.native_function.required_arguments_count != null) {
+                try self.checkArgumentsCount(callable.native_function.required_arguments_count.?, arguments_count, source_loc);
+            }
 
-                return self.callNativeFunction(callable.object.native_function, arguments_count);
-            },
-
-            else => {},
+            return self.callNativeFunction(callable.native_function.*, arguments_count);
         },
 
         else => {},
@@ -440,7 +428,7 @@ fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_c
     }
 }
 
-pub fn callUserFunction(self: *VirtualMachine, closure: *Code.Value.Object.Closure) Error!void {
+pub fn callUserFunction(self: *VirtualMachine, closure: *Code.Value.Closure) Error!void {
     const stack_start = self.stack.items.len - closure.function.parameters.len;
 
     if (self.internal_functions.get(closure)) |internal_vm| {
@@ -471,7 +459,7 @@ pub fn callUserFunction(self: *VirtualMachine, closure: *Code.Value.Object.Closu
     }
 }
 
-fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.Object.NativeFunction, arguments_count: usize) Error!void {
+fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.NativeFunction, arguments_count: usize) Error!void {
     const stack_start = self.stack.items.len - arguments_count;
 
     const stack_arguments = self.stack.items[stack_start..];
@@ -552,57 +540,41 @@ fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
             else => {},
         },
 
-        .object => switch (lhs.object) {
-            .string => switch (rhs) {
-                .object => switch (rhs.object) {
-                    .string => {
-                        const concatenated_string: Code.Value = .{ .object = .{ .string = .{ .content = try std.mem.concat(self.allocator, u8, &.{ lhs.object.string.content, rhs.object.string.content }) } } };
+        .string => switch (rhs) {
+            .string => {
+                const concatenated_string: Code.Value = .{ .string = .{ .content = try std.mem.concat(self.allocator, u8, &.{ lhs.string.content, rhs.string.content }) } };
 
-                        return self.stack.append(concatenated_string);
-                    },
-
-                    else => {},
-                },
-
-                else => {},
+                return self.stack.append(concatenated_string);
             },
 
-            .array => switch (rhs) {
-                .object => switch (rhs.object) {
-                    .array => {
-                        const concatenated_array: Code.Value = try Code.Value.Object.Array.init(self.allocator, try lhs.object.array.inner.clone());
+            else => {},
+        },
 
-                        try concatenated_array.object.array.inner.appendSlice(rhs.object.array.inner.items);
+        .array => switch (rhs) {
+            .array => {
+                const concatenated_array: Code.Value = try Code.Value.Array.init(self.allocator, try lhs.array.inner.clone());
 
-                        return self.stack.append(concatenated_array);
-                    },
+                try concatenated_array.array.inner.appendSlice(rhs.array.inner.items);
 
-                    else => {},
-                },
-
-                else => {},
+                return self.stack.append(concatenated_array);
             },
 
-            .map => switch (rhs) {
-                .object => switch (rhs.object) {
-                    .map => {
-                        const concatenated_map: Code.Value = try Code.Value.Object.Map.init(self.allocator, try lhs.object.map.inner.clone());
+            else => {},
+        },
 
-                        try concatenated_map.object.map.inner.ensureUnusedCapacity(rhs.object.map.inner.count());
+        .map => switch (rhs) {
+            .map => {
+                const concatenated_map: Code.Value = try Code.Value.Map.init(self.allocator, try lhs.map.inner.clone());
 
-                        var rhs_map_entry_iterator = rhs.object.map.inner.iterator();
+                try concatenated_map.map.inner.ensureUnusedCapacity(rhs.map.inner.count());
 
-                        while (rhs_map_entry_iterator.next()) |rhs_map_entry| {
-                            concatenated_map.object.map.inner.putAssumeCapacity(rhs_map_entry.key_ptr.*, rhs_map_entry.value_ptr.*);
-                        }
+                var rhs_map_entry_iterator = rhs.map.inner.iterator();
 
-                        return self.stack.append(concatenated_map);
-                    },
+                while (rhs_map_entry_iterator.next()) |rhs_map_entry| {
+                    concatenated_map.map.inner.putAssumeCapacity(rhs_map_entry.key_ptr.*, rhs_map_entry.value_ptr.*);
+                }
 
-                    else => {},
-                },
-
-                else => {},
+                return self.stack.append(concatenated_map);
             },
 
             else => {},

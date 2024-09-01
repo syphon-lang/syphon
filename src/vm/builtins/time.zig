@@ -6,11 +6,11 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
-    try exports.put("now", Code.Value.Object.NativeFunction.init(0, &now));
-    try exports.put("now_ms", Code.Value.Object.NativeFunction.init(0, &nowMs));
-    try exports.put("sleep", Code.Value.Object.NativeFunction.init(1, &sleep));
+    try exports.put("now", try Code.Value.NativeFunction.init(vm.allocator, 0, &now));
+    try exports.put("now_ms", try Code.Value.NativeFunction.init(vm.allocator, 0, &nowMs));
+    try exports.put("sleep", try Code.Value.NativeFunction.init(vm.allocator, 1, &sleep));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
+    return Code.Value.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 pub fn now(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

@@ -12,7 +12,7 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 
     rnd = RandGen.init(@bitCast(time.nowMs(vm, &.{}).int));
 
-    try vm.globals.put(try Atom.new("random"), Code.Value.Object.NativeFunction.init(2, &random));
+    try vm.globals.put(try Atom.new("random"), try Code.Value.NativeFunction.init(vm.allocator, 2, &random));
 }
 
 fn random(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {

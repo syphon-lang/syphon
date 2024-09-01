@@ -7,29 +7,29 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
-    try exports.put("open", Code.Value.Object.NativeFunction.init(1, &open));
-    try exports.put("create", Code.Value.Object.NativeFunction.init(1, &create));
-    try exports.put("delete", Code.Value.Object.NativeFunction.init(1, &delete));
-    try exports.put("close", Code.Value.Object.NativeFunction.init(1, &close));
-    try exports.put("cwd", Code.Value.Object.NativeFunction.init(0, &cwd));
-    try exports.put("chdir", Code.Value.Object.NativeFunction.init(1, &chdir));
-    try exports.put("access", Code.Value.Object.NativeFunction.init(1, &access));
-    try exports.put("write", Code.Value.Object.NativeFunction.init(2, &write));
-    try exports.put("read", Code.Value.Object.NativeFunction.init(1, &read));
-    try exports.put("read_line", Code.Value.Object.NativeFunction.init(1, &readLine));
-    try exports.put("read_all", Code.Value.Object.NativeFunction.init(1, &readAll));
+    try exports.put("open", try Code.Value.NativeFunction.init(vm.allocator, 1, &open));
+    try exports.put("create", try Code.Value.NativeFunction.init(vm.allocator, 1, &create));
+    try exports.put("delete", try Code.Value.NativeFunction.init(vm.allocator, 1, &delete));
+    try exports.put("close", try Code.Value.NativeFunction.init(vm.allocator, 1, &close));
+    try exports.put("cwd", try Code.Value.NativeFunction.init(vm.allocator, 0, &cwd));
+    try exports.put("chdir", try Code.Value.NativeFunction.init(vm.allocator, 1, &chdir));
+    try exports.put("access", try Code.Value.NativeFunction.init(vm.allocator, 1, &access));
+    try exports.put("write", try Code.Value.NativeFunction.init(vm.allocator, 2, &write));
+    try exports.put("read", try Code.Value.NativeFunction.init(vm.allocator, 1, &read));
+    try exports.put("read_line", try Code.Value.NativeFunction.init(vm.allocator, 1, &readLine));
+    try exports.put("read_all", try Code.Value.NativeFunction.init(vm.allocator, 1, &readAll));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
+    return Code.Value.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] == .string) {
         return .none;
     }
 
-    const file_path = arguments[0].object.string.content;
+    const file_path = arguments[0].string.content;
 
     const file = std.fs.cwd().openFile(file_path, .{ .mode = .read_write }) catch return .none;
 
@@ -43,11 +43,11 @@ fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn create(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] == .string) {
         return .none;
     }
 
-    const file_path = arguments[0].object.string.content;
+    const file_path = arguments[0].string.content;
 
     const file = std.fs.cwd().createFile(file_path, .{ .truncate = false, .read = true }) catch return .none;
 
@@ -69,11 +69,11 @@ fn getFile(argument: Code.Value) std.fs.File {
 fn delete(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] == .string) {
         return .none;
     }
 
-    const file_path = arguments[0].object.string.content;
+    const file_path = arguments[0].string.content;
 
     std.fs.cwd().deleteFile(file_path) catch return .none;
 
@@ -99,17 +99,17 @@ fn cwd(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const cwd_file_path = std.fs.cwd().realpathAlloc(vm.allocator, ".") catch return .none;
 
-    return Code.Value{ .object = .{ .string = .{ .content = cwd_file_path } } };
+    return Code.Value{ .string = .{ .content = cwd_file_path } };
 }
 
 fn chdir(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] == .string) {
         return .none;
     }
 
-    const dir_path = arguments[0].object.string.content;
+    const dir_path = arguments[0].string.content;
 
     const dir = std.fs.cwd().openDir(dir_path, .{}) catch return .none;
 
@@ -121,11 +121,11 @@ fn chdir(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn access(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] == .string) {
         return .none;
     }
 
-    const file_path = arguments[0].object.string.content;
+    const file_path = arguments[0].string.content;
 
     std.fs.cwd().access(file_path, .{ .mode = .read_write }) catch return Code.Value{ .boolean = false };
 
@@ -139,13 +139,13 @@ fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    if (!(arguments[1] == .object and arguments[1].object == .string)) {
+    if (arguments[1] == .string) {
         return .none;
     }
 
     const file = getFile(arguments[0]);
 
-    const write_content = arguments[1].object.string.content;
+    const write_content = arguments[1].string.content;
 
     var buffered_writer = std.io.bufferedWriter(file.writer());
 
@@ -163,15 +163,15 @@ fn read(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file = getFile(arguments[0]);
 
-    const buf = vm.allocator.alloc(u8, 1) catch return .none;
+    const buffer = vm.allocator.alloc(u8, 1) catch return .none;
 
-    const n = file.reader().read(buf) catch return .none;
+    const read_amount = file.reader().read(buffer) catch return .none;
 
-    if (n == 0) {
+    if (read_amount == 0) {
         return .none;
     }
 
-    return Code.Value{ .object = .{ .string = .{ .content = buf } } };
+    return Code.Value{ .string = .{ .content = buffer } };
 }
 
 fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -187,7 +187,7 @@ fn readLine(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    return Code.Value{ .object = .{ .string = .{ .content = file_content.? } } };
+    return Code.Value{ .string = .{ .content = file_content.? } };
 }
 
 fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -199,5 +199,5 @@ fn readAll(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const file_content = file.readToEndAlloc(vm.allocator, std.math.maxInt(u32)) catch return .none;
 
-    return Code.Value{ .object = .{ .string = .{ .content = file_content } } };
+    return Code.Value{ .string = .{ .content = file_content } };
 }

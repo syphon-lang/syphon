@@ -5,10 +5,10 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 const Atom = @import("../Atom.zig");
 
 pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
-    try vm.globals.put(try Atom.new("typeof"), Code.Value.Object.NativeFunction.init(1, &typeof));
-    try vm.globals.put(try Atom.new("to_int"), Code.Value.Object.NativeFunction.init(1, &toInt));
-    try vm.globals.put(try Atom.new("to_float"), Code.Value.Object.NativeFunction.init(1, &toFloat));
-    try vm.globals.put(try Atom.new("to_string"), Code.Value.Object.NativeFunction.init(1, &toString));
+    try vm.globals.put(try Atom.new("typeof"), try Code.Value.NativeFunction.init(vm.allocator, 1, &typeof));
+    try vm.globals.put(try Atom.new("to_int"), try Code.Value.NativeFunction.init(vm.allocator, 1, &toInt));
+    try vm.globals.put(try Atom.new("to_float"), try Code.Value.NativeFunction.init(vm.allocator, 1, &toFloat));
+    try vm.globals.put(try Atom.new("to_string"), try Code.Value.NativeFunction.init(vm.allocator, 1, &toString));
 }
 
 fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -21,15 +21,13 @@ fn typeof(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         .int => "int",
         .float => "float",
         .boolean => "boolean",
-        .object => switch (value.object) {
-            .string => "string",
-            .array => "array",
-            .map => "map",
-            .closure, .function, .native_function => "function",
-        },
+        .string => "string",
+        .array => "array",
+        .map => "map",
+        .closure, .function, .native_function => "function",
     };
 
-    return Code.Value{ .object = .{ .string = .{ .content = result } } };
+    return Code.Value{ .string = .{ .content = result } };
 }
 
 pub fn toInt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -42,16 +40,12 @@ pub fn toInt(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         .float => return Code.Value{ .int = @intFromFloat(value.float) },
         .boolean => return Code.Value{ .int = @intFromBool(value.boolean) },
 
-        .object => switch (value.object) {
-            .string => {
-                const parsed_int = std.fmt.parseInt(i64, value.object.string.content, 0) catch {
-                    return .none;
-                };
+        .string => {
+            const parsed_int = std.fmt.parseInt(i64, value.string.content, 0) catch {
+                return .none;
+            };
 
-                return Code.Value{ .int = parsed_int };
-            },
-
-            else => {},
+            return Code.Value{ .int = parsed_int };
         },
 
         else => {},
@@ -70,16 +64,12 @@ pub fn toFloat(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         .int => return Code.Value{ .float = @floatFromInt(value.int) },
         .boolean => return Code.Value{ .float = @floatFromInt(@intFromBool(value.boolean)) },
 
-        .object => switch (value.object) {
-            .string => {
-                const parsed_float = std.fmt.parseFloat(f64, value.object.string.content) catch {
-                    return .none;
-                };
+        .string => {
+            const parsed_float = std.fmt.parseFloat(f64, value.string.content) catch {
+                return .none;
+            };
 
-                return Code.Value{ .float = parsed_float };
-            },
-
-            else => {},
+            return Code.Value{ .float = parsed_float };
         },
 
         else => {},
@@ -98,5 +88,5 @@ pub fn toString(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     buffered_writer.flush() catch return .none;
 
-    return Code.Value{ .object = .{ .string = .{ .content = result.items } } };
+    return Code.Value{ .string = .{ .content = result.items } };
 }

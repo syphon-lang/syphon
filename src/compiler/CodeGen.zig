@@ -480,7 +480,7 @@ fn compileIdentifierExpr(self: *CodeGen, identifier: ast.Node.Expr.Identifier) E
 
 fn compileStringExpr(self: *CodeGen, string: ast.Node.Expr.String) Error!void {
     try self.code.source_locations.append(string.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .object = .{ .string = .{ .content = string.content } } }) });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .string = .{ .content = string.content } }) });
 }
 
 fn compileIntExpr(self: *CodeGen, int: ast.Node.Expr.Int) Error!void {
@@ -539,15 +539,15 @@ fn compileFunctionExpr(self: *CodeGen, ast_function: ast.Node.Expr.Function) Err
 
     try gen.endCode();
 
-    const function: Code.Value.Object.Function = .{
+    const function: Code.Value.Function = .{
         .parameters = parameters.items,
         .code = gen.code,
     };
 
-    const function_on_heap = try self.allocator.create(Code.Value.Object.Function);
+    const function_on_heap = try self.allocator.create(Code.Value.Function);
     function_on_heap.* = function;
 
-    const function_constant_index = try self.code.addConstant(.{ .object = .{ .function = function_on_heap } });
+    const function_constant_index = try self.code.addConstant(.{ .function = function_on_heap });
 
     var upvalues = Code.Instruction.MakeClosure.Upvalues.init(self.allocator);
 

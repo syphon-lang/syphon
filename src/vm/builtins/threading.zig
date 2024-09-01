@@ -6,24 +6,24 @@ const VirtualMachine = @import("../VirtualMachine.zig");
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
-    try exports.put("spawn", Code.Value.Object.NativeFunction.init(2, &spawn));
-    try exports.put("join", Code.Value.Object.NativeFunction.init(1, &join));
+    try exports.put("spawn", try Code.Value.NativeFunction.init(vm.allocator, 2, &spawn));
+    try exports.put("join", try Code.Value.NativeFunction.init(vm.allocator, 1, &join));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
+    return Code.Value.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (!(arguments[0] == .object and arguments[0].object == .closure)) {
+    if (arguments[0] == .closure) {
         return .none;
     }
 
-    if (!(arguments[1] == .object and arguments[1].object == .array)) {
+    if (arguments[1] == .array) {
         return .none;
     }
 
-    const thread_closure = arguments[0].object.closure;
+    const thread_closure = arguments[0].closure;
 
-    const thread_arguments = arguments[1].object.array;
+    const thread_arguments = arguments[1].array;
 
     if (thread_arguments.inner.items.len != thread_closure.function.parameters.len) {
         return .none;
@@ -43,7 +43,7 @@ fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     return Code.Value{ .int = @bitCast(@as(u64, @intFromPtr(thread_on_heap))) };
 }
 
-fn callThreadFunction(vm: *VirtualMachine, closure: *Code.Value.Object.Closure, arguments: []const Code.Value) void {
+fn callThreadFunction(vm: *VirtualMachine, closure: *Code.Value.Closure, arguments: []const Code.Value) void {
     vm.mutex.lock();
     defer vm.mutex.unlock();
 

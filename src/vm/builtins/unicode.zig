@@ -7,10 +7,10 @@ const Atom = @import("../Atom.zig");
 pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
     var exports = std.StringHashMap(Code.Value).init(vm.allocator);
 
-    try exports.put("utf8_encode", Code.Value.Object.NativeFunction.init(1, &utf8Encode));
-    try exports.put("utf8_decode", Code.Value.Object.NativeFunction.init(1, &utf8Decode));
+    try exports.put("utf8_encode", try Code.Value.NativeFunction.init(vm.allocator, 1, &utf8Encode));
+    try exports.put("utf8_decode", try Code.Value.NativeFunction.init(vm.allocator, 1, &utf8Decode));
 
-    return Code.Value.Object.Map.fromStringHashMap(vm.allocator, exports);
+    return Code.Value.Map.fromStringHashMap(vm.allocator, exports);
 }
 
 fn utf8Encode(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -22,17 +22,17 @@ fn utf8Encode(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const encoded_len = std.unicode.utf8Encode(@intCast(arguments[0].int), encoded) catch return .none;
 
-    return Code.Value{ .object = .{ .string = .{ .content = encoded[0..encoded_len] } } };
+    return Code.Value{ .string = .{ .content = encoded[0..encoded_len] } };
 }
 
 fn utf8Decode(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (!(arguments[0] == .object and arguments[0].object == .string)) {
+    if (arguments[0] == .string) {
         return .none;
     }
 
-    const encoded = arguments[0].object.string.content;
+    const encoded = arguments[0].string.content;
 
     const decoded = switch (encoded.len) {
         1 => encoded[0],

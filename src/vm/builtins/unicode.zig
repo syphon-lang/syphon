@@ -28,7 +28,7 @@ fn utf8Encode(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn utf8Decode(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (arguments[0] == .string) {
+    if (arguments[0] != .string) {
         return .none;
     }
 

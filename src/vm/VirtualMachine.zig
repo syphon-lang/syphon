@@ -12,16 +12,14 @@ mutex: std.Thread.Mutex = .{},
 
 argv: []const []const u8,
 
+globals: Globals,
+
 stack: std.ArrayList(Code.Value),
-globals: std.AutoHashMap(Atom, Code.Value),
 open_upvalues: std.ArrayList(**Code.Value),
 exported: Code.Value = .none,
 
 frames: std.ArrayList(Frame),
 frames_start: usize = 0,
-
-internal_vms: std.ArrayList(VirtualMachine),
-internal_functions: std.AutoHashMap(*Code.Value.Closure, *VirtualMachine),
 
 error_info: ?ErrorInfo = null,
 
@@ -41,6 +39,8 @@ pub const ErrorInfo = struct {
     source_loc: SourceLoc,
 };
 
+pub const Globals = std.AutoHashMap(Atom, Code.Value);
+
 pub const Frame = struct {
     closure: *Code.Value.Closure,
     counter: usize = 0,
@@ -54,12 +54,10 @@ pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!Virtua
     var vm: VirtualMachine = .{
         .allocator = allocator,
         .argv = argv,
-        .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
+        .globals = Globals.init(allocator),
         .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
         .open_upvalues = std.ArrayList(**Code.Value).init(allocator),
-        .globals = std.AutoHashMap(Atom, Code.Value).init(allocator),
-        .internal_vms = try std.ArrayList(VirtualMachine).initCapacity(allocator, MAX_FRAMES_COUNT),
-        .internal_functions = std.AutoHashMap(*Code.Value.Closure, *VirtualMachine).init(allocator),
+        .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
     };
 
     vm.mutex.lock();
@@ -95,7 +93,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
 
 pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
     const function = (try Code.Value.Function.init(self.allocator, &.{}, code)).function;
-    const closure = (try Code.Value.Closure.init(self.allocator, function, std.ArrayList(*Code.Value).init(self.allocator))).closure;
+    const closure = (try Code.Value.Closure.init(self.allocator, function, &self.globals, std.ArrayList(*Code.Value).init(self.allocator))).closure;
 
     try self.frames.append(.{ .closure = closure });
 }
@@ -120,7 +118,7 @@ pub fn run(self: *VirtualMachine) Error!void {
                 if (!self.stack.pop().is_truthy()) frame.counter += offset;
             },
 
-            .load_global => |atom| try self.executeLoadGlobal(atom, source_loc),
+            .load_global => |atom| try self.executeLoadGlobal(frame.*, atom, source_loc),
             .load_local => |index| try self.stack.append(self.stack.items[frame.stack_start + index]),
             .load_upvalue => |index| try self.stack.append(frame.closure.upvalues.items[index].*),
             .load_constant => |index| try self.stack.append(frame.closure.function.code.constants.items[index]),
@@ -133,9 +131,9 @@ pub fn run(self: *VirtualMachine) Error!void {
 
             .make_array => |length| try self.executeMakeArray(length),
             .make_map => |length| try self.executeMakeMap(length),
-            .make_closure => |info| try self.executeMakeClosure(info, frame.*),
+            .make_closure => |info| try self.executeMakeClosure(frame.*, info),
 
-            .close_upvalue => |index| try self.executeCloseUpvalue(index, frame.*),
+            .close_upvalue => |index| try self.executeCloseUpvalue(frame.*, index),
 
             .call => |arguments_count| {
                 try self.executeCall(arguments_count, source_loc);
@@ -170,8 +168,8 @@ pub fn run(self: *VirtualMachine) Error!void {
     }
 }
 
-fn executeLoadGlobal(self: *VirtualMachine, atom: Atom, source_loc: SourceLoc) Error!void {
-    if (self.globals.get(atom)) |global_value| {
+fn executeLoadGlobal(self: *VirtualMachine, frame: Frame, atom: Atom, source_loc: SourceLoc) Error!void {
+    if (frame.closure.globals.get(atom)) |global_value| {
         try self.stack.append(global_value);
     } else {
         var error_message_buf = std.ArrayList(u8).init(self.allocator);
@@ -349,7 +347,7 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
     try self.stack.append(try Code.Value.Map.init(self.allocator, inner));
 }
 
-fn executeCloseUpvalue(self: *VirtualMachine, index: usize, frame: Frame) Error!void {
+fn executeCloseUpvalue(self: *VirtualMachine, frame: Frame, index: usize) Error!void {
     const closed_upvalue = try self.allocator.create(Code.Value);
     closed_upvalue.* = self.stack.items[frame.stack_start + index];
 
@@ -368,7 +366,7 @@ fn executeCloseUpvalue(self: *VirtualMachine, index: usize, frame: Frame) Error!
     }
 }
 
-fn executeMakeClosure(self: *VirtualMachine, info: Code.Instruction.MakeClosure, frame: Frame) Error!void {
+fn executeMakeClosure(self: *VirtualMachine, frame: Frame, info: Code.Instruction.MakeClosure) Error!void {
     const function = frame.closure.function.code.constants.items[info.function_constant_index].function;
 
     var upvalues = std.ArrayList(*Code.Value).init(self.allocator);
@@ -387,7 +385,7 @@ fn executeMakeClosure(self: *VirtualMachine, info: Code.Instruction.MakeClosure,
         try self.open_upvalues.append(upvalue_destination);
     }
 
-    try self.stack.append(try Code.Value.Closure.init(self.allocator, function, upvalues));
+    try self.stack.append(try Code.Value.Closure.init(self.allocator, function, &self.globals, upvalues));
 }
 
 fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: SourceLoc) Error!void {
@@ -431,32 +429,7 @@ fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_c
 pub fn callUserFunction(self: *VirtualMachine, closure: *Code.Value.Closure) Error!void {
     const stack_start = self.stack.items.len - closure.function.parameters.len;
 
-    if (self.internal_functions.get(closure)) |internal_vm| {
-        const previous_frames_start = internal_vm.frames_start;
-        internal_vm.frames_start = internal_vm.frames.items.len;
-
-        const internal_stack_start = internal_vm.stack.items.len;
-
-        try internal_vm.stack.appendSlice(self.stack.items[stack_start..]);
-
-        self.stack.shrinkRetainingCapacity(stack_start);
-
-        try internal_vm.frames.append(.{ .closure = closure, .stack_start = internal_stack_start });
-
-        internal_vm.run() catch |err| {
-            self.* = internal_vm.*;
-
-            return err;
-        };
-
-        internal_vm.frames_start = previous_frames_start;
-
-        const return_value = internal_vm.stack.pop();
-
-        try self.stack.append(return_value);
-    } else {
-        try self.frames.append(.{ .closure = closure, .stack_start = stack_start });
-    }
+    try self.frames.append(.{ .closure = closure, .stack_start = stack_start });
 }
 
 fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.NativeFunction, arguments_count: usize) Error!void {

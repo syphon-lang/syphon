@@ -41,11 +41,18 @@ fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     if (NativeModuleGetters.get(file_path)) |getNativeModule| {
         return getNativeModule(vm) catch .none;
     } else {
-        return getExported(vm, file_path);
+        return getUserModule(vm, file_path);
     }
 }
 
-fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
+var saved_user_modules: std.StringHashMapUnmanaged(UserModule) = .{};
+
+const UserModule = struct {
+    globals: VirtualMachine.Globals,
+    exported: Code.Value,
+};
+
+fn getUserModule(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     const source_file_path = vm.argv[0];
 
     const source_dir_path = blk: {
@@ -80,21 +87,24 @@ fn getExported(vm: *VirtualMachine, file_path: []const u8) Code.Value {
 
     gen.compileRoot(root) catch return .none;
 
-    const internal_vm = vm.internal_vms.addOneAssumeCapacity();
+    if (saved_user_modules.get(resolved_file_path)) |saved_user_module| {
+        return saved_user_module.exported;
+    }
 
-    const internal_vm_argv = vm.allocator.alloc([]const u8, 1) catch return .none;
+    const other_vm_argv = vm.allocator.alloc([]const u8, 1) catch return .none;
+    other_vm_argv[0] = resolved_file_path;
 
-    internal_vm_argv[0] = resolved_file_path;
+    var other_vm = VirtualMachine.init(vm.allocator, other_vm_argv) catch return .none;
 
-    internal_vm.* = VirtualMachine.init(vm.allocator, internal_vm_argv) catch return .none;
+    other_vm.setCode(gen.code) catch return .none;
 
-    internal_vm.setCode(gen.code) catch return .none;
+    other_vm.run() catch return .none;
 
-    internal_vm.run() catch return .none;
+    const saved_user_module = (saved_user_modules.getOrPutValue(vm.allocator, resolved_file_path, .{ .exported = other_vm.exported, .globals = other_vm.globals }) catch return .none).value_ptr;
 
-    addForeignFunction(vm, internal_vm, internal_vm.exported);
+    closeGlobalState(vm, &saved_user_module.globals, other_vm.exported);
 
-    return internal_vm.exported;
+    return saved_user_module.exported;
 }
 
 fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
@@ -116,30 +126,29 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     gen.compileRoot(root) catch return .none;
 
-    const internal_vm = vm.internal_vms.addOneAssumeCapacity();
+    var other_vm = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch return .none;
 
-    internal_vm.* = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch return .none;
+    other_vm.setCode(gen.code) catch return .none;
 
-    internal_vm.setCode(gen.code) catch return .none;
+    other_vm.run() catch return .none;
 
-    internal_vm.run() catch return .none;
+    const globals_on_heap = vm.allocator.create(VirtualMachine.Globals) catch return .none;
+    globals_on_heap.* = other_vm.globals;
 
-    addForeignFunction(vm, internal_vm, internal_vm.exported);
+    closeGlobalState(vm, globals_on_heap, other_vm.exported);
 
-    return internal_vm.exported;
+    return other_vm.exported;
 }
 
-fn addForeignFunction(vm: *VirtualMachine, internal_vm: *VirtualMachine, value: Code.Value) void {
+fn closeGlobalState(vm: *VirtualMachine, globals_on_heap: *VirtualMachine.Globals, value: Code.Value) void {
     switch (value) {
         .closure => {
-            vm.internal_functions.put(value.closure, internal_vm) catch |err| switch (err) {
-                else => return,
-            };
+            value.closure.globals = globals_on_heap;
         },
 
         .map => {
             for (value.map.inner.values()) |map_value| {
-                addForeignFunction(vm, internal_vm, map_value);
+                closeGlobalState(vm, globals_on_heap, map_value);
             }
         },
 

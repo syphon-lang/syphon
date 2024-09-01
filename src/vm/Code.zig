@@ -105,10 +105,11 @@ pub const Value = union(enum) {
 
     pub const Closure = struct {
         function: *Function,
+        globals: *VirtualMachine.Globals,
         upvalues: std.ArrayList(*Value),
 
-        pub fn init(allocator: std.mem.Allocator, function: *Function, upvalues: std.ArrayList(*Value)) std.mem.Allocator.Error!Value {
-            const closure: Closure = .{ .function = function, .upvalues = upvalues };
+        pub fn init(allocator: std.mem.Allocator, function: *Function, globals: *VirtualMachine.Globals, upvalues: std.ArrayList(*Value)) std.mem.Allocator.Error!Value {
+            const closure: Closure = .{ .function = function, .globals = globals, .upvalues = upvalues };
 
             const closure_on_heap = try allocator.create(Closure);
             closure_on_heap.* = closure;

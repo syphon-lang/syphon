@@ -3,8 +3,8 @@ const build_options = @import("build_options");
 
 const gc = @import("gc.zig");
 
-const Parser = @import("compiler/ast.zig").Parser;
-const CodeGen = @import("compiler/CodeGen.zig");
+const Ast = @import("compiler/Ast.zig");
+const Compiler = @import("compiler/Compiler.zig");
 const VirtualMachine = @import("vm/VirtualMachine.zig");
 const Atom = @import("vm/Atom.zig");
 
@@ -148,13 +148,13 @@ const Cli = struct {
             return 0;
         }
 
-        var parser = Parser.init(self.allocator, file_content) catch |err| {
+        var ast_parser = Ast.Parser.init(self.allocator, file_content) catch |err| {
             std.debug.print("{s}\n", .{errorDescription(err)});
 
             return 1;
         };
 
-        const root = parser.parseRoot() catch |err| switch (err) {
+        const ast = ast_parser.parse() catch |err| switch (err) {
             error.OutOfMemory => {
                 std.debug.print("{s}\n", .{errorDescription(err)});
 
@@ -162,7 +162,7 @@ const Cli = struct {
             },
 
             else => {
-                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, parser.error_info.?.source_loc.line, parser.error_info.?.source_loc.column, parser.error_info.?.message });
+                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, ast_parser.error_info.?.source_loc.line, ast_parser.error_info.?.source_loc.column, ast_parser.error_info.?.message });
 
                 return 1;
             },
@@ -170,13 +170,13 @@ const Cli = struct {
 
         Atom.init(self.allocator);
 
-        var gen = CodeGen.init(self.allocator, .script) catch |err| {
+        var compiler = Compiler.init(self.allocator, .script) catch |err| {
             std.debug.print("{s}\n", .{errorDescription(err)});
 
             return 1;
         };
 
-        gen.compileRoot(root) catch |err| switch (err) {
+        compiler.compile(ast) catch |err| switch (err) {
             error.OutOfMemory => {
                 std.debug.print("{s}\n", .{errorDescription(err)});
 
@@ -184,7 +184,7 @@ const Cli = struct {
             },
 
             else => {
-                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, gen.error_info.?.source_loc.line, gen.error_info.?.source_loc.column, gen.error_info.?.message });
+                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, compiler.error_info.?.source_loc.line, compiler.error_info.?.source_loc.column, compiler.error_info.?.message });
 
                 return 1;
             },
@@ -196,7 +196,7 @@ const Cli = struct {
             return 1;
         };
 
-        vm.setCode(gen.code) catch |err| {
+        vm.setCode(compiler.code) catch |err| {
             std.debug.print("{s}\n", .{errorDescription(err)});
 
             return 1;

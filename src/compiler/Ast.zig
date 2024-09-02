@@ -3,6 +3,10 @@ const std = @import("std");
 const Token = @import("Token.zig");
 const Lexer = @import("Lexer.zig");
 
+const Ast = @This();
+
+body: []Node,
+
 pub const SourceLoc = struct {
     line: usize = 1,
     column: usize = 1,
@@ -11,10 +15,6 @@ pub const SourceLoc = struct {
 pub const Name = struct {
     buffer: []const u8,
     source_loc: SourceLoc,
-};
-
-pub const Root = struct {
-    body: []Node,
 };
 
 pub const Node = union(enum) {
@@ -216,6 +216,16 @@ pub const Parser = struct {
         };
     }
 
+    pub fn parse(self: *Parser) Error!Ast {
+        var body = std.ArrayList(Node).init(self.allocator);
+
+        while (self.peekToken().tag != .eof) {
+            try body.append(try self.parseStmt());
+        }
+
+        return Ast{ .body = body.items };
+    }
+
     fn nextToken(self: *Parser) Token {
         self.current_token_index += 1;
 
@@ -271,16 +281,6 @@ pub const Parser = struct {
         const token = self.nextToken();
 
         return Name{ .buffer = self.tokenValue(token), .source_loc = self.tokenSourceLoc(token) };
-    }
-
-    pub fn parseRoot(self: *Parser) Error!Root {
-        var body = std.ArrayList(Node).init(self.allocator);
-
-        while (self.peekToken().tag != .eof) {
-            try body.append(try self.parseStmt());
-        }
-
-        return Root{ .body = body.items };
     }
 
     fn parseStmt(self: *Parser) Error!Node {

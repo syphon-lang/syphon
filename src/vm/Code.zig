@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
-const VirtualMachine = @import("VirtualMachine.zig");
 const Atom = @import("Atom.zig");
+const VirtualMachine = @import("VirtualMachine.zig");
+const Ast = @import("../compiler/Ast.zig");
 
 const Code = @This();
 
@@ -10,7 +10,7 @@ constants: std.ArrayList(Value),
 
 instructions: std.ArrayList(Instruction),
 
-source_locations: std.ArrayList(SourceLoc),
+source_locations: std.ArrayList(Ast.SourceLoc),
 
 pub const Value = union(enum) {
     none,

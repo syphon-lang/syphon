@@ -1,10 +1,10 @@
 const std = @import("std");
 
-const Parser = @import("../../compiler/ast.zig").Parser;
-const CodeGen = @import("../../compiler/CodeGen.zig");
+const Atom = @import("../Atom.zig");
 const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
-const Atom = @import("../Atom.zig");
+const Ast = @import("../../compiler/Ast.zig");
+const Compiler = @import("../../compiler/Compiler.zig");
 
 const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
     .{ "fs", &(@import("file_system.zig").getExports) },
@@ -79,13 +79,13 @@ fn getUserModule(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         return .none;
     }
 
-    var parser = Parser.init(vm.allocator, file_content) catch return .none;
+    var ast_parser = Ast.Parser.init(vm.allocator, file_content) catch return .none;
 
-    const root = parser.parseRoot() catch return .none;
+    const ast = ast_parser.parse() catch return .none;
 
-    var gen = CodeGen.init(vm.allocator, .script) catch return .none;
+    var compiler = Compiler.init(vm.allocator, .script) catch return .none;
 
-    gen.compileRoot(root) catch return .none;
+    compiler.compile(ast) catch return .none;
 
     if (saved_user_modules.get(resolved_file_path)) |saved_user_module| {
         return saved_user_module.exported;
@@ -96,7 +96,7 @@ fn getUserModule(vm: *VirtualMachine, file_path: []const u8) Code.Value {
 
     var other_vm = VirtualMachine.init(vm.allocator, other_vm_argv) catch return .none;
 
-    other_vm.setCode(gen.code) catch return .none;
+    other_vm.setCode(compiler.code) catch return .none;
 
     other_vm.run() catch return .none;
 
@@ -118,17 +118,17 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const source_code = vm.allocator.dupeZ(u8, arguments[0].string.content) catch return .none;
 
-    var parser = Parser.init(vm.allocator, source_code) catch return .none;
+    var ast_parser = Ast.Parser.init(vm.allocator, source_code) catch return .none;
 
-    const root = parser.parseRoot() catch return .none;
+    const ast = ast_parser.parse() catch return .none;
 
-    var gen = CodeGen.init(vm.allocator, .script) catch return .none;
+    var compiler = Compiler.init(vm.allocator, .script) catch return .none;
 
-    gen.compileRoot(root) catch return .none;
+    compiler.compile(ast) catch return .none;
 
     var other_vm = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch return .none;
 
-    other_vm.setCode(gen.code) catch return .none;
+    other_vm.setCode(compiler.code) catch return .none;
 
     other_vm.run() catch return .none;
 

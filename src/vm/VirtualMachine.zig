@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const SourceLoc = @import("../compiler/ast.zig").SourceLoc;
+const Ast = @import("../compiler/Ast.zig");
 const Code = @import("Code.zig");
 const Atom = @import("Atom.zig");
 
@@ -36,7 +36,7 @@ pub const Error = error{
 
 pub const ErrorInfo = struct {
     message: []const u8,
-    source_loc: SourceLoc,
+    source_loc: Ast.SourceLoc,
 };
 
 pub const Globals = std.AutoHashMap(Atom, Code.Value);
@@ -168,7 +168,7 @@ pub fn run(self: *VirtualMachine) Error!void {
     }
 }
 
-fn executeLoadGlobal(self: *VirtualMachine, frame: Frame, atom: Atom, source_loc: SourceLoc) Error!void {
+fn executeLoadGlobal(self: *VirtualMachine, frame: Frame, atom: Atom, source_loc: Ast.SourceLoc) Error!void {
     if (frame.closure.globals.get(atom)) |global_value| {
         try self.stack.append(global_value);
     } else {
@@ -182,7 +182,7 @@ fn executeLoadGlobal(self: *VirtualMachine, frame: Frame, atom: Atom, source_loc
     }
 }
 
-fn executeLoadSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeLoadSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     var index = self.stack.pop();
     const target = self.stack.pop();
 
@@ -273,7 +273,7 @@ fn executeStoreGlobal(self: *VirtualMachine, atom: Atom) Error!void {
     try self.globals.put(atom, value);
 }
 
-fn executeStoreSubscript(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeStoreSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const target = self.stack.pop();
     var index = self.stack.pop();
     const value = self.stack.pop();
@@ -388,7 +388,7 @@ fn executeMakeClosure(self: *VirtualMachine, frame: Frame, info: Code.Instructio
     try self.stack.append(try Code.Value.Closure.init(self.allocator, function, &self.globals, upvalues));
 }
 
-fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: SourceLoc) Error!void {
+fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Ast.SourceLoc) Error!void {
     const callable = self.stack.pop();
 
     switch (callable) {
@@ -414,7 +414,7 @@ fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Source
     return error.BadOperand;
 }
 
-fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: SourceLoc) Error!void {
+fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: Ast.SourceLoc) Error!void {
     if (required_count != arguments_count) {
         var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
@@ -462,7 +462,7 @@ fn executeReturn(self: *VirtualMachine) Error!bool {
     return self.frames.items.len == self.frames_start;
 }
 
-fn executeNeg(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeNeg(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
 
     switch (rhs) {
@@ -484,7 +484,7 @@ fn executeNot(self: *VirtualMachine) Error!void {
     try self.stack.append(.{ .boolean = !rhs.is_truthy() });
 }
 
-fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeAdd(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -561,7 +561,7 @@ fn executeAdd(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeSubtract(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -598,7 +598,7 @@ fn executeSubtract(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeDivide(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const cast = @import("builtins/cast.zig");
 
     const rhs = cast.toFloat(self, &.{self.stack.pop()});
@@ -616,7 +616,7 @@ fn executeDivide(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     try self.stack.append(.{ .float = lhs.float / rhs.float });
 }
 
-fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeMultiply(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -653,7 +653,7 @@ fn executeMultiply(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeExponent(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const cast = @import("builtins/cast.zig");
 
     const rhs = cast.toFloat(self, &.{self.stack.pop()});
@@ -667,7 +667,7 @@ fn executeExponent(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     try self.stack.append(.{ .float = std.math.pow(f64, lhs.float, rhs.float) });
 }
 
-fn executeModulo(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeModulo(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -718,7 +718,7 @@ fn executeEquals(self: *VirtualMachine) Error!void {
     try self.stack.append(.{ .boolean = lhs.eql(rhs, false) });
 }
 
-fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeLessThan(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 
@@ -755,7 +755,7 @@ fn executeLessThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
     return error.BadOperand;
 }
 
-fn executeGreaterThan(self: *VirtualMachine, source_loc: SourceLoc) Error!void {
+fn executeGreaterThan(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
     const lhs = self.stack.pop();
 

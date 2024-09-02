@@ -63,18 +63,18 @@ pub fn errorDescription(e: anyerror) []const u8 {
     };
 }
 
-pub fn parse(allocator: std.mem.Allocator, arg_iterator: *std.process.ArgIterator) ?Cli {
+pub fn parse(allocator: std.mem.Allocator, argument_iterator: *std.process.ArgIterator) ?Cli {
     var self: Cli = .{
         .allocator = allocator,
-        .program = arg_iterator.next().?,
+        .program = argument_iterator.next().?,
     };
 
-    while (arg_iterator.next()) |arg| {
-        if (std.mem.eql(u8, arg, "run")) {
+    while (argument_iterator.next()) |argument| {
+        if (std.mem.eql(u8, argument, "run")) {
             var argv = std.ArrayList([]const u8).init(self.allocator);
 
-            while (arg_iterator.next()) |remaining_arg| {
-                argv.append(remaining_arg) catch |err| {
+            while (argument_iterator.next()) |remaining_argument| {
+                argv.append(remaining_argument) catch |err| {
                     std.debug.print("{s}\n", .{errorDescription(err)});
 
                     return null;
@@ -90,14 +90,14 @@ pub fn parse(allocator: std.mem.Allocator, arg_iterator: *std.process.ArgIterato
             }
 
             self.command = .{ .run = .{ .argv = argv.items } };
-        } else if (std.mem.eql(u8, arg, "version")) {
+        } else if (std.mem.eql(u8, argument, "version")) {
             self.command = .version;
-        } else if (std.mem.eql(u8, arg, "help")) {
+        } else if (std.mem.eql(u8, argument, "help")) {
             self.command = .help;
         } else {
             std.debug.print(usage, .{self.program});
 
-            std.debug.print("Error: {s} is an unknown command\n", .{arg});
+            std.debug.print("Error: {s} is an unknown command\n", .{argument});
 
             return null;
         }

@@ -115,7 +115,7 @@ const Cli = struct {
     fn executeRunCommand(self: Cli) u8 {
         const options = self.command.?.run;
 
-        var file_path = options.argv[0];
+        const file_path = options.argv[0];
 
         const file_content = blk: {
             const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
@@ -155,8 +155,6 @@ const Cli = struct {
             },
 
             else => {
-                file_path = interpreter.argv[0];
-
                 std.debug.print("{s}:{}:{}: {s}\n", .{ interpreter.error_info.?.source_loc.file_path, interpreter.error_info.?.source_loc.line, interpreter.error_info.?.source_loc.column, interpreter.error_info.?.message });
             },
         };

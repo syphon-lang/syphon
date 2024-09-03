@@ -349,7 +349,7 @@ fn contains(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         },
 
         .string => {
-            if (value == .string) {
+            if (value != .string) {
                 return Code.Value{ .boolean = false };
             }
 

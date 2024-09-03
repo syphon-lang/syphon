@@ -202,22 +202,22 @@ pub const Value = union(enum) {
         }
     };
 
-    pub fn is_truthy(self: Value) bool {
+    pub fn isTruthy(self: Value) bool {
         return switch (self) {
             .none => false,
-            .int => self.int != 0,
-            .float => self.float != 0.0,
-            .boolean => self.boolean,
-            .string => self.string.content.len != 0,
-            .array => self.array.inner.items.len != 0,
-            .map => self.map.inner.count() != 0,
+            .int => |value| value != 0,
+            .float => |value| value != 0.0,
+            .boolean => |value| value,
+            .string => |value| value.content.len != 0,
+            .array => |value| value.inner.items.len != 0,
+            .map => |value| value.inner.count() != 0,
 
             else => true,
         };
     }
 
     pub fn eql(lhs: Value, rhs: Value, strict: bool) bool {
-        if (lhs.is_truthy() != rhs.is_truthy()) {
+        if (lhs.isTruthy() != rhs.isTruthy()) {
             return false;
         }
 

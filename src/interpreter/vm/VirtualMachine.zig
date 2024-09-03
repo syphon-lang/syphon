@@ -115,7 +115,7 @@ pub fn run(self: *VirtualMachine) Error!void {
             .jump => |offset| frame.counter += offset,
             .back => |offset| frame.counter -= offset,
             .jump_if_false => |offset| {
-                if (!self.stack.pop().is_truthy()) frame.counter += offset;
+                if (!self.stack.pop().isTruthy()) frame.counter += offset;
             },
 
             .load_global => |atom| try self.executeLoadGlobal(frame.*, atom, source_loc),
@@ -187,7 +187,7 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!
     const target = self.stack.pop();
 
     switch (target) {
-        .array => {
+        .array => |target_value| {
             if (index != .int) {
                 self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
@@ -195,19 +195,19 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!
             }
 
             if (index.int < 0) {
-                index.int += @as(i64, @intCast(target.array.inner.items.len));
+                index.int += @as(i64, @intCast(target_value.inner.items.len));
             }
 
-            if (index.int < 0 or index.int >= @as(i64, @intCast(target.array.inner.items.len))) {
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target_value.inner.items.len))) {
                 self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                 return error.IndexOverflow;
             }
 
-            return self.stack.append(target.array.inner.items[@as(usize, @intCast(index.int))]);
+            return self.stack.append(target_value.inner.items[@as(usize, @intCast(index.int))]);
         },
 
-        .string => {
+        .string => |target_value| {
             if (index != .int) {
                 self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
@@ -215,10 +215,10 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!
             }
 
             if (index.int < 0) {
-                index.int += @as(i64, @intCast(target.string.content.len));
+                index.int += @as(i64, @intCast(target_value.content.len));
             }
 
-            if (index.int < 0 or index.int >= @as(i64, @intCast(target.string.content.len))) {
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target_value.content.len))) {
                 self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                 return error.IndexOverflow;
@@ -226,17 +226,17 @@ fn executeLoadSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!
 
             const index_casted: usize = @intCast(index.int);
 
-            return self.stack.append(.{ .string = .{ .content = target.string.content[index_casted .. index_casted + 1] } });
+            return self.stack.append(.{ .string = .{ .content = target_value.content[index_casted .. index_casted + 1] } });
         },
 
-        .map => {
+        .map => |target_value| {
             if (!Code.Value.HashContext.hashable(index)) {
                 self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
                 return error.UnexpectedValue;
             }
 
-            if (target.map.inner.get(index)) |value| {
+            if (target_value.inner.get(index)) |value| {
                 return self.stack.append(value);
             }
 
@@ -279,7 +279,7 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error
     const value = self.stack.pop();
 
     switch (target) {
-        .array => {
+        .array => |target_value| {
             if (index != .int) {
                 self.error_info = .{ .message = "index is not int", .source_loc = source_loc };
 
@@ -287,28 +287,28 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error
             }
 
             if (index.int < 0) {
-                index.int += @as(i64, @intCast(target.array.inner.items.len));
+                index.int += @as(i64, @intCast(target_value.inner.items.len));
             }
 
-            if (index.int < 0 or index.int >= @as(i64, @intCast(target.array.inner.items.len))) {
+            if (index.int < 0 or index.int >= @as(i64, @intCast(target_value.inner.items.len))) {
                 self.error_info = .{ .message = "index overflow", .source_loc = source_loc };
 
                 return error.IndexOverflow;
             }
 
-            target.array.inner.items[@as(usize, @intCast(index.int))] = value;
+            target_value.inner.items[@as(usize, @intCast(index.int))] = value;
 
             return;
         },
 
-        .map => {
+        .map => |target_value| {
             if (!Code.Value.HashContext.hashable(index)) {
                 self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
                 return error.UnexpectedValue;
             }
 
-            try target.map.inner.put(index, value);
+            try target_value.inner.put(index, value);
 
             return;
         },
@@ -466,9 +466,9 @@ fn executeNeg(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const rhs = self.stack.pop();
 
     switch (rhs) {
-        .int => return self.stack.append(.{ .int = -rhs.int }),
-        .float => return self.stack.append(.{ .float = -rhs.float }),
-        .boolean => return self.stack.append(.{ .int = -@as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .int => |rhs_value| return self.stack.append(.{ .int = -rhs_value }),
+        .float => |rhs_value| return self.stack.append(.{ .float = -rhs_value }),
+        .boolean => |rhs_value| return self.stack.append(.{ .int = -@as(i64, @intCast(@intFromBool(rhs_value))) }),
 
         else => {},
     }
@@ -481,7 +481,7 @@ fn executeNeg(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
 fn executeNot(self: *VirtualMachine) Error!void {
     const rhs = self.stack.pop();
 
-    try self.stack.append(.{ .boolean = !rhs.is_truthy() });
+    try self.stack.append(.{ .boolean = !rhs.isTruthy() });
 }
 
 fn executeAdd(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
@@ -489,33 +489,33 @@ fn executeAdd(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const lhs = self.stack.pop();
 
     switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .int = lhs.int + rhs.int }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs.int)) + rhs.float }),
-            .boolean => return self.stack.append(.{ .int = lhs.int + @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .int => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = lhs_value + rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs_value)) + rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = lhs_value + @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .float = lhs.float + @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .float = lhs.float + rhs.float }),
-            .boolean => return self.stack.append(.{ .float = lhs.float + @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) }),
+        .float => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .float = lhs_value + @as(f64, @floatFromInt(rhs_value)) }),
+            .float => |rhs_value| return self.stack.append(.{ .float = lhs_value + rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .float = lhs_value + @as(f64, @floatFromInt(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs.boolean))) + rhs.int }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) + rhs.float }),
-            .boolean => return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs.boolean))) + @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .boolean => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs_value))) + rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs_value))) + rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs_value))) + @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .string => switch (rhs) {
-            .string => {
-                const concatenated_string: Code.Value = .{ .string = .{ .content = try std.mem.concat(self.allocator, u8, &.{ lhs.string.content, rhs.string.content }) } };
+        .string => |lhs_value| switch (rhs) {
+            .string => |rhs_value| {
+                const concatenated_string: Code.Value = .{ .string = .{ .content = try std.mem.concat(self.allocator, u8, &.{ lhs_value.content, rhs_value.content }) } };
 
                 return self.stack.append(concatenated_string);
             },
@@ -523,11 +523,11 @@ fn executeAdd(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
             else => {},
         },
 
-        .array => switch (rhs) {
-            .array => {
-                const concatenated_array: Code.Value = try Code.Value.Array.init(self.allocator, try lhs.array.inner.clone());
+        .array => |lhs_value| switch (rhs) {
+            .array => |rhs_value| {
+                const concatenated_array: Code.Value = try Code.Value.Array.init(self.allocator, try lhs_value.inner.clone());
 
-                try concatenated_array.array.inner.appendSlice(rhs.array.inner.items);
+                try concatenated_array.array.inner.appendSlice(rhs_value.inner.items);
 
                 return self.stack.append(concatenated_array);
             },
@@ -535,13 +535,13 @@ fn executeAdd(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
             else => {},
         },
 
-        .map => switch (rhs) {
-            .map => {
-                const concatenated_map: Code.Value = try Code.Value.Map.init(self.allocator, try lhs.map.inner.clone());
+        .map => |lhs_value| switch (rhs) {
+            .map => |rhs_value| {
+                const concatenated_map: Code.Value = try Code.Value.Map.init(self.allocator, try lhs_value.inner.clone());
 
-                try concatenated_map.map.inner.ensureUnusedCapacity(rhs.map.inner.count());
+                try concatenated_map.map.inner.ensureUnusedCapacity(rhs_value.inner.count());
 
-                var rhs_map_entry_iterator = rhs.map.inner.iterator();
+                var rhs_map_entry_iterator = rhs_value.inner.iterator();
 
                 while (rhs_map_entry_iterator.next()) |rhs_map_entry| {
                     concatenated_map.map.inner.putAssumeCapacity(rhs_map_entry.key_ptr.*, rhs_map_entry.value_ptr.*);
@@ -566,26 +566,26 @@ fn executeSubtract(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void 
     const lhs = self.stack.pop();
 
     switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .int = lhs.int - rhs.int }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs.int)) - rhs.float }),
-            .boolean => return self.stack.append(.{ .int = lhs.int - @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .int => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = lhs_value - rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs_value)) - rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = lhs_value - @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .float = lhs.float - @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .float = lhs.float - rhs.float }),
-            .boolean => return self.stack.append(.{ .float = lhs.float - @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) }),
+        .float => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .float = lhs_value - @as(f64, @floatFromInt(rhs_value)) }),
+            .float => |rhs_value| return self.stack.append(.{ .float = lhs_value - rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .float = lhs_value - @as(f64, @floatFromInt(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs.boolean))) - rhs.int }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) - rhs.float }),
-            .boolean => return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs.boolean))) - @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .boolean => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs_value))) - rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs_value))) - rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs_value))) - @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
@@ -621,26 +621,26 @@ fn executeMultiply(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void 
     const lhs = self.stack.pop();
 
     switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .int = lhs.int * rhs.int }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs.int)) * rhs.float }),
-            .boolean => return self.stack.append(.{ .int = lhs.int * @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .int => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = lhs_value * rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .float = @as(f64, @floatFromInt(lhs_value)) * rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = lhs_value * @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .float = lhs.float * @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .float = lhs.float * rhs.float }),
-            .boolean => return self.stack.append(.{ .float = lhs.float * @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) }),
+        .float => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .float = lhs_value * @as(f64, @floatFromInt(rhs_value)) }),
+            .float => |rhs_value| return self.stack.append(.{ .float = lhs_value * rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .float = lhs_value * @as(f64, @floatFromInt(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs.boolean))) * rhs.int }),
-            .float => return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) * rhs.float }),
-            .boolean => return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs.boolean))) * @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .boolean => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs_value))) * rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .float = @as(f64, @floatFromInt(@intFromBool(lhs_value))) * rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = @as(i64, @intCast(@intFromBool(lhs_value))) * @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
@@ -672,26 +672,26 @@ fn executeModulo(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     const lhs = self.stack.pop();
 
     switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .int = try std.math.mod(i64, lhs.int, rhs.int) }),
-            .float => return self.stack.append(.{ .float = try std.math.mod(f64, @as(f64, @floatFromInt(lhs.int)), rhs.float) }),
-            .boolean => return self.stack.append(.{ .int = try std.math.mod(i64, lhs.int, @as(i64, @intCast(@intFromBool(rhs.boolean)))) }),
+        .int => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = try std.math.mod(i64, lhs_value, rhs_value) }),
+            .float => |rhs_value| return self.stack.append(.{ .float = try std.math.mod(f64, @as(f64, @floatFromInt(lhs_value)), rhs_value) }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = try std.math.mod(i64, lhs_value, @as(i64, @intCast(@intFromBool(rhs_value)))) }),
 
             else => {},
         },
 
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .float = try std.math.mod(f64, lhs.float, @as(f64, @floatFromInt(rhs.int))) }),
-            .float => return self.stack.append(.{ .float = try std.math.mod(f64, lhs.float, rhs.float) }),
-            .boolean => return self.stack.append(.{ .float = try std.math.mod(f64, lhs.float, @as(f64, @floatFromInt(@intFromBool(rhs.boolean)))) }),
+        .float => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .float = try std.math.mod(f64, lhs_value, @as(f64, @floatFromInt(rhs_value))) }),
+            .float => |rhs_value| return self.stack.append(.{ .float = try std.math.mod(f64, lhs_value, rhs_value) }),
+            .boolean => |rhs_value| return self.stack.append(.{ .float = try std.math.mod(f64, lhs_value, @as(f64, @floatFromInt(@intFromBool(rhs_value)))) }),
 
             else => {},
         },
 
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .int = try std.math.mod(i64, @as(i64, @intCast(@intFromBool(lhs.boolean))), rhs.int) }),
-            .float => return self.stack.append(.{ .float = try std.math.mod(f64, @as(f64, @floatFromInt((@intFromBool(lhs.boolean)))), rhs.float) }),
-            .boolean => return self.stack.append(.{ .int = try std.math.mod(i64, @as(i64, @intCast(@intFromBool(lhs.boolean))), @as(i64, @intCast(@intFromBool(rhs.boolean)))) }),
+        .boolean => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .int = try std.math.mod(i64, @as(i64, @intCast(@intFromBool(lhs_value))), rhs_value) }),
+            .float => |rhs_value| return self.stack.append(.{ .float = try std.math.mod(f64, @as(f64, @floatFromInt((@intFromBool(lhs_value)))), rhs_value) }),
+            .boolean => |rhs_value| return self.stack.append(.{ .int = try std.math.mod(i64, @as(i64, @intCast(@intFromBool(lhs_value))), @as(i64, @intCast(@intFromBool(rhs_value)))) }),
 
             else => {},
         },
@@ -723,26 +723,26 @@ fn executeLessThan(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void 
     const lhs = self.stack.pop();
 
     switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .boolean = lhs.int < rhs.int }),
-            .float => return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(lhs.int)) < rhs.float }),
-            .boolean => return self.stack.append(.{ .boolean = lhs.int < @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .int => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .boolean = lhs_value < rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(lhs_value)) < rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .boolean = lhs_value < @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .boolean = lhs.float < @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .boolean = lhs.float < rhs.float }),
-            .boolean => return self.stack.append(.{ .boolean = lhs.float < @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) }),
+        .float => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .boolean = lhs_value < @as(f64, @floatFromInt(rhs_value)) }),
+            .float => |rhs_value| return self.stack.append(.{ .boolean = lhs_value < rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .boolean = lhs_value < @as(f64, @floatFromInt(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs.boolean))) < rhs.int }),
-            .float => return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) < rhs.float }),
-            .boolean => return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs.boolean))) < @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .boolean => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs_value))) < rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(@intFromBool(lhs_value))) < rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs_value))) < @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
@@ -760,26 +760,26 @@ fn executeGreaterThan(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!vo
     const lhs = self.stack.pop();
 
     switch (lhs) {
-        .int => switch (rhs) {
-            .int => return self.stack.append(.{ .boolean = lhs.int > rhs.int }),
-            .float => return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(lhs.int)) > rhs.float }),
-            .boolean => return self.stack.append(.{ .boolean = lhs.int > @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .int => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .boolean = lhs_value > rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(lhs_value)) > rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .boolean = lhs_value > @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .float => switch (rhs) {
-            .int => return self.stack.append(.{ .boolean = lhs.float > @as(f64, @floatFromInt(rhs.int)) }),
-            .float => return self.stack.append(.{ .boolean = lhs.float > rhs.float }),
-            .boolean => return self.stack.append(.{ .boolean = lhs.float > @as(f64, @floatFromInt(@intFromBool(rhs.boolean))) }),
+        .float => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .boolean = lhs_value > @as(f64, @floatFromInt(rhs_value)) }),
+            .float => |rhs_value| return self.stack.append(.{ .boolean = lhs_value > rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .boolean = lhs_value > @as(f64, @floatFromInt(@intFromBool(rhs_value))) }),
 
             else => {},
         },
 
-        .boolean => switch (rhs) {
-            .int => return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs.boolean))) > rhs.int }),
-            .float => return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(@intFromBool(lhs.boolean))) > rhs.float }),
-            .boolean => return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs.boolean))) > @as(i64, @intCast(@intFromBool(rhs.boolean))) }),
+        .boolean => |lhs_value| switch (rhs) {
+            .int => |rhs_value| return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs_value))) > rhs_value }),
+            .float => |rhs_value| return self.stack.append(.{ .boolean = @as(f64, @floatFromInt(@intFromBool(lhs_value))) > rhs_value }),
+            .boolean => |rhs_value| return self.stack.append(.{ .boolean = @as(i64, @intCast(@intFromBool(lhs_value))) > @as(i64, @intCast(@intFromBool(rhs_value))) }),
 
             else => {},
         },

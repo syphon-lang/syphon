@@ -224,9 +224,9 @@ fn compileNodes(self: *Compiler, nodes: []const Ast.Node) Error!void {
 
 fn compileNode(self: *Compiler, node: Ast.Node) Error!void {
     switch (node) {
-        .stmt => try self.compileStmt(node.stmt),
-        .expr => {
-            try self.compileExpr(node.expr);
+        .stmt => |stmt| try self.compileStmt(stmt),
+        .expr => |expr| {
+            try self.compileExpr(expr);
 
             try self.code.source_locations.append(.{});
             try self.code.instructions.append(.pop);
@@ -236,15 +236,15 @@ fn compileNode(self: *Compiler, node: Ast.Node) Error!void {
 
 fn compileStmt(self: *Compiler, stmt: Ast.Node.Stmt) Error!void {
     switch (stmt) {
-        .conditional => try self.compileConditionalStmt(stmt.conditional),
+        .conditional => |conditional| try self.compileConditionalStmt(conditional),
 
-        .while_loop => try self.compileWhileLoopStmt(stmt.while_loop),
+        .while_loop => |while_loop| try self.compileWhileLoopStmt(while_loop),
 
-        .@"break" => try self.compileBreakStmt(stmt.@"break"),
+        .@"break" => |@"break"| try self.compileBreakStmt(@"break"),
 
-        .@"continue" => try self.compileContinueStmt(stmt.@"continue"),
+        .@"continue" => |@"continue"| try self.compileContinueStmt(@"continue"),
 
-        .@"return" => try self.compileReturnStmt(stmt.@"return"),
+        .@"return" => |@"return"| try self.compileReturnStmt(@"return"),
     }
 }
 
@@ -427,33 +427,33 @@ fn compileReturnStmt(self: *Compiler, @"return": Ast.Node.Stmt.Return) Error!voi
 
 fn compileExpr(self: *Compiler, expr: Ast.Node.Expr) Error!void {
     switch (expr) {
-        .identifier => try self.compileIdentifierExpr(expr.identifier),
+        .identifier => |identifier| try self.compileIdentifierExpr(identifier),
 
-        .none => try self.compileNoneExpr(expr.none),
+        .none => |none| try self.compileNoneExpr(none),
 
-        .string => try self.compileStringExpr(expr.string),
+        .string => |string| try self.compileStringExpr(string),
 
-        .int => try self.compileIntExpr(expr.int),
+        .int => |int| try self.compileIntExpr(int),
 
-        .float => try self.compileFloatExpr(expr.float),
+        .float => |float| try self.compileFloatExpr(float),
 
-        .boolean => try self.compileBooleanExpr(expr.boolean),
+        .boolean => |boolean| try self.compileBooleanExpr(boolean),
 
-        .array => try self.compileArrayExpr(expr.array),
+        .array => |array| try self.compileArrayExpr(array),
 
-        .map => try self.compileMapExpr(expr.map),
+        .map => |map| try self.compileMapExpr(map),
 
-        .function => try self.compileFunctionExpr(expr.function),
+        .function => |function| try self.compileFunctionExpr(function),
 
-        .unary_operation => try self.compileUnaryOperationExpr(expr.unary_operation),
+        .unary_operation => |unary_operation| try self.compileUnaryOperationExpr(unary_operation),
 
-        .binary_operation => try self.compileBinaryOperationExpr(expr.binary_operation),
+        .binary_operation => |binary_operation| try self.compileBinaryOperationExpr(binary_operation),
 
-        .subscript => try self.compileSubscriptExpr(expr.subscript),
+        .subscript => |subscript| try self.compileSubscriptExpr(subscript),
 
-        .assignment => try self.compileAssignmentExpr(expr.assignment),
+        .assignment => |assignment| try self.compileAssignmentExpr(assignment),
 
-        .call => try self.compileCallExpr(expr.call),
+        .call => |call| try self.compileCallExpr(call),
     }
 }
 
@@ -577,8 +577,8 @@ fn knownAtCompileTime(expr: Ast.Node.Expr) bool {
         .assignment => false,
         .call => false,
 
-        .binary_operation => knownAtCompileTime(expr.binary_operation.lhs.*) and knownAtCompileTime(expr.binary_operation.rhs.*),
-        .unary_operation => knownAtCompileTime(expr.unary_operation.rhs.*),
+        .binary_operation => |binary_operation| knownAtCompileTime(binary_operation.lhs.*) and knownAtCompileTime(binary_operation.rhs.*),
+        .unary_operation => |unary_operation| knownAtCompileTime(unary_operation.rhs.*),
 
         else => true,
     };
@@ -596,11 +596,11 @@ fn optimizeUnaryOperation(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryO
 fn optimizeNeg(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryOperation) Error!bool {
     // TODO: Optimize for other cases
     switch (unary_operation.rhs.*) {
-        .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -unary_operation.rhs.int.value }) }),
+        .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -rhs.value }) }),
 
-        .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = -unary_operation.rhs.float.value }) }),
+        .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = -rhs.value }) }),
 
-        .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -@as(i64, @intCast(@intFromBool(unary_operation.rhs.boolean.value))) }) }),
+        .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -@as(i64, @intCast(@intFromBool(rhs.value))) }) }),
 
         else => return false,
     }
@@ -613,11 +613,11 @@ fn optimizeNeg(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryOperation) E
 fn optimizeNot(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryOperation) Error!bool {
     // TODO: Optimize for other cases
     switch (unary_operation.rhs.*) {
-        .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = unary_operation.rhs.int.value == 0 }) }),
+        .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = rhs.value == 0 }) }),
 
-        .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = unary_operation.rhs.float.value == 0 }) }),
+        .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = rhs.value == 0 }) }),
 
-        .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = !unary_operation.rhs.boolean.value }) }),
+        .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = !rhs.value }) }),
 
         else => return false,
     }
@@ -665,32 +665,32 @@ fn optimizeBinaryOperation(self: *Compiler, binary_operation: Ast.Node.Expr.Bina
 fn optimizeAdd(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
     // TODO: Optimize for other cases
     switch (binary_operation.lhs.*) {
-        .int => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value + binary_operation.rhs.int.value }) }),
+        .int => |lhs| switch (binary_operation.rhs.*) {
+            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value + rhs.value }) }),
 
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) + binary_operation.rhs.float.value }) }),
+            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(lhs.value)) + rhs.value }) }),
 
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value + @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
-
-            else => return false,
-        },
-
-        .float => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(binary_operation.rhs.int.value)) }) }),
-
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) + binary_operation.rhs.float.value }) }),
-
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.rhs.boolean.value)))) }) }),
+            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value + @as(i64, @intFromBool(rhs.value)) }) }),
 
             else => return false,
         },
 
-        .boolean => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) + binary_operation.rhs.int.value }) }),
+        .float => |lhs| switch (binary_operation.rhs.*) {
+            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(rhs.value)) }) }),
 
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.lhs.boolean.value)))) + binary_operation.rhs.float.value }) }),
+            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value + rhs.value }) }),
 
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) + @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(@as(i64, @intFromBool(rhs.value)))) }) }),
+
+            else => return false,
+        },
+
+        .boolean => |lhs| switch (binary_operation.rhs.*) {
+            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) + rhs.value }) }),
+
+            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(lhs.value)))) + rhs.value }) }),
+
+            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) + @as(i64, @intFromBool(rhs.value)) }) }),
 
             else => return false,
         },
@@ -706,32 +706,32 @@ fn optimizeAdd(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation)
 fn optimizeSubtract(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
     // TODO: Optimize for other cases
     switch (binary_operation.lhs.*) {
-        .int => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value - binary_operation.rhs.int.value }) }),
+        .int => |lhs| switch (binary_operation.rhs.*) {
+            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value - rhs.value }) }),
 
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) - binary_operation.rhs.float.value }) }),
+            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(lhs.value)) - rhs.value }) }),
 
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value - @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
-
-            else => return false,
-        },
-
-        .float => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value - @as(f64, @floatFromInt(binary_operation.rhs.int.value)) }) }),
-
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) - binary_operation.rhs.float.value }) }),
-
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value - @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.rhs.boolean.value)))) }) }),
+            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value - @as(i64, @intFromBool(rhs.value)) }) }),
 
             else => return false,
         },
 
-        .boolean => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) - binary_operation.rhs.int.value }) }),
+        .float => |lhs| switch (binary_operation.rhs.*) {
+            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value - @as(f64, @floatFromInt(rhs.value)) }) }),
 
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.lhs.boolean.value)))) - binary_operation.rhs.float.value }) }),
+            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value - rhs.value }) }),
 
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) - @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
+            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value - @as(f64, @floatFromInt(@as(i64, @intFromBool(rhs.value)))) }) }),
+
+            else => return false,
+        },
+
+        .boolean => |lhs| switch (binary_operation.rhs.*) {
+            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) - rhs.value }) }),
+
+            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(lhs.value)))) - rhs.value }) }),
+
+            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) - @as(i64, @intFromBool(rhs.value)) }) }),
 
             else => return false,
         },
@@ -744,7 +744,7 @@ fn optimizeSubtract(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOpera
     return true;
 }
 
-fn cAstExprToFloat(expr: Ast.Node.Expr) error{CastingFailed}!f64 {
+fn castExprToFloat(expr: Ast.Node.Expr) error{CastingFailed}!f64 {
     return switch (expr) {
         .int => @floatFromInt(expr.int.value),
 
@@ -758,11 +758,11 @@ fn cAstExprToFloat(expr: Ast.Node.Expr) error{CastingFailed}!f64 {
 
 fn optimizeDivide(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
     // TODO: Optimize for other cases
-    const lhs_cAsted = cAstExprToFloat(binary_operation.lhs.*) catch return false;
-    const rhs_cAsted = cAstExprToFloat(binary_operation.rhs.*) catch return false;
+    const lhs_casted = castExprToFloat(binary_operation.lhs.*) catch return false;
+    const rhs_casted = castExprToFloat(binary_operation.rhs.*) catch return false;
 
     try self.code.source_locations.append(binary_operation.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs_cAsted / rhs_cAsted }) });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs_casted / rhs_casted }) });
 
     return true;
 }
@@ -810,11 +810,11 @@ fn optimizeMultiply(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOpera
 
 fn optimizeExponent(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
     // TODO: Optimize for other cases
-    const lhs_cAsted = cAstExprToFloat(binary_operation.lhs.*) catch return false;
-    const rhs_cAsted = cAstExprToFloat(binary_operation.rhs.*) catch return false;
+    const lhs_casted = castExprToFloat(binary_operation.lhs.*) catch return false;
+    const rhs_casted = castExprToFloat(binary_operation.rhs.*) catch return false;
 
     try self.code.source_locations.append(binary_operation.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = std.math.pow(f64, lhs_cAsted, rhs_cAsted) }) });
+    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = std.math.pow(f64, lhs_casted, rhs_casted) }) });
 
     return true;
 }

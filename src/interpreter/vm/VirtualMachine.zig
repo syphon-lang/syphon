@@ -385,7 +385,7 @@ fn executeMakeClosure(self: *VirtualMachine, frame: Frame, info: Code.Instructio
         try self.open_upvalues.append(upvalue_destination);
     }
 
-    try self.stack.append(try Code.Value.Closure.init(self.allocator, function, &self.globals, upvalues));
+    try self.stack.append(try Code.Value.Closure.init(self.allocator, function, frame.closure.globals, upvalues));
 }
 
 fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Ast.SourceLoc) Error!void {

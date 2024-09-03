@@ -1,12 +1,9 @@
 const std = @import("std");
 const build_options = @import("build_options");
 
-const gc = @import("gc.zig");
+const Interpreter = @import("interpreter/Interpreter.zig");
 
-const Ast = @import("compiler/Ast.zig");
-const Compiler = @import("compiler/Compiler.zig");
-const VirtualMachine = @import("vm/VirtualMachine.zig");
-const Atom = @import("vm/Atom.zig");
+const gc = @import("gc.zig");
 
 const Cli = struct {
     allocator: std.mem.Allocator,
@@ -118,7 +115,7 @@ const Cli = struct {
     fn executeRunCommand(self: Cli) u8 {
         const options = self.command.?.run;
 
-        const file_path = options.argv[0];
+        var file_path = options.argv[0];
 
         const file_content = blk: {
             const file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
@@ -148,101 +145,19 @@ const Cli = struct {
             return 0;
         }
 
-        var ast_parser = Ast.Parser.init(self.allocator, file_content) catch |err| {
-            std.debug.print("{s}\n", .{errorDescription(err)});
+        var interpreter = Interpreter.init(self.allocator, options.argv, file_content);
 
-            return 1;
-        };
-
-        const ast = ast_parser.parse() catch |err| switch (err) {
+        _ = interpreter.run() catch |err| switch (err) {
             error.OutOfMemory => {
-                std.debug.print("{s}\n", .{errorDescription(err)});
+                std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
 
                 return 1;
             },
 
             else => {
-                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, ast_parser.error_info.?.source_loc.line, ast_parser.error_info.?.source_loc.column, ast_parser.error_info.?.message });
+                file_path = interpreter.argv[0];
 
-                return 1;
-            },
-        };
-
-        Atom.init(self.allocator);
-
-        var compiler = Compiler.init(self.allocator, .script) catch |err| {
-            std.debug.print("{s}\n", .{errorDescription(err)});
-
-            return 1;
-        };
-
-        compiler.compile(ast) catch |err| switch (err) {
-            error.OutOfMemory => {
-                std.debug.print("{s}\n", .{errorDescription(err)});
-
-                return 1;
-            },
-
-            else => {
-                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, compiler.error_info.?.source_loc.line, compiler.error_info.?.source_loc.column, compiler.error_info.?.message });
-
-                return 1;
-            },
-        };
-
-        var vm = VirtualMachine.init(self.allocator, options.argv) catch |err| {
-            std.debug.print("{s}\n", .{errorDescription(err)});
-
-            return 1;
-        };
-
-        vm.setCode(compiler.code) catch |err| {
-            std.debug.print("{s}\n", .{errorDescription(err)});
-
-            return 1;
-        };
-
-        vm.run() catch |err| switch (err) {
-            error.DivisionByZero => {
-                const last_frame = vm.frames.getLast();
-
-                const source_loc = last_frame.closure.function.code.source_locations.items[last_frame.counter - 1];
-
-                std.debug.print("{s}:{}:{}: division by zero\n", .{ vm.argv[0], source_loc.line, source_loc.column });
-
-                return 1;
-            },
-
-            error.NegativeDenominator => {
-                const last_frame = vm.frames.getLast();
-
-                const source_loc = last_frame.closure.function.code.source_locations.items[last_frame.counter - 1];
-
-                std.debug.print("{s}:{}:{}: negative denominator\n", .{ vm.argv[0], source_loc.line, source_loc.column });
-
-                return 1;
-            },
-
-            error.StackOverflow => {
-                const last_frame = vm.frames.getLast();
-
-                const source_loc = last_frame.closure.function.code.source_locations.items[last_frame.counter];
-
-                std.debug.print("{s}:{}:{}: stack overflow\n", .{ vm.argv[0], source_loc.line, source_loc.column });
-
-                return 1;
-            },
-
-            error.OutOfMemory => {
-                std.debug.print("{s}\n", .{errorDescription(err)});
-
-                return 1;
-            },
-
-            else => {
-                std.debug.print("{s}:{}:{}: {s}\n", .{ vm.argv[0], vm.error_info.?.source_loc.line, vm.error_info.?.source_loc.column, vm.error_info.?.message });
-
-                return 1;
+                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, interpreter.error_info.?.source_loc.line, interpreter.error_info.?.source_loc.column, interpreter.error_info.?.message });
             },
         };
 

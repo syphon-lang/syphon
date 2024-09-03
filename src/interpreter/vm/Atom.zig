@@ -2,12 +2,16 @@ const std = @import("std");
 
 const Atom = @This();
 
+pub var initialized = false;
+
 var atoms: std.StringHashMap(Atom) = undefined;
 
 id: u32,
 
 pub fn init(allocator: std.mem.Allocator) void {
     atoms = std.StringHashMap(Atom).init(allocator);
+
+    initialized = true;
 }
 
 pub fn new(name: []const u8) std.mem.Allocator.Error!Atom {

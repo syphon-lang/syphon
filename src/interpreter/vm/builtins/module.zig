@@ -1,10 +1,10 @@
 const std = @import("std");
 
 const Atom = @import("../Atom.zig");
-const Code = @import("../Code.zig");
 const VirtualMachine = @import("../VirtualMachine.zig");
-const Ast = @import("../../compiler/Ast.zig");
+const Code = @import("../Code.zig");
 const Compiler = @import("../../compiler/Compiler.zig");
+const Interpreter = @import("../../Interpreter.zig");
 
 const NativeModuleGetters = std.StaticStringMap(*const fn (*VirtualMachine) std.mem.Allocator.Error!Code.Value).initComptime(.{
     .{ "fs", &(@import("file_system.zig").getExports) },
@@ -45,12 +45,7 @@ fn import(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     }
 }
 
-var saved_user_modules: std.StringHashMapUnmanaged(UserModule) = .{};
-
-const UserModule = struct {
-    globals: VirtualMachine.Globals,
-    exported: Code.Value,
-};
+var saved_user_modules: std.StringHashMapUnmanaged(Interpreter.FinalState) = .{};
 
 fn getUserModule(vm: *VirtualMachine, file_path: []const u8) Code.Value {
     const source_file_path = vm.argv[0];
@@ -79,30 +74,17 @@ fn getUserModule(vm: *VirtualMachine, file_path: []const u8) Code.Value {
         return .none;
     }
 
-    var ast_parser = Ast.Parser.init(vm.allocator, file_content) catch return .none;
-
-    const ast = ast_parser.parse() catch return .none;
-
-    var compiler = Compiler.init(vm.allocator, .script) catch return .none;
-
-    compiler.compile(ast) catch return .none;
-
     if (saved_user_modules.get(resolved_file_path)) |saved_user_module| {
         return saved_user_module.exported;
     }
 
-    const other_vm_argv = vm.allocator.alloc([]const u8, 1) catch return .none;
-    other_vm_argv[0] = resolved_file_path;
+    var interpreter = Interpreter.init(vm.allocator, &.{resolved_file_path}, file_content);
 
-    var other_vm = VirtualMachine.init(vm.allocator, other_vm_argv) catch return .none;
+    const final_state = interpreter.run() catch return .none;
 
-    other_vm.setCode(compiler.code) catch return .none;
+    const saved_user_module = (saved_user_modules.getOrPutValue(vm.allocator, resolved_file_path, final_state) catch return .none).value_ptr;
 
-    other_vm.run() catch return .none;
-
-    const saved_user_module = (saved_user_modules.getOrPutValue(vm.allocator, resolved_file_path, .{ .exported = other_vm.exported, .globals = other_vm.globals }) catch return .none).value_ptr;
-
-    closeGlobalState(vm, &saved_user_module.globals, other_vm.exported);
+    closeGlobalState(vm, &saved_user_module.globals, saved_user_module.exported);
 
     return saved_user_module.exported;
 }
@@ -118,26 +100,16 @@ fn eval(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
     const source_code = vm.allocator.dupeZ(u8, arguments[0].string.content) catch return .none;
 
-    var ast_parser = Ast.Parser.init(vm.allocator, source_code) catch return .none;
+    var interpreter = Interpreter.init(vm.allocator, &.{"<eval>"}, source_code);
 
-    const ast = ast_parser.parse() catch return .none;
-
-    var compiler = Compiler.init(vm.allocator, .script) catch return .none;
-
-    compiler.compile(ast) catch return .none;
-
-    var other_vm = VirtualMachine.init(vm.allocator, &.{"<eval>"}) catch return .none;
-
-    other_vm.setCode(compiler.code) catch return .none;
-
-    other_vm.run() catch return .none;
+    const final_state = interpreter.run() catch return .none;
 
     const globals_on_heap = vm.allocator.create(VirtualMachine.Globals) catch return .none;
-    globals_on_heap.* = other_vm.globals;
+    globals_on_heap.* = final_state.globals;
 
-    closeGlobalState(vm, globals_on_heap, other_vm.exported);
+    closeGlobalState(vm, globals_on_heap, final_state.exported);
 
-    return other_vm.exported;
+    return final_state.exported;
 }
 
 fn closeGlobalState(vm: *VirtualMachine, globals_on_heap: *VirtualMachine.Globals, value: Code.Value) void {

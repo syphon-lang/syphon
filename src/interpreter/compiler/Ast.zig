@@ -8,6 +8,7 @@ const Ast = @This();
 body: []Node,
 
 pub const SourceLoc = struct {
+    file_path: []const u8 = "",
     line: usize = 1,
     column: usize = 1,
 };
@@ -177,6 +178,7 @@ pub const Node = union(enum) {
 pub const Parser = struct {
     allocator: std.mem.Allocator,
 
+    file_path: []const u8,
     buffer: [:0]const u8,
 
     tokens: []Token,
@@ -195,7 +197,7 @@ pub const Parser = struct {
         source_loc: SourceLoc,
     };
 
-    pub fn init(allocator: std.mem.Allocator, buffer: [:0]const u8) std.mem.Allocator.Error!Parser {
+    pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buffer: [:0]const u8) std.mem.Allocator.Error!Parser {
         var tokens = std.ArrayList(Token).init(allocator);
 
         var lexer = Lexer.init(buffer);
@@ -210,6 +212,7 @@ pub const Parser = struct {
 
         return Parser{
             .allocator = allocator,
+            .file_path = file_path,
             .buffer = buffer,
             .tokens = tokens.items,
             .current_token_index = 0,
@@ -251,7 +254,7 @@ pub const Parser = struct {
     }
 
     fn tokenSourceLoc(self: Parser, token: Token) SourceLoc {
-        var source_loc: SourceLoc = .{};
+        var source_loc: SourceLoc = .{ .file_path = self.file_path };
 
         for (0..self.buffer.len) |i| {
             if (i == token.buffer_loc.start) break;

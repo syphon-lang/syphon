@@ -516,11 +516,11 @@ fn compileMapExpr(self: *Compiler, map: Ast.Node.Expr.Map) Error!void {
     try self.code.instructions.append(.{ .make_map = @intCast(map.keys.len) });
 }
 
-fn compileFunctionExpr(self: *Compiler, Ast_function: Ast.Node.Expr.Function) Error!void {
+fn compileFunctionExpr(self: *Compiler, ast_function: Ast.Node.Expr.Function) Error!void {
     var parameters = std.ArrayList(Atom).init(self.allocator);
 
-    for (Ast_function.parameters) |Ast_parameter| {
-        try parameters.append(try Atom.new(Ast_parameter.buffer));
+    for (ast_function.parameters) |ast_parameter| {
+        try parameters.append(try Atom.new(ast_parameter.buffer));
     }
 
     var compiler = try init(self.allocator, .function);
@@ -534,7 +534,7 @@ fn compileFunctionExpr(self: *Compiler, Ast_function: Ast.Node.Expr.Function) Er
         try compiler.scope.putLocal(parameter, .{ .index = i });
     }
 
-    try compiler.compileNodes(Ast_function.body);
+    try compiler.compileNodes(ast_function.body);
 
     try compiler.endCode();
 
@@ -558,7 +558,7 @@ fn compileFunctionExpr(self: *Compiler, Ast_function: Ast.Node.Expr.Function) Er
         upvalues.items[compiler_upvalue.index] = .{ .local_index = compiler_upvalue.local_index, .pointer_index = compiler_upvalue.pointer_index };
     }
 
-    try self.code.source_locations.append(Ast_function.source_loc);
+    try self.code.source_locations.append(ast_function.source_loc);
     try self.code.instructions.append(.{ .make_closure = .{ .function_constant_index = function_constant_index, .upvalues = upvalues } });
 }
 

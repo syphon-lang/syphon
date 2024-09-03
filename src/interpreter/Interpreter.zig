@@ -11,7 +11,7 @@ const Interpreter = @This();
 allocator: std.mem.Allocator,
 
 argv: []const []const u8,
-file_content: [:0]const u8,
+buffer: [:0]const u8,
 
 error_info: ?ErrorInfo = null,
 
@@ -22,13 +22,13 @@ pub const ErrorInfo = struct {
     source_loc: Ast.SourceLoc,
 };
 
-pub fn init(allocator: std.mem.Allocator, argv: []const []const u8, file_content: [:0]const u8) Interpreter {
+pub fn init(allocator: std.mem.Allocator, argv: []const []const u8, buffer: [:0]const u8) Interpreter {
     if (!Atom.initialized) Atom.init(allocator);
 
     return Interpreter{
         .allocator = allocator,
         .argv = argv,
-        .file_content = file_content,
+        .buffer = buffer,
     };
 }
 
@@ -38,7 +38,7 @@ pub const FinalState = struct {
 };
 
 pub fn run(self: *Interpreter) Error!FinalState {
-    var ast_parser = try Ast.Parser.init(self.allocator, self.file_content);
+    var ast_parser = try Ast.Parser.init(self.allocator, self.argv[0], self.buffer);
 
     const ast = ast_parser.parse() catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,

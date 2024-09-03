@@ -149,7 +149,7 @@ const Cli = struct {
 
         _ = interpreter.run() catch |err| switch (err) {
             error.OutOfMemory => {
-                std.debug.print("{s}: {s}\n", .{ file_path, errorDescription(err) });
+                std.debug.print("{s}\n", .{errorDescription(err)});
 
                 return 1;
             },
@@ -157,7 +157,7 @@ const Cli = struct {
             else => {
                 file_path = interpreter.argv[0];
 
-                std.debug.print("{s}:{}:{}: {s}\n", .{ file_path, interpreter.error_info.?.source_loc.line, interpreter.error_info.?.source_loc.column, interpreter.error_info.?.message });
+                std.debug.print("{s}:{}:{}: {s}\n", .{ interpreter.error_info.?.source_loc.file_path, interpreter.error_info.?.source_loc.line, interpreter.error_info.?.source_loc.column, interpreter.error_info.?.message });
             },
         };
 

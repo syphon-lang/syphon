@@ -12,7 +12,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 }
 
 fn run(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (arguments[0] == .string) {
+    if (arguments[0] != .string) {
         return .none;
     }
 

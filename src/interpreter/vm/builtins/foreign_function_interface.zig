@@ -84,11 +84,11 @@ fn dllOpen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     var dll_wanted_function_iterator = dll_wanted_functions.inner.iterator();
 
     while (dll_wanted_function_iterator.next()) |dll_wanted_function| {
-        if (dll_wanted_function.key_ptr.* == .string) {
+        if (dll_wanted_function.key_ptr.* != .string) {
             return .none;
         }
 
-        if (dll_wanted_function.value_ptr.* == .map) {
+        if (dll_wanted_function.value_ptr.* != .map) {
             return .none;
         }
 
@@ -98,7 +98,7 @@ fn dllOpen(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 
         const dll_wanted_function_parameters = dll_wanted_function.value_ptr.map.getWithString("parameters") orelse return .none;
 
-        if (dll_wanted_function_parameters == .array) {
+        if (dll_wanted_function_parameters != .array) {
             return .none;
         }
 
@@ -453,12 +453,12 @@ fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     const dll_function_pointer = getPointerFromMap(anyopaque, arguments[0]) orelse return .none;
 
     const dll_function_prototype = arguments[0].map.getWithString("prototype").?;
-    if (dll_function_prototype == .map) {
+    if (dll_function_prototype != .map) {
         return .none;
     }
 
     const dll_function_parameter_types = dll_function_prototype.map.getWithString("parameters") orelse return .none;
-    if (dll_function_parameter_types == .array) {
+    if (dll_function_parameter_types != .array) {
         return .none;
     }
 
@@ -614,7 +614,7 @@ fn allocateCallback(vm: *VirtualMachine, arguments: []const Code.Value) Code.Val
     const user_function_prototype = arguments[1].map;
 
     const user_function_parameter_types = user_function_prototype.getWithString("parameters") orelse return .none;
-    if (user_function_parameter_types == .array) {
+    if (user_function_parameter_types != .array) {
         return .none;
     }
 

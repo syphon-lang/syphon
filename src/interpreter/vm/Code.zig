@@ -249,7 +249,7 @@ pub const Value = union(enum) {
             },
 
             .map => {
-                if (!(rhs == .map)) {
+                if (rhs != .map) {
                     return false;
                 }
 

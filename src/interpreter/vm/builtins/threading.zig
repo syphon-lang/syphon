@@ -13,11 +13,11 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 }
 
 fn spawn(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (arguments[0] == .closure) {
+    if (arguments[0] != .closure) {
         return .none;
     }
 
-    if (arguments[1] == .array) {
+    if (arguments[1] != .array) {
         return .none;
     }
 

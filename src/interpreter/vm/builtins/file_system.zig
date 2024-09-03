@@ -25,7 +25,7 @@ pub fn getExports(vm: *VirtualMachine) std.mem.Allocator.Error!Code.Value {
 fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (arguments[0] == .string) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
@@ -43,7 +43,7 @@ fn open(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn create(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (arguments[0] == .string) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
@@ -69,7 +69,7 @@ fn getFile(argument: Code.Value) std.fs.File {
 fn delete(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (arguments[0] == .string) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
@@ -105,7 +105,7 @@ fn cwd(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn chdir(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (arguments[0] == .string) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
@@ -121,7 +121,7 @@ fn chdir(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
 fn access(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     _ = vm;
 
-    if (arguments[0] == .string) {
+    if (arguments[0] != .string) {
         return .none;
     }
 
@@ -139,7 +139,7 @@ fn write(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         return .none;
     }
 
-    if (arguments[1] == .string) {
+    if (arguments[1] != .string) {
         return .none;
     }
 

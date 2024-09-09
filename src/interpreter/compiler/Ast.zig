@@ -66,7 +66,6 @@ pub const Node = union(enum) {
         function: Function,
         unary_operation: UnaryOperation,
         binary_operation: BinaryOperation,
-        assignment: Assignment,
         subscript: Subscript,
         call: Call,
 
@@ -114,11 +113,11 @@ pub const Node = union(enum) {
         };
 
         pub const UnaryOperation = struct {
-            operator: UnaryOperator,
+            operator: Operator,
             rhs: *Expr,
             source_loc: SourceLoc,
 
-            pub const UnaryOperator = enum {
+            pub const Operator = enum {
                 minus,
                 bang,
             };
@@ -126,38 +125,28 @@ pub const Node = union(enum) {
 
         pub const BinaryOperation = struct {
             lhs: *Expr,
-            operator: BinaryOperator,
+            operator: Operator,
             rhs: *Expr,
             source_loc: SourceLoc,
 
-            pub const BinaryOperator = enum {
+            pub const Operator = enum {
                 plus,
                 minus,
                 forward_slash,
                 star,
                 double_star,
                 percent,
-                bang_equal_sign,
-                double_equal_sign,
                 less_than,
                 greater_than,
-            };
-        };
-
-        pub const Assignment = struct {
-            target: *Expr,
-            operator: AssignmentOperator,
-            value: *Expr,
-            source_loc: SourceLoc,
-
-            const AssignmentOperator = enum {
-                none,
-                plus,
-                minus,
-                forward_slash,
-                star,
-                double_star,
-                percent,
+                equal_sign,
+                double_equal_sign,
+                bang_equal_sign,
+                plus_equal_sign,
+                minus_equal_sign,
+                forward_slash_equal_sign,
+                star_equal_sign,
+                double_star_equal_sign,
+                percent_equal_sign,
             };
         };
 
@@ -396,7 +385,14 @@ pub const Parser = struct {
 
         fn from(token: Token) Precedence {
             return switch (token.tag) {
-                .plus_equal_sign, .minus_equal_sign, .forward_slash_equal_sign, .star_equal_sign, .double_star_equal_sign, .percent_equal_sign, .equal_sign => .assign,
+                .equal_sign,
+                .plus_equal_sign,
+                .minus_equal_sign,
+                .forward_slash_equal_sign,
+                .star_equal_sign,
+                .double_star_equal_sign,
+                .percent_equal_sign,
+                => .assign,
 
                 .bang_equal_sign, .double_equal_sign, .greater_than, .less_than => .comparison,
 
@@ -673,7 +669,7 @@ pub const Parser = struct {
         return Node.Expr{ .map = .{ .keys = keys.items, .values = values.items } };
     }
 
-    fn parseUnaryOperationExpr(self: *Parser, operator: Node.Expr.UnaryOperation.UnaryOperator) Error!Node.Expr {
+    fn parseUnaryOperationExpr(self: *Parser, operator: Node.Expr.UnaryOperation.Operator) Error!Node.Expr {
         const operator_token = self.nextToken();
 
         const rhs = (try self.parseExpr(.prefix)).expr;
@@ -691,18 +687,17 @@ pub const Parser = struct {
             .star => return self.parseBinaryOperationExpr(lhs, .star),
             .double_star => return self.parseBinaryOperationExpr(lhs, .double_star),
             .percent => return self.parseBinaryOperationExpr(lhs, .percent),
-            .bang_equal_sign => return self.parseBinaryOperationExpr(lhs, .bang_equal_sign),
-            .double_equal_sign => return self.parseBinaryOperationExpr(lhs, .double_equal_sign),
             .less_than => return self.parseBinaryOperationExpr(lhs, .less_than),
             .greater_than => return self.parseBinaryOperationExpr(lhs, .greater_than),
-
-            .equal_sign => return self.parseAssignmentExpr(lhs, .none),
-            .plus_equal_sign => return self.parseAssignmentExpr(lhs, .plus),
-            .minus_equal_sign => return self.parseAssignmentExpr(lhs, .minus),
-            .forward_slash_equal_sign => return self.parseAssignmentExpr(lhs, .forward_slash),
-            .star_equal_sign => return self.parseAssignmentExpr(lhs, .star),
-            .double_star_equal_sign => return self.parseAssignmentExpr(lhs, .double_star),
-            .percent_equal_sign => return self.parseAssignmentExpr(lhs, .percent),
+            .equal_sign => return self.parseBinaryOperationExpr(lhs, .equal_sign),
+            .double_equal_sign => return self.parseBinaryOperationExpr(lhs, .double_equal_sign),
+            .bang_equal_sign => return self.parseBinaryOperationExpr(lhs, .bang_equal_sign),
+            .plus_equal_sign => return self.parseBinaryOperationExpr(lhs, .plus_equal_sign),
+            .minus_equal_sign => return self.parseBinaryOperationExpr(lhs, .minus_equal_sign),
+            .forward_slash_equal_sign => return self.parseBinaryOperationExpr(lhs, .forward_slash_equal_sign),
+            .star_equal_sign => return self.parseBinaryOperationExpr(lhs, .star_equal_sign),
+            .double_star_equal_sign => return self.parseBinaryOperationExpr(lhs, .double_star_equal_sign),
+            .percent_equal_sign => return self.parseBinaryOperationExpr(lhs, .percent_equal_sign),
 
             .open_paren => return self.parseCallExpr(lhs),
 
@@ -718,7 +713,7 @@ pub const Parser = struct {
         }
     }
 
-    fn parseBinaryOperationExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.BinaryOperation.BinaryOperator) Error!Node.Expr {
+    fn parseBinaryOperationExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.BinaryOperation.Operator) Error!Node.Expr {
         const lhs_on_heap = try self.allocator.create(Node.Expr);
         lhs_on_heap.* = lhs;
 
@@ -729,19 +724,6 @@ pub const Parser = struct {
         rhs_on_heap.* = rhs;
 
         return Node.Expr{ .binary_operation = .{ .lhs = lhs_on_heap, .operator = operator, .rhs = rhs_on_heap, .source_loc = self.tokenSourceLoc(operator_token) } };
-    }
-
-    fn parseAssignmentExpr(self: *Parser, lhs: Node.Expr, operator: Node.Expr.Assignment.AssignmentOperator) Error!Node.Expr {
-        const lhs_on_heap = try self.allocator.create(Node.Expr);
-        lhs_on_heap.* = lhs;
-
-        const equal_sign_token = self.nextToken();
-
-        const rhs = (try self.parseExpr(.lowest)).expr;
-        const rhs_on_heap = try self.allocator.create(Node.Expr);
-        rhs_on_heap.* = rhs;
-
-        return Node.Expr{ .assignment = .{ .target = lhs_on_heap, .operator = operator, .value = rhs_on_heap, .source_loc = self.tokenSourceLoc(equal_sign_token) } };
     }
 
     fn parseBracketSubscriptExpr(self: *Parser, lhs: Node.Expr) Error!Node.Expr {

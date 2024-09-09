@@ -451,8 +451,6 @@ fn compileExpr(self: *Compiler, expr: Ast.Node.Expr) Error!void {
 
         .subscript => |subscript| try self.compileSubscriptExpr(subscript),
 
-        .assignment => |assignment| try self.compileAssignmentExpr(assignment),
-
         .call => |call| try self.compileCallExpr(call),
     }
 }
@@ -574,7 +572,6 @@ fn knownAtCompileTime(expr: Ast.Node.Expr) bool {
     return switch (expr) {
         .identifier => false,
         .subscript => false,
-        .assignment => false,
         .call => false,
 
         .binary_operation => |binary_operation| knownAtCompileTime(binary_operation.lhs.*) and knownAtCompileTime(binary_operation.rhs.*),
@@ -820,6 +817,92 @@ fn optimizeExponent(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOpera
 }
 
 fn compileBinaryOperationExpr(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!void {
+    switch (binary_operation.operator) {
+        .equal_sign,
+        .plus_equal_sign,
+        .minus_equal_sign,
+        .forward_slash_equal_sign,
+        .star_equal_sign,
+        .double_star_equal_sign,
+        .percent_equal_sign,
+        => {
+            if (binary_operation.lhs.* == .subscript) {
+                if (binary_operation.operator != .equal_sign) {
+                    try self.compileExpr(binary_operation.lhs.*);
+                }
+
+                try self.compileExpr(binary_operation.rhs.*);
+
+                try handleAssignmentOperator(self, binary_operation);
+
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.duplicate);
+
+                try self.compileExpr(binary_operation.lhs.subscript.index.*);
+                try self.compileExpr(binary_operation.lhs.subscript.target.*);
+
+                try self.code.source_locations.append(binary_operation.source_loc);
+                try self.code.instructions.append(.store_subscript);
+            } else if (binary_operation.lhs.* == .identifier) {
+                if (binary_operation.operator != .equal_sign) {
+                    try self.compileExpr(binary_operation.lhs.*);
+                }
+
+                const atom = try Atom.new(binary_operation.lhs.identifier.name.buffer);
+
+                if (binary_operation.rhs.* == .function and self.context.mode == .function and self.scope.getLocal(atom) == null and (try self.getUpvalue(atom)) == null) {
+                    const index = self.scope.countLocals();
+
+                    try self.scope.putLocal(atom, .{ .index = index });
+
+                    try self.code.source_locations.append(.{});
+                    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
+                }
+
+                try self.compileExpr(binary_operation.rhs.*);
+
+                try handleAssignmentOperator(self, binary_operation);
+
+                if (self.context.mode == .function) {
+                    if (self.scope.getLocal(atom)) |local| {
+                        try self.code.source_locations.append(binary_operation.source_loc);
+                        try self.code.instructions.append(.duplicate);
+
+                        try self.code.source_locations.append(binary_operation.source_loc);
+                        try self.code.instructions.append(.{ .store_local = local.index });
+                    } else if (try self.getUpvalue(atom)) |upvalue| {
+                        try self.code.source_locations.append(binary_operation.source_loc);
+                        try self.code.instructions.append(.duplicate);
+
+                        try self.code.source_locations.append(binary_operation.source_loc);
+                        try self.code.instructions.append(.{ .store_upvalue = upvalue.index });
+                    } else {
+                        const index = self.scope.countLocals();
+
+                        try self.scope.putLocal(atom, .{ .index = index });
+
+                        try self.code.source_locations.append(binary_operation.source_loc);
+                        try self.code.instructions.append(.duplicate);
+                    }
+                } else {
+                    try self.code.source_locations.append(binary_operation.source_loc);
+                    try self.code.instructions.append(.duplicate);
+
+                    try self.code.source_locations.append(binary_operation.source_loc);
+                    try self.code.instructions.append(.{ .store_global = atom });
+                }
+            } else {
+                self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = binary_operation.source_loc };
+
+                return error.BadOperand;
+            }
+
+            return;
+        },
+
+        else => {},
+    }
+
     const optimized = try self.optimizeBinaryOperation(binary_operation);
 
     if (!optimized) {
@@ -876,116 +959,45 @@ fn compileBinaryOperationExpr(self: *Compiler, binary_operation: Ast.Node.Expr.B
                 try self.code.source_locations.append(binary_operation.source_loc);
                 try self.code.instructions.append(.greater_than);
             },
+
+            else => {},
         }
     }
 }
 
-fn compileAssignmentExpr(self: *Compiler, assignment: Ast.Node.Expr.Assignment) Error!void {
-    if (assignment.target.* == .subscript) {
-        if (assignment.operator != .none) {
-            try self.compileExpr(assignment.target.*);
-        }
-
-        try self.compileExpr(assignment.value.*);
-
-        try handleAssignmentOperator(self, assignment);
-
-        try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.duplicate);
-
-        try self.compileExpr(assignment.target.subscript.index.*);
-        try self.compileExpr(assignment.target.subscript.target.*);
-
-        try self.code.source_locations.append(assignment.source_loc);
-        try self.code.instructions.append(.store_subscript);
-    } else if (assignment.target.* == .identifier) {
-        if (assignment.operator != .none) {
-            try self.compileExpr(assignment.target.*);
-        }
-
-        const atom = try Atom.new(assignment.target.identifier.name.buffer);
-
-        if (assignment.value.* == .function and self.context.mode == .function and self.scope.getLocal(atom) == null and (try self.getUpvalue(atom)) == null) {
-            const index = self.scope.countLocals();
-
-            try self.scope.putLocal(atom, .{ .index = index });
-
-            try self.code.source_locations.append(.{});
-            try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
-        }
-
-        try self.compileExpr(assignment.value.*);
-
-        try handleAssignmentOperator(self, assignment);
-
-        if (self.context.mode == .function) {
-            if (self.scope.getLocal(atom)) |local| {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.duplicate);
-
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .store_local = local.index });
-            } else if (try self.getUpvalue(atom)) |upvalue| {
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.duplicate);
-
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.{ .store_upvalue = upvalue.index });
-            } else {
-                const index = self.scope.countLocals();
-
-                try self.scope.putLocal(atom, .{ .index = index });
-
-                try self.code.source_locations.append(assignment.source_loc);
-                try self.code.instructions.append(.duplicate);
-            }
-        } else {
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.duplicate);
-
-            try self.code.source_locations.append(assignment.source_loc);
-            try self.code.instructions.append(.{ .store_global = atom });
-        }
-    } else {
-        self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = assignment.source_loc };
-
-        return error.BadOperand;
-    }
-}
-
-fn handleAssignmentOperator(self: *Compiler, assignment: Ast.Node.Expr.Assignment) Error!void {
-    switch (assignment.operator) {
-        .none => {},
-
-        .plus => {
-            try self.code.source_locations.append(assignment.source_loc);
+fn handleAssignmentOperator(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!void {
+    switch (binary_operation.operator) {
+        .plus_equal_sign => {
+            try self.code.source_locations.append(binary_operation.source_loc);
             try self.code.instructions.append(.add);
         },
 
-        .minus => {
-            try self.code.source_locations.append(assignment.source_loc);
+        .minus_equal_sign => {
+            try self.code.source_locations.append(binary_operation.source_loc);
             try self.code.instructions.append(.subtract);
         },
 
-        .forward_slash => {
-            try self.code.source_locations.append(assignment.source_loc);
+        .forward_slash_equal_sign => {
+            try self.code.source_locations.append(binary_operation.source_loc);
             try self.code.instructions.append(.divide);
         },
 
-        .star => {
-            try self.code.source_locations.append(assignment.source_loc);
+        .star_equal_sign => {
+            try self.code.source_locations.append(binary_operation.source_loc);
             try self.code.instructions.append(.multiply);
         },
 
-        .double_star => {
-            try self.code.source_locations.append(assignment.source_loc);
+        .double_star_equal_sign => {
+            try self.code.source_locations.append(binary_operation.source_loc);
             try self.code.instructions.append(.exponent);
         },
 
-        .percent => {
-            try self.code.source_locations.append(assignment.source_loc);
+        .percent_equal_sign => {
+            try self.code.source_locations.append(binary_operation.source_loc);
             try self.code.instructions.append(.modulo);
         },
+
+        else => {},
     }
 }
 

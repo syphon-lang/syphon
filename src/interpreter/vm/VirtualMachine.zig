@@ -74,6 +74,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     const iterable = @import("./builtins/iterable.zig");
     const console = @import("./builtins/console.zig");
     const hash = @import("./builtins/hash.zig");
+    const function = @import("./builtins/function.zig");
     const map = @import("./builtins/map.zig");
     const module = @import("./builtins/module.zig");
     const process = @import("./builtins/process.zig");
@@ -85,6 +86,7 @@ pub fn addGlobals(self: *VirtualMachine) std.mem.Allocator.Error!void {
     try iterable.addGlobals(self);
     try console.addGlobals(self);
     try hash.addGlobals(self);
+    try function.addGlobals(self);
     try map.addGlobals(self);
     try module.addGlobals(self);
     try process.addGlobals(self);

@@ -322,6 +322,7 @@ string_split("world", "") # ["w", "o", "r", "l", "d"]
 - string_upper
 
 Gives you a uppercased copy of the passed in string
+
 ```
 string_upper("hello, world") # HELLO, WORLD
 ```
@@ -329,8 +330,29 @@ string_upper("hello, world") # HELLO, WORLD
 - string_lower
 
 Gives you a lowercased copy of the passed in string, it acts as the opposite of `string_upper`
+
 ```
 string_lower("FOO, BAR") # foo, bar
+```
+
+- call
+
+Makes you able to call a function programmatically and gives you back its return value by passing its arguments as an array
+
+```
+greeter = fn (name) {
+    println("hello, " + name + "!")
+}
+
+call(greeter, ["humans"]) # hello, humans!
+```
+
+- get_parameters
+
+Gives you the list of parameter names of a function
+
+```
+get_parameters(fn (foo, bar) {}) # ["foo", "bar"]
 ```
 
 - export

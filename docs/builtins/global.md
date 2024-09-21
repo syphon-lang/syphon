@@ -25,7 +25,7 @@ Print values then new line to the stdout
 Usage:
 
 ```
-print("Hello, World!")
+println("Hello, World!")
 ```
 
 Stdout:

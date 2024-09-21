@@ -139,16 +139,6 @@ array_pop(arr) # none
 array_pop(2) # none
 ```
 
-- array_reverse
-
-Gives you a copy of an array but reversed
-
-```
-arr = [0, 1]
-
-array_reverse(arr) # [1, 0]
-```
-
 - foreach
 
 Runs the provided callback on (array, string, map) entries

@@ -165,7 +165,7 @@ const Cli = struct {
     fn executeVersionCommand() u8 {
         const stdout = std.io.getStdOut();
 
-        stdout.writer().print("Syphon {s}\n", .{build_options.version}) catch return 1;
+        stdout.writer().print("{s}\n", .{build_options.version}) catch return 1;
 
         return 0;
     }

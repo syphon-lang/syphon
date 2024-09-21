@@ -49,7 +49,7 @@ fn callThreadFunction(vm: *VirtualMachine, closure: *Code.Value.Closure, argumen
 
     vm.stack.appendSlice(arguments) catch return;
 
-    vm.callUserFunction(closure) catch return;
+    vm.frames.append(.{ .closure = closure, .stack_start = vm.stack.items.len - closure.function.parameters.len }) catch return;
 
     vm.run() catch return;
 }

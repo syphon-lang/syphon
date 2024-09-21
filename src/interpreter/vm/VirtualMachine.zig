@@ -394,18 +394,31 @@ fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Ast.So
     const callable = self.stack.pop();
 
     switch (callable) {
-        .closure => {
-            try self.checkArgumentsCount(callable.closure.function.parameters.len, arguments_count, source_loc);
+        .closure => |closure| {
+            try self.checkArgumentsCount(closure.function.parameters.len, arguments_count, source_loc);
 
-            return self.callUserFunction(callable.closure);
+            return self.frames.append(.{ .closure = closure, .stack_start = self.stack.items.len - closure.function.parameters.len });
         },
 
-        .native_function => {
-            if (callable.native_function.required_arguments_count != null) {
-                try self.checkArgumentsCount(callable.native_function.required_arguments_count.?, arguments_count, source_loc);
+        .native_function => |native_function| {
+            if (native_function.required_arguments_count != null) {
+                try self.checkArgumentsCount(native_function.required_arguments_count.?, arguments_count, source_loc);
             }
 
-            return self.callNativeFunction(callable.native_function.*, arguments_count);
+            const stack_start = self.stack.items.len - arguments_count;
+
+            const stack_arguments = self.stack.items[stack_start..];
+
+            const arguments_with_context = if (native_function.maybe_context) |context|
+                try std.mem.concat(self.allocator, Code.Value, &.{ &.{context.*}, stack_arguments })
+            else
+                stack_arguments;
+
+            const return_value = native_function.call(self, arguments_with_context);
+
+            self.stack.shrinkRetainingCapacity(stack_start);
+
+            return self.stack.append(return_value);
         },
 
         else => {},
@@ -426,26 +439,6 @@ fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_c
 
         return error.UnexpectedValue;
     }
-}
-
-pub fn callUserFunction(self: *VirtualMachine, closure: *Code.Value.Closure) Error!void {
-    const stack_start = self.stack.items.len - closure.function.parameters.len;
-
-    try self.frames.append(.{ .closure = closure, .stack_start = stack_start });
-}
-
-fn callNativeFunction(self: *VirtualMachine, native_function: Code.Value.NativeFunction, arguments_count: usize) Error!void {
-    const stack_start = self.stack.items.len - arguments_count;
-
-    const stack_arguments = self.stack.items[stack_start..];
-
-    const arguments_with_context = if (native_function.maybe_context) |context| try std.mem.concat(self.allocator, Code.Value, &.{ &.{context.*}, stack_arguments }) else stack_arguments;
-
-    const return_value = native_function.call(self, arguments_with_context);
-
-    self.stack.shrinkRetainingCapacity(stack_start);
-
-    try self.stack.append(return_value);
 }
 
 fn executeReturn(self: *VirtualMachine) Error!bool {

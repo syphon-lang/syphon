@@ -10,27 +10,66 @@ pub fn addGlobals(vm: *VirtualMachine) std.mem.Allocator.Error!void {
 }
 
 fn getParameters(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (arguments[0] != .closure) {
-        return .none;
+    var parameter_strings = std.ArrayList(Code.Value).init(vm.allocator);
+
+    switch (arguments[0]) {
+        .closure => |closure| {
+            parameter_strings.ensureTotalCapacity(closure.function.parameters.len) catch return .none;
+
+            for (closure.function.parameters) |parameter| {
+                parameter_strings.appendAssumeCapacity(.{ .string = .{ .content = parameter.toName() } });
+            }
+        },
+
+        .native_function => |native_function| {
+            if (native_function.required_arguments_count) |parameters_count| {
+                parameter_strings.ensureTotalCapacity(parameters_count) catch return .none;
+
+                for (0..parameters_count) |_| {
+                    parameter_strings.appendAssumeCapacity(.{ .string = .{ .content = "<unknown>" } });
+                }
+            } else {
+                return .none;
+            }
+        },
+
+        else => return .none,
     }
 
-    const function = arguments[0].closure;
-    var function_arguments = std.ArrayList(Code.Value).initCapacity(vm.allocator, function.function.parameters.len) catch unreachable;
-
-    for (function.function.parameters) |arg| {
-        function_arguments.append(.{ .string = .{ .content = arg.toName() } }) catch unreachable;
-    }
-
-    return Code.Value.Array.init(vm.allocator, function_arguments) catch .none;
+    return Code.Value.Array.init(vm.allocator, parameter_strings) catch .none;
 }
 
 fn call(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
-    if (arguments[0] != .closure or arguments[1] != .array) {
+    if (arguments[1] != .array) {
         return .none;
     }
 
-    const function = arguments[0].closure;
     const function_arguments = arguments[1].array;
 
-    return function.call(vm, function_arguments.inner.items);
+    switch (arguments[0]) {
+        .closure => |closure| {
+            if (function_arguments.inner.items.len != closure.function.parameters.len) {
+                return .none;
+            }
+
+            return closure.call(vm, function_arguments.inner.items);
+        },
+
+        .native_function => |native_function| {
+            if (native_function.required_arguments_count != null and
+                function_arguments.inner.items.len != native_function.required_arguments_count.?)
+            {
+                return .none;
+            }
+
+            const function_arguments_with_context = if (native_function.maybe_context) |context|
+                std.mem.concat(vm.allocator, Code.Value, &.{ &.{context.*}, function_arguments.inner.items }) catch return .none
+            else
+                function_arguments.inner.items;
+
+            return native_function.call(vm, function_arguments_with_context);
+        },
+
+        else => return .none,
+    }
 }

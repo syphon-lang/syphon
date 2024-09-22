@@ -284,8 +284,8 @@ pub const Value = union(enum) {
 
 pub const Instruction = union(enum) {
     jump: usize,
-    back: usize,
     jump_if_false: usize,
+    back: usize,
     load_constant: usize,
     load_global: Atom,
     load_local: usize,
@@ -308,7 +308,6 @@ pub const Instruction = union(enum) {
     multiply,
     exponent,
     modulo,
-    not_equals,
     equals,
     less_than,
     greater_than,

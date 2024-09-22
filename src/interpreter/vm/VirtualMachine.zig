@@ -152,7 +152,6 @@ pub fn run(self: *VirtualMachine) Error!void {
             .multiply => try self.executeMultiply(source_loc),
             .exponent => try self.executeExponent(source_loc),
             .modulo => try self.executeModulo(source_loc),
-            .not_equals => try self.executeNotEquals(),
             .equals => try self.executeEquals(),
             .less_than => try self.executeLessThan(source_loc),
             .greater_than => try self.executeGreaterThan(source_loc),
@@ -697,13 +696,6 @@ fn executeModulo(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {
     self.error_info = .{ .message = "bad operand for '%' binary operator", .source_loc = source_loc };
 
     return error.BadOperand;
-}
-
-fn executeNotEquals(self: *VirtualMachine) Error!void {
-    const rhs = self.stack.pop();
-    const lhs = self.stack.pop();
-
-    try self.stack.append(.{ .boolean = !lhs.eql(rhs, false) });
 }
 
 fn executeEquals(self: *VirtualMachine) Error!void {

@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Ast = @import("Ast.zig");
+const Optimizer = @import("Optimizer.zig");
 const Code = @import("../vm/Code.zig");
 const VirtualMachine = @import("../vm/VirtualMachine.zig");
 const Atom = @import("../vm/Atom.zig");
@@ -14,7 +15,7 @@ parent: ?*Compiler = null,
 scope: Scope,
 upvalues: Upvalues,
 context: Context,
-code: Code,
+optimizer: Optimizer,
 
 error_info: ?ErrorInfo = null,
 
@@ -24,7 +25,7 @@ pub const Error = error{
     UnexpectedBreak,
     UnexpectedContinue,
     UnexpectedReturn,
-} || std.mem.Allocator.Error;
+} || Optimizer.Error || std.mem.Allocator.Error;
 
 pub const ErrorInfo = struct {
     message: []const u8,
@@ -147,11 +148,7 @@ pub fn init(allocator: std.mem.Allocator, mode: Context.Mode) std.mem.Allocator.
             .break_points = std.ArrayList(usize).init(allocator),
             .continue_points = std.ArrayList(usize).init(allocator),
         },
-        .code = .{
-            .constants = std.ArrayList(Code.Value).init(allocator),
-            .instructions = std.ArrayList(Code.Instruction).init(allocator),
-            .source_locations = std.ArrayList(Ast.SourceLoc).init(allocator),
-        },
+        .optimizer = Optimizer.init(allocator),
     };
 }
 
@@ -194,8 +191,7 @@ fn closeUpvalues(self: *Compiler) std.mem.Allocator.Error!void {
 
     while (scope_local_iterator.next()) |scope_local| {
         if (scope_local.captured) {
-            try self.code.source_locations.append(.{});
-            try self.code.instructions.append(.{ .close_upvalue = scope_local.index });
+            try self.optimizer.emitInstruction(.{ .close_upvalue = scope_local.index }, .{});
         }
     }
 }
@@ -209,11 +205,8 @@ pub fn compile(self: *Compiler, ast: Ast) Error!void {
 fn endCode(self: *Compiler) Error!void {
     try self.closeUpvalues();
 
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
-
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.@"return");
+    try self.optimizer.emitConstant(.none, .{});
+    try self.optimizer.emitInstruction(.@"return", .{});
 }
 
 fn compileNodes(self: *Compiler, nodes: []const Ast.Node) Error!void {
@@ -228,8 +221,7 @@ fn compileNode(self: *Compiler, node: Ast.Node) Error!void {
         .expr => |expr| {
             try self.compileExpr(expr);
 
-            try self.code.source_locations.append(.{});
-            try self.code.instructions.append(.pop);
+            try self.optimizer.emitInstruction(.pop, .{});
         },
     }
 }
@@ -263,12 +255,11 @@ fn compileConditionalStmt(self: *Compiler, conditional: Ast.Node.Stmt.Conditiona
     var parent_scope = self.scope;
 
     for (0..conditional.conditions.len) |i| {
-        const condition_point = self.code.instructions.items.len;
+        const condition_point = self.optimizer.code.instructions.items.len;
         try self.compileExpr(conditional.conditions[i]);
 
-        const jump_if_false_point = self.code.instructions.items.len;
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .jump_if_false = 0 });
+        const jump_if_false_point = self.optimizer.code.instructions.items.len;
+        try self.optimizer.emitInstruction(.{ .jump_if_false = 0 }, .{});
 
         self.scope = .{
             .parent = &parent_scope,
@@ -280,28 +271,27 @@ fn compileConditionalStmt(self: *Compiler, conditional: Ast.Node.Stmt.Conditiona
 
         try self.closeUpvalues();
 
-        try self.scope.popLocalsUntil(&self.code, .conditional);
+        try self.scope.popLocalsUntil(&self.optimizer.code, .conditional);
 
-        const jump_point = self.code.instructions.items.len;
-        try self.code.source_locations.append(.{});
-        try self.code.instructions.append(.{ .jump = 0 });
+        const jump_point = self.optimizer.code.instructions.items.len;
+        try self.optimizer.emitInstruction(.{ .jump = 0 }, .{});
 
         try backtrack_points.append(.{ .condition_point = condition_point, .jump_if_false_point = jump_if_false_point, .jump_point = jump_point });
     }
 
-    const fallback_point = self.code.instructions.items.len;
+    const fallback_point = self.optimizer.code.instructions.items.len;
 
-    self.scope.locals = Locals.init(self.allocator);
+    self.scope.locals.clearRetainingCapacity();
 
     try self.compileNodes(conditional.fallback);
 
     try self.closeUpvalues();
 
-    try self.scope.popLocalsUntil(&self.code, .conditional);
+    try self.scope.popLocalsUntil(&self.optimizer.code, .conditional);
 
     self.scope = parent_scope;
 
-    const after_fallback_point = self.code.instructions.items.len;
+    const after_fallback_point = self.optimizer.code.instructions.items.len;
 
     self.context.compiling_conditional = was_compiling_conditional;
 
@@ -321,19 +311,18 @@ fn compileConditionalStmt(self: *Compiler, conditional: Ast.Node.Stmt.Conditiona
             }
         };
 
-        self.code.instructions.items[current_backtrack_point.jump_if_false_point] = .{ .jump_if_false = next_backtrack_point.condition_point - current_backtrack_point.jump_if_false_point - 1 };
+        self.optimizer.code.instructions.items[current_backtrack_point.jump_if_false_point] = .{ .jump_if_false = next_backtrack_point.condition_point - current_backtrack_point.jump_if_false_point - 1 };
 
-        self.code.instructions.items[current_backtrack_point.jump_point] = .{ .jump = after_fallback_point - current_backtrack_point.jump_point - 1 };
+        self.optimizer.code.instructions.items[current_backtrack_point.jump_point] = .{ .jump = after_fallback_point - current_backtrack_point.jump_point - 1 };
     }
 }
 
 fn compileWhileLoopStmt(self: *Compiler, while_loop: Ast.Node.Stmt.WhileLoop) Error!void {
-    const condition_point = self.code.instructions.items.len;
+    const condition_point = self.optimizer.code.instructions.items.len;
     try self.compileExpr(while_loop.condition);
 
-    const jump_if_false_point = self.code.instructions.items.len;
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .jump_if_false = 0 });
+    const jump_if_false_point = self.optimizer.code.instructions.items.len;
+    try self.optimizer.emitInstruction(.{ .jump_if_false = 0 }, .{});
 
     const was_compiling_loop = self.context.compiling_loop;
     self.context.compiling_loop = true;
@@ -354,23 +343,24 @@ fn compileWhileLoopStmt(self: *Compiler, while_loop: Ast.Node.Stmt.WhileLoop) Er
 
     try self.closeUpvalues();
 
-    try self.scope.popLocalsUntil(&self.code, .loop);
+    try self.scope.popLocalsUntil(&self.optimizer.code, .loop);
+
+    self.scope.locals.deinit();
 
     self.scope = parent_scope;
 
     self.context.compiling_loop = was_compiling_loop;
 
-    self.code.instructions.items[jump_if_false_point] = .{ .jump_if_false = self.code.instructions.items.len - jump_if_false_point };
+    self.optimizer.code.instructions.items[jump_if_false_point] = .{ .jump_if_false = self.optimizer.code.instructions.items.len - jump_if_false_point };
 
     for (self.context.break_points.items[previous_break_points_len..]) |break_point| {
-        self.code.instructions.items[break_point] = .{ .jump = self.code.instructions.items.len - break_point };
+        self.optimizer.code.instructions.items[break_point] = .{ .jump = self.optimizer.code.instructions.items.len - break_point };
     }
 
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .back = self.code.instructions.items.len - condition_point + 1 });
+    try self.optimizer.emitInstruction(.{ .back = self.optimizer.code.instructions.items.len - condition_point + 1 }, .{});
 
     for (self.context.continue_points.items[previous_continue_points_len..]) |continue_point| {
-        self.code.instructions.items[continue_point] = .{ .back = continue_point - condition_point + 1 };
+        self.optimizer.code.instructions.items[continue_point] = .{ .back = continue_point - condition_point + 1 };
     }
 
     self.context.break_points.shrinkRetainingCapacity(previous_break_points_len);
@@ -387,11 +377,10 @@ fn compileBreakStmt(self: *Compiler, @"break": Ast.Node.Stmt.Break) Error!void {
 
     try self.closeUpvalues();
 
-    try self.scope.popLocalsUntil(&self.code, .loop);
+    try self.scope.popLocalsUntil(&self.optimizer.code, .loop);
 
-    try self.context.break_points.append(self.code.instructions.items.len);
-    try self.code.source_locations.append(@"break".source_loc);
-    try self.code.instructions.append(.{ .jump = 0 });
+    try self.context.break_points.append(self.optimizer.code.instructions.items.len);
+    try self.optimizer.emitInstruction(.{ .jump = 0 }, @"break".source_loc);
 }
 
 fn compileContinueStmt(self: *Compiler, @"continue": Ast.Node.Stmt.Continue) Error!void {
@@ -403,11 +392,10 @@ fn compileContinueStmt(self: *Compiler, @"continue": Ast.Node.Stmt.Continue) Err
 
     try self.closeUpvalues();
 
-    try self.scope.popLocalsUntil(&self.code, .loop);
+    try self.scope.popLocalsUntil(&self.optimizer.code, .loop);
 
-    try self.context.continue_points.append(self.code.instructions.items.len);
-    try self.code.source_locations.append(@"continue".source_loc);
-    try self.code.instructions.append(.{ .back = 0 });
+    try self.context.continue_points.append(self.optimizer.code.instructions.items.len);
+    try self.optimizer.emitInstruction(.{ .back = 0 }, @"continue".source_loc);
 }
 
 fn compileReturnStmt(self: *Compiler, @"return": Ast.Node.Stmt.Return) Error!void {
@@ -421,8 +409,7 @@ fn compileReturnStmt(self: *Compiler, @"return": Ast.Node.Stmt.Return) Error!voi
 
     try self.closeUpvalues();
 
-    try self.code.source_locations.append(@"return".source_loc);
-    try self.code.instructions.append(.@"return");
+    try self.optimizer.emitInstruction(.@"return", @"return".source_loc);
 }
 
 fn compileExpr(self: *Compiler, expr: Ast.Node.Expr) Error!void {
@@ -455,44 +442,36 @@ fn compileExpr(self: *Compiler, expr: Ast.Node.Expr) Error!void {
     }
 }
 
-fn compileNoneExpr(self: *Compiler, none: Ast.Node.Expr.None) Error!void {
-    try self.code.source_locations.append(none.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
-}
-
 fn compileIdentifierExpr(self: *Compiler, identifier: Ast.Node.Expr.Identifier) Error!void {
     const atom = try Atom.new(identifier.name.buffer);
 
     if (self.scope.getLocal(atom)) |local| {
-        try self.code.source_locations.append(identifier.name.source_loc);
-        try self.code.instructions.append(.{ .load_local = local.index });
+        try self.optimizer.emitInstruction(.{ .load_local = local.index }, identifier.name.source_loc);
     } else if (try self.getUpvalue(atom)) |upvalue| {
-        try self.code.source_locations.append(identifier.name.source_loc);
-        try self.code.instructions.append(.{ .load_upvalue = upvalue.index });
+        try self.optimizer.emitInstruction(.{ .load_upvalue = upvalue.index }, identifier.name.source_loc);
     } else {
-        try self.code.source_locations.append(identifier.name.source_loc);
-        try self.code.instructions.append(.{ .load_global = atom });
+        try self.optimizer.emitInstruction(.{ .load_global = atom }, identifier.name.source_loc);
     }
 }
 
+fn compileNoneExpr(self: *Compiler, none: Ast.Node.Expr.None) Error!void {
+    try self.optimizer.emitConstant(.none, none.source_loc);
+}
+
 fn compileStringExpr(self: *Compiler, string: Ast.Node.Expr.String) Error!void {
-    try self.code.source_locations.append(string.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .string = .{ .content = string.content } }) });
+    try self.optimizer.emitConstant(.{ .string = .{ .content = string.content } }, string.source_loc);
 }
 
 fn compileIntExpr(self: *Compiler, int: Ast.Node.Expr.Int) Error!void {
-    try self.code.source_locations.append(int.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = int.value }) });
+    try self.optimizer.emitConstant(.{ .int = int.value }, int.source_loc);
 }
 
 fn compileFloatExpr(self: *Compiler, float: Ast.Node.Expr.Float) Error!void {
-    try self.code.source_locations.append(float.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = float.value }) });
+    try self.optimizer.emitConstant(.{ .float = float.value }, float.source_loc);
 }
 
 fn compileBooleanExpr(self: *Compiler, boolean: Ast.Node.Expr.Boolean) Error!void {
-    try self.code.source_locations.append(boolean.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = boolean.value }) });
+    try self.optimizer.emitConstant(.{ .boolean = boolean.value }, boolean.source_loc);
 }
 
 fn compileArrayExpr(self: *Compiler, array: Ast.Node.Expr.Array) Error!void {
@@ -500,8 +479,7 @@ fn compileArrayExpr(self: *Compiler, array: Ast.Node.Expr.Array) Error!void {
         try self.compileExpr(value);
     }
 
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .make_array = array.values.len });
+    try self.optimizer.emitInstruction(.{ .make_array = array.values.len }, .{});
 }
 
 fn compileMapExpr(self: *Compiler, map: Ast.Node.Expr.Map) Error!void {
@@ -510,8 +488,7 @@ fn compileMapExpr(self: *Compiler, map: Ast.Node.Expr.Map) Error!void {
         try self.compileExpr(map.values[map.values.len - 1 - i]);
     }
 
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.{ .make_map = @intCast(map.keys.len) });
+    try self.optimizer.emitInstruction(.{ .make_map = @intCast(map.keys.len) }, .{});
 }
 
 fn compileFunctionExpr(self: *Compiler, ast_function: Ast.Node.Expr.Function) Error!void {
@@ -538,13 +515,13 @@ fn compileFunctionExpr(self: *Compiler, ast_function: Ast.Node.Expr.Function) Er
 
     const function: Code.Value.Function = .{
         .parameters = parameters.items,
-        .code = compiler.code,
+        .code = compiler.optimizer.code,
     };
 
     const function_on_heap = try self.allocator.create(Code.Value.Function);
     function_on_heap.* = function;
 
-    const function_constant_index = try self.code.addConstant(.{ .function = function_on_heap });
+    const function_constant_index = try self.optimizer.code.addConstant(.{ .function = function_on_heap });
 
     var upvalues = Code.Instruction.MakeClosure.Upvalues.init(self.allocator);
 
@@ -556,264 +533,28 @@ fn compileFunctionExpr(self: *Compiler, ast_function: Ast.Node.Expr.Function) Er
         upvalues.items[compiler_upvalue.index] = .{ .local_index = compiler_upvalue.local_index, .pointer_index = compiler_upvalue.pointer_index };
     }
 
-    try self.code.source_locations.append(ast_function.source_loc);
-    try self.code.instructions.append(.{ .make_closure = .{ .function_constant_index = function_constant_index, .upvalues = upvalues } });
+    try self.optimizer.emitInstruction(.{ .make_closure = .{ .function_constant_index = function_constant_index, .upvalues = upvalues } }, ast_function.source_loc);
 }
 
 fn compileSubscriptExpr(self: *Compiler, subscript: Ast.Node.Expr.Subscript) Error!void {
     try self.compileExpr(subscript.target.*);
     try self.compileExpr(subscript.index.*);
 
-    try self.code.source_locations.append(.{});
-    try self.code.instructions.append(.load_subscript);
-}
-
-fn knownAtCompileTime(expr: Ast.Node.Expr) bool {
-    return switch (expr) {
-        .identifier => false,
-        .subscript => false,
-        .call => false,
-
-        .binary_operation => |binary_operation| knownAtCompileTime(binary_operation.lhs.*) and knownAtCompileTime(binary_operation.rhs.*),
-        .unary_operation => |unary_operation| knownAtCompileTime(unary_operation.rhs.*),
-
-        else => true,
-    };
-}
-
-fn optimizeUnaryOperation(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryOperation) Error!bool {
-    if (!knownAtCompileTime(unary_operation.rhs.*)) return false;
-
-    switch (unary_operation.operator) {
-        .minus => return self.optimizeNeg(unary_operation),
-        .bang => return self.optimizeNot(unary_operation),
-    }
-}
-
-fn optimizeNeg(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryOperation) Error!bool {
-    // TODO: Optimize for other cases
-    switch (unary_operation.rhs.*) {
-        .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -rhs.value }) }),
-
-        .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = -rhs.value }) }),
-
-        .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = -@as(i64, @intCast(@intFromBool(rhs.value))) }) }),
-
-        else => return false,
-    }
-
-    try self.code.source_locations.append(unary_operation.source_loc);
-
-    return true;
-}
-
-fn optimizeNot(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryOperation) Error!bool {
-    // TODO: Optimize for other cases
-    switch (unary_operation.rhs.*) {
-        .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = rhs.value == 0 }) }),
-
-        .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = rhs.value == 0 }) }),
-
-        .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .boolean = !rhs.value }) }),
-
-        else => return false,
-    }
-
-    try self.code.source_locations.append(unary_operation.source_loc);
-
-    return true;
+    try self.optimizer.emitInstruction(.load_subscript, .{});
 }
 
 fn compileUnaryOperationExpr(self: *Compiler, unary_operation: Ast.Node.Expr.UnaryOperation) Error!void {
-    const optimized = try self.optimizeUnaryOperation(unary_operation);
+    try self.compileExpr(unary_operation.rhs.*);
 
-    if (!optimized) {
-        try self.compileExpr(unary_operation.rhs.*);
+    switch (unary_operation.operator) {
+        .minus => {
+            try self.optimizer.emitInstruction(.neg, unary_operation.source_loc);
+        },
 
-        switch (unary_operation.operator) {
-            .minus => {
-                try self.code.source_locations.append(unary_operation.source_loc);
-                try self.code.instructions.append(.neg);
-            },
-
-            .bang => {
-                try self.code.source_locations.append(unary_operation.source_loc);
-                try self.code.instructions.append(.not);
-            },
-        }
+        .bang => {
+            try self.optimizer.emitInstruction(.not, unary_operation.source_loc);
+        },
     }
-}
-
-fn optimizeBinaryOperation(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
-    if (!knownAtCompileTime(binary_operation.lhs.*) or !knownAtCompileTime(binary_operation.rhs.*)) return false;
-
-    // TODO: Optimize for other cases
-    switch (binary_operation.operator) {
-        .plus => return self.optimizeAdd(binary_operation),
-        .minus => return self.optimizeSubtract(binary_operation),
-        .forward_slash => return self.optimizeDivide(binary_operation),
-        .star => return self.optimizeMultiply(binary_operation),
-        .double_star => return self.optimizeExponent(binary_operation),
-
-        else => return false,
-    }
-}
-
-fn optimizeAdd(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
-    // TODO: Optimize for other cases
-    switch (binary_operation.lhs.*) {
-        .int => |lhs| switch (binary_operation.rhs.*) {
-            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value + rhs.value }) }),
-
-            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(lhs.value)) + rhs.value }) }),
-
-            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value + @as(i64, @intFromBool(rhs.value)) }) }),
-
-            else => return false,
-        },
-
-        .float => |lhs| switch (binary_operation.rhs.*) {
-            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(rhs.value)) }) }),
-
-            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value + rhs.value }) }),
-
-            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value + @as(f64, @floatFromInt(@as(i64, @intFromBool(rhs.value)))) }) }),
-
-            else => return false,
-        },
-
-        .boolean => |lhs| switch (binary_operation.rhs.*) {
-            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) + rhs.value }) }),
-
-            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(lhs.value)))) + rhs.value }) }),
-
-            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) + @as(i64, @intFromBool(rhs.value)) }) }),
-
-            else => return false,
-        },
-
-        else => return false,
-    }
-
-    try self.code.source_locations.append(binary_operation.source_loc);
-
-    return true;
-}
-
-fn optimizeSubtract(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
-    // TODO: Optimize for other cases
-    switch (binary_operation.lhs.*) {
-        .int => |lhs| switch (binary_operation.rhs.*) {
-            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value - rhs.value }) }),
-
-            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(lhs.value)) - rhs.value }) }),
-
-            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = lhs.value - @as(i64, @intFromBool(rhs.value)) }) }),
-
-            else => return false,
-        },
-
-        .float => |lhs| switch (binary_operation.rhs.*) {
-            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value - @as(f64, @floatFromInt(rhs.value)) }) }),
-
-            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value - rhs.value }) }),
-
-            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs.value - @as(f64, @floatFromInt(@as(i64, @intFromBool(rhs.value)))) }) }),
-
-            else => return false,
-        },
-
-        .boolean => |lhs| switch (binary_operation.rhs.*) {
-            .int => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) - rhs.value }) }),
-
-            .float => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(lhs.value)))) - rhs.value }) }),
-
-            .boolean => |rhs| try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(lhs.value)) - @as(i64, @intFromBool(rhs.value)) }) }),
-
-            else => return false,
-        },
-
-        else => return false,
-    }
-
-    try self.code.source_locations.append(binary_operation.source_loc);
-
-    return true;
-}
-
-fn castExprToFloat(expr: Ast.Node.Expr) error{CastingFailed}!f64 {
-    return switch (expr) {
-        .int => @floatFromInt(expr.int.value),
-
-        .float => expr.float.value,
-
-        .boolean => @floatFromInt(@intFromBool(expr.boolean.value)),
-
-        else => error.CastingFailed,
-    };
-}
-
-fn optimizeDivide(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
-    // TODO: Optimize for other cases
-    const lhs_casted = castExprToFloat(binary_operation.lhs.*) catch return false;
-    const rhs_casted = castExprToFloat(binary_operation.rhs.*) catch return false;
-
-    try self.code.source_locations.append(binary_operation.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = lhs_casted / rhs_casted }) });
-
-    return true;
-}
-
-fn optimizeMultiply(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
-    // TODO: Optimize for other cases
-    switch (binary_operation.lhs.*) {
-        .int => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value * binary_operation.rhs.int.value }) }),
-
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) * binary_operation.rhs.float.value }) }),
-
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = binary_operation.lhs.int.value * @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
-
-            else => return false,
-        },
-
-        .float => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value * @as(f64, @floatFromInt(binary_operation.rhs.int.value)) }) }),
-
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(binary_operation.lhs.int.value)) * binary_operation.rhs.float.value }) }),
-
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = binary_operation.lhs.float.value * @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.rhs.boolean.value)))) }) }),
-
-            else => return false,
-        },
-
-        .boolean => switch (binary_operation.rhs.*) {
-            .int => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) * binary_operation.rhs.int.value }) }),
-
-            .float => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = @as(f64, @floatFromInt(@as(i64, @intFromBool(binary_operation.lhs.boolean.value)))) * binary_operation.rhs.float.value }) }),
-
-            .boolean => try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .int = @as(i64, @intFromBool(binary_operation.lhs.boolean.value)) * @as(i64, @intFromBool(binary_operation.rhs.boolean.value)) }) }),
-
-            else => return false,
-        },
-
-        else => return false,
-    }
-
-    try self.code.source_locations.append(binary_operation.source_loc);
-
-    return true;
-}
-
-fn optimizeExponent(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!bool {
-    // TODO: Optimize for other cases
-    const lhs_casted = castExprToFloat(binary_operation.lhs.*) catch return false;
-    const rhs_casted = castExprToFloat(binary_operation.rhs.*) catch return false;
-
-    try self.code.source_locations.append(binary_operation.source_loc);
-    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.{ .float = std.math.pow(f64, lhs_casted, rhs_casted) }) });
-
-    return true;
 }
 
 fn compileBinaryOperationExpr(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!void {
@@ -835,14 +576,12 @@ fn compileBinaryOperationExpr(self: *Compiler, binary_operation: Ast.Node.Expr.B
 
                 try handleAssignmentOperator(self, binary_operation);
 
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.duplicate);
+                try self.optimizer.emitInstruction(.duplicate, binary_operation.source_loc);
 
                 try self.compileExpr(binary_operation.lhs.subscript.index.*);
                 try self.compileExpr(binary_operation.lhs.subscript.target.*);
 
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.store_subscript);
+                try self.optimizer.emitInstruction(.store_subscript, binary_operation.source_loc);
             } else if (binary_operation.lhs.* == .identifier) {
                 if (binary_operation.operator != .equal_sign) {
                     try self.compileExpr(binary_operation.lhs.*);
@@ -855,8 +594,7 @@ fn compileBinaryOperationExpr(self: *Compiler, binary_operation: Ast.Node.Expr.B
 
                     try self.scope.putLocal(atom, .{ .index = index });
 
-                    try self.code.source_locations.append(.{});
-                    try self.code.instructions.append(.{ .load_constant = try self.code.addConstant(.none) });
+                    try self.optimizer.emitConstant(.none, .{});
                 }
 
                 try self.compileExpr(binary_operation.rhs.*);
@@ -865,31 +603,24 @@ fn compileBinaryOperationExpr(self: *Compiler, binary_operation: Ast.Node.Expr.B
 
                 if (self.context.mode == .function) {
                     if (self.scope.getLocal(atom)) |local| {
-                        try self.code.source_locations.append(binary_operation.source_loc);
-                        try self.code.instructions.append(.duplicate);
+                        try self.optimizer.emitInstruction(.duplicate, binary_operation.source_loc);
 
-                        try self.code.source_locations.append(binary_operation.source_loc);
-                        try self.code.instructions.append(.{ .store_local = local.index });
+                        try self.optimizer.emitInstruction(.{ .store_local = local.index }, binary_operation.source_loc);
                     } else if (try self.getUpvalue(atom)) |upvalue| {
-                        try self.code.source_locations.append(binary_operation.source_loc);
-                        try self.code.instructions.append(.duplicate);
+                        try self.optimizer.emitInstruction(.duplicate, binary_operation.source_loc);
 
-                        try self.code.source_locations.append(binary_operation.source_loc);
-                        try self.code.instructions.append(.{ .store_upvalue = upvalue.index });
+                        try self.optimizer.emitInstruction(.{ .store_upvalue = upvalue.index }, binary_operation.source_loc);
                     } else {
                         const index = self.scope.countLocals();
 
                         try self.scope.putLocal(atom, .{ .index = index });
 
-                        try self.code.source_locations.append(binary_operation.source_loc);
-                        try self.code.instructions.append(.duplicate);
+                        try self.optimizer.emitInstruction(.duplicate, binary_operation.source_loc);
                     }
                 } else {
-                    try self.code.source_locations.append(binary_operation.source_loc);
-                    try self.code.instructions.append(.duplicate);
+                    try self.optimizer.emitInstruction(.duplicate, binary_operation.source_loc);
 
-                    try self.code.source_locations.append(binary_operation.source_loc);
-                    try self.code.instructions.append(.{ .store_global = atom });
+                    try self.optimizer.emitInstruction(.{ .store_global = atom }, binary_operation.source_loc);
                 }
             } else {
                 self.error_info = .{ .message = "expected a name or subscript to assign to", .source_loc = binary_operation.source_loc };
@@ -903,98 +634,78 @@ fn compileBinaryOperationExpr(self: *Compiler, binary_operation: Ast.Node.Expr.B
         else => {},
     }
 
-    const optimized = try self.optimizeBinaryOperation(binary_operation);
+    try self.compileExpr(binary_operation.lhs.*);
+    try self.compileExpr(binary_operation.rhs.*);
 
-    if (!optimized) {
-        try self.compileExpr(binary_operation.lhs.*);
-        try self.compileExpr(binary_operation.rhs.*);
+    switch (binary_operation.operator) {
+        .plus => {
+            try self.optimizer.emitInstruction(.add, binary_operation.source_loc);
+        },
 
-        switch (binary_operation.operator) {
-            .plus => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.add);
-            },
+        .minus => {
+            try self.optimizer.emitInstruction(.subtract, binary_operation.source_loc);
+        },
 
-            .minus => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.subtract);
-            },
+        .forward_slash => {
+            try self.optimizer.emitInstruction(.divide, binary_operation.source_loc);
+        },
 
-            .forward_slash => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.divide);
-            },
+        .star => {
+            try self.optimizer.emitInstruction(.multiply, binary_operation.source_loc);
+        },
 
-            .star => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.multiply);
-            },
+        .double_star => {
+            try self.optimizer.emitInstruction(.exponent, binary_operation.source_loc);
+        },
 
-            .double_star => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.exponent);
-            },
+        .percent => {
+            try self.optimizer.emitInstruction(.modulo, binary_operation.source_loc);
+        },
 
-            .percent => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.modulo);
-            },
+        .bang_equal_sign, .double_equal_sign => {
+            try self.optimizer.emitInstruction(.equals, binary_operation.source_loc);
 
-            .bang_equal_sign => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.not_equals);
-            },
+            if (binary_operation.operator == .bang_equal_sign) {
+                try self.optimizer.emitInstruction(.not, binary_operation.source_loc);
+            }
+        },
 
-            .double_equal_sign => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.equals);
-            },
+        .less_than => {
+            try self.optimizer.emitInstruction(.less_than, binary_operation.source_loc);
+        },
 
-            .less_than => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.less_than);
-            },
+        .greater_than => {
+            try self.optimizer.emitInstruction(.greater_than, binary_operation.source_loc);
+        },
 
-            .greater_than => {
-                try self.code.source_locations.append(binary_operation.source_loc);
-                try self.code.instructions.append(.greater_than);
-            },
-
-            else => {},
-        }
+        else => {},
     }
 }
 
 fn handleAssignmentOperator(self: *Compiler, binary_operation: Ast.Node.Expr.BinaryOperation) Error!void {
     switch (binary_operation.operator) {
         .plus_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.add);
+            try self.optimizer.emitInstruction(.add, binary_operation.source_loc);
         },
 
         .minus_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.subtract);
+            try self.optimizer.emitInstruction(.subtract, binary_operation.source_loc);
         },
 
         .forward_slash_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.divide);
+            try self.optimizer.emitInstruction(.divide, binary_operation.source_loc);
         },
 
         .star_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.multiply);
+            try self.optimizer.emitInstruction(.multiply, binary_operation.source_loc);
         },
 
         .double_star_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.exponent);
+            try self.optimizer.emitInstruction(.exponent, binary_operation.source_loc);
         },
 
         .percent_equal_sign => {
-            try self.code.source_locations.append(binary_operation.source_loc);
-            try self.code.instructions.append(.modulo);
+            try self.optimizer.emitInstruction(.modulo, binary_operation.source_loc);
         },
 
         else => {},
@@ -1008,6 +719,5 @@ fn compileCallExpr(self: *Compiler, call: Ast.Node.Expr.Call) Error!void {
 
     try self.compileExpr(call.callable.*);
 
-    try self.code.source_locations.append(call.source_loc);
-    try self.code.instructions.append(.{ .call = call.arguments.len });
+    try self.optimizer.emitInstruction(.{ .call = call.arguments.len }, call.source_loc);
 }

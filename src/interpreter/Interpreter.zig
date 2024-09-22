@@ -38,33 +38,39 @@ pub const FinalState = struct {
 };
 
 pub fn run(self: *Interpreter) Error!FinalState {
-    var ast_parser = try Ast.Parser.init(self.allocator, self.argv[0], self.buffer);
+    const ast = blk: {
+        var ast_parser = try Ast.Parser.init(self.allocator, self.argv[0], self.buffer);
 
-    const ast = ast_parser.parse() catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
+        break :blk ast_parser.parse() catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
 
-        else => {
-            self.error_info = .{ .message = ast_parser.error_info.?.message, .source_loc = ast_parser.error_info.?.source_loc };
+            else => {
+                self.error_info = .{ .message = ast_parser.error_info.?.message, .source_loc = ast_parser.error_info.?.source_loc };
 
-            return err;
-        },
+                return err;
+            },
+        };
     };
 
-    var compiler = try Compiler.init(self.allocator, .script);
+    const code = blk: {
+        var compiler = try Compiler.init(self.allocator, .script);
 
-    compiler.compile(ast) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
+        compiler.compile(ast) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
 
-        else => {
-            self.error_info = .{ .message = compiler.error_info.?.message, .source_loc = compiler.error_info.?.source_loc };
+            else => {
+                self.error_info = .{ .message = compiler.error_info.?.message, .source_loc = compiler.error_info.?.source_loc };
 
-            return err;
-        },
+                return err;
+            },
+        };
+
+        break :blk compiler.optimizer.code;
     };
 
     var vm = try VirtualMachine.init(self.allocator, self.argv);
 
-    try vm.setCode(compiler.code);
+    try vm.setCode(code);
 
     vm.run() catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,

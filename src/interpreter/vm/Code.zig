@@ -272,7 +272,6 @@ pub const Value = union(enum) {
                 }
             },
 
-            // Comparing with pointers instead of checking everything is used here because when you do "function == other_function" you are just comparing function pointers
             .closure => return rhs == .closure and lhs.closure == rhs.closure,
             .function => return rhs == .function and lhs.function == rhs.function,
             .native_function => return rhs == .native_function and lhs.native_function.call == rhs.native_function.call,

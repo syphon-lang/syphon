@@ -124,9 +124,9 @@ pub const Value = union(enum) {
 
             const previous_frames_start = vm.frames_start;
 
-            vm.frames_start = vm.frames.items.len;
+            vm.frames_start = vm.frames.len();
 
-            vm.frames.append(.{ .closure = self, .stack_start = vm.stack.items.len - self.function.parameters.len }) catch return .none;
+            vm.frames.append(.{ .closure = self, .stack = vm.stack.end - self.function.parameters.len }) catch return .none;
 
             vm.run() catch return .none;
 

@@ -76,7 +76,7 @@ pub fn run(self: *Interpreter) Error!FinalState {
         error.OutOfMemory => return error.OutOfMemory,
 
         error.DivisionByZero => {
-            const frame = vm.frames.getLast();
+            const frame = vm.frames.top();
 
             self.error_info = .{ .message = "division by zero", .source_loc = frame.closure.function.code.source_locations.items[frame.counter - 1] };
 
@@ -84,7 +84,7 @@ pub fn run(self: *Interpreter) Error!FinalState {
         },
 
         error.NegativeDenominator => {
-            const frame = vm.frames.getLast();
+            const frame = vm.frames.top();
 
             self.error_info = .{ .message = "negative denominator", .source_loc = frame.closure.function.code.source_locations.items[frame.counter - 1] };
 
@@ -92,7 +92,7 @@ pub fn run(self: *Interpreter) Error!FinalState {
         },
 
         error.StackOverflow => {
-            const frame = vm.frames.getLast();
+            const frame = vm.frames.top();
 
             self.error_info = .{ .message = "stack overflow", .source_loc = frame.closure.function.code.source_locations.items[frame.counter] };
 

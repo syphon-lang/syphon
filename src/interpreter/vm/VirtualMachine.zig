@@ -14,11 +14,11 @@ argv: []const []const u8,
 
 globals: Globals,
 
-stack: std.ArrayList(Code.Value),
+stack: Stack(Code.Value),
 open_upvalues: std.ArrayList(**Code.Value),
 exported: Code.Value = .none,
 
-frames: std.ArrayList(Frame),
+frames: Stack(Frame),
 frames_start: usize = 0,
 
 error_info: ?ErrorInfo = null,
@@ -43,21 +43,93 @@ pub const Globals = std.AutoHashMap(Atom, Code.Value);
 
 pub const Frame = struct {
     closure: *Code.Value.Closure,
+    stack: [*]Code.Value,
     counter: usize = 0,
-    stack_start: usize = 0,
 };
 
-pub const MAX_FRAMES_COUNT = 64;
-pub const MAX_STACK_SIZE = MAX_FRAMES_COUNT * 255;
+pub fn Stack(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        start: [*]T,
+        end: [*]T,
+        capacity: usize,
+
+        pub fn init(allocator: std.mem.Allocator, capacity: usize) std.mem.Allocator.Error!Self {
+            const buffer = (try allocator.alloc(T, capacity));
+
+            return Self{
+                .start = buffer.ptr,
+                .end = buffer.ptr,
+                .capacity = capacity,
+            };
+        }
+
+        pub fn len(self: Self) usize {
+            return self.end - self.start;
+        }
+
+        pub fn top(self: Self) T {
+            return (self.end - 1)[0];
+        }
+
+        pub fn topPtr(self: Self) *T {
+            return @ptrCast(self.end - 1);
+        }
+
+        pub fn append(self: *Self, value: T) Error!void {
+            if (self.len() >= self.capacity) {
+                @branchHint(.unlikely);
+
+                return error.StackOverflow;
+            } else {
+                @branchHint(.likely);
+
+                self.appendAssumeCapacity(value);
+            }
+        }
+
+        pub fn appendSlice(self: *Self, values: []const T) Error!void {
+            if (self.len() + values.len >= self.capacity) {
+                @branchHint(.unlikely);
+
+                return error.StackOverflow;
+            } else {
+                @branchHint(.likely);
+
+                for (values) |value| {
+                    self.appendAssumeCapacity(value);
+                }
+            }
+        }
+
+        pub fn appendAssumeCapacity(self: *Self, value: T) void {
+            self.end[0] = value;
+            self.end += 1;
+        }
+
+        pub fn pop(self: *Self) T {
+            self.end -= 1;
+            return self.end[0];
+        }
+
+        pub fn popMultiple(self: *Self, count: usize) void {
+            self.end -= count;
+        }
+    };
+}
 
 pub fn init(allocator: std.mem.Allocator, argv: []const []const u8) Error!VirtualMachine {
+    const max_frames = 64;
+    const max_stack_size = max_frames * 255;
+
     var vm: VirtualMachine = .{
         .allocator = allocator,
         .argv = argv,
         .globals = Globals.init(allocator),
-        .stack = try std.ArrayList(Code.Value).initCapacity(allocator, MAX_STACK_SIZE),
+        .stack = try Stack(Code.Value).init(allocator, max_stack_size),
         .open_upvalues = std.ArrayList(**Code.Value).init(allocator),
-        .frames = try std.ArrayList(Frame).initCapacity(allocator, MAX_FRAMES_COUNT),
+        .frames = try Stack(Frame).init(allocator, max_frames),
     };
 
     vm.mutex.lock();
@@ -97,17 +169,13 @@ pub fn setCode(self: *VirtualMachine, code: Code) std.mem.Allocator.Error!void {
     const function = (try Code.Value.Function.init(self.allocator, &.{}, code)).function;
     const closure = (try Code.Value.Closure.init(self.allocator, function, &self.globals, std.ArrayList(*Code.Value).init(self.allocator))).closure;
 
-    try self.frames.append(.{ .closure = closure });
+    self.frames.appendAssumeCapacity(.{ .closure = closure, .stack = self.stack.start });
 }
 
 pub fn run(self: *VirtualMachine) Error!void {
-    var frame = &self.frames.items[self.frames.items.len - 1];
+    var frame = self.frames.topPtr();
 
     while (true) {
-        if (self.frames.items.len >= MAX_FRAMES_COUNT or self.stack.items.len >= MAX_STACK_SIZE) {
-            return error.StackOverflow;
-        }
-
         const instruction = frame.closure.function.code.instructions.items[frame.counter];
         const source_loc = frame.closure.function.code.source_locations.items[frame.counter];
 
@@ -121,13 +189,13 @@ pub fn run(self: *VirtualMachine) Error!void {
             },
 
             .load_global => |atom| try self.executeLoadGlobal(frame.*, atom, source_loc),
-            .load_local => |index| try self.stack.append(self.stack.items[frame.stack_start + index]),
+            .load_local => |index| try self.stack.append(frame.stack[index]),
             .load_upvalue => |index| try self.stack.append(frame.closure.upvalues.items[index].*),
             .load_constant => |index| try self.stack.append(frame.closure.function.code.constants.items[index]),
             .load_subscript => try self.executeLoadSubscript(source_loc),
 
             .store_global => |atom| try self.executeStoreGlobal(atom),
-            .store_local => |index| self.stack.items[frame.stack_start + index] = self.stack.pop(),
+            .store_local => |index| frame.stack[index] = self.stack.pop(),
             .store_upvalue => |index| frame.closure.upvalues.items[index].* = self.stack.pop(),
             .store_subscript => try self.executeStoreSubscript(source_loc),
 
@@ -140,7 +208,7 @@ pub fn run(self: *VirtualMachine) Error!void {
             .call => |arguments_count| {
                 try self.executeCall(arguments_count, source_loc);
 
-                frame = &self.frames.items[self.frames.items.len - 1];
+                frame = self.frames.topPtr();
             },
 
             .neg => try self.executeNeg(source_loc),
@@ -156,14 +224,14 @@ pub fn run(self: *VirtualMachine) Error!void {
             .less_than => try self.executeLessThan(source_loc),
             .greater_than => try self.executeGreaterThan(source_loc),
 
-            .duplicate => try self.stack.append(self.stack.getLast()),
+            .duplicate => try self.stack.append(self.stack.top()),
 
             .pop => _ = self.stack.pop(),
 
             .@"return" => {
                 if (try self.executeReturn()) break;
 
-                frame = &self.frames.items[self.frames.items.len - 1];
+                frame = self.frames.topPtr();
             },
         }
     }
@@ -304,6 +372,8 @@ fn executeStoreSubscript(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error
 
         .map => |target_value| {
             if (!Code.Value.HashContext.hashable(index)) {
+                @branchHint(.unlikely);
+
                 self.error_info = .{ .message = "unhashable value", .source_loc = source_loc };
 
                 return error.UnexpectedValue;
@@ -350,14 +420,14 @@ fn executeMakeMap(self: *VirtualMachine, length: u32) Error!void {
 
 fn executeCloseUpvalue(self: *VirtualMachine, frame: Frame, index: usize) Error!void {
     const closed_upvalue = try self.allocator.create(Code.Value);
-    closed_upvalue.* = self.stack.items[frame.stack_start + index];
+    closed_upvalue.* = frame.stack[index];
 
     var i: usize = 0;
 
     while (i < self.open_upvalues.items.len) {
         const open_upvalue = self.open_upvalues.items[i];
 
-        if (open_upvalue.* == &self.stack.items[frame.stack_start + index]) {
+        if (open_upvalue.* == &frame.stack[index]) {
             open_upvalue.* = closed_upvalue;
 
             _ = self.open_upvalues.swapRemove(i);
@@ -376,7 +446,7 @@ fn executeMakeClosure(self: *VirtualMachine, frame: Frame, info: Code.Instructio
         const upvalue_destination = try upvalues.addOne();
 
         if (upvalue.local_index) |local_index| {
-            upvalue_destination.* = &self.stack.items[frame.stack_start + local_index];
+            upvalue_destination.* = &frame.stack[local_index];
         }
 
         if (upvalue.pointer_index) |pointer_index| {
@@ -396,7 +466,7 @@ fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Ast.So
         .closure => |closure| {
             try self.checkArgumentsCount(closure.function.parameters.len, arguments_count, source_loc);
 
-            return self.frames.append(.{ .closure = closure, .stack_start = self.stack.items.len - closure.function.parameters.len });
+            return self.frames.append(.{ .closure = closure, .stack = self.stack.end - arguments_count });
         },
 
         .native_function => |native_function| {
@@ -404,9 +474,9 @@ fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Ast.So
                 try self.checkArgumentsCount(native_function.required_arguments_count.?, arguments_count, source_loc);
             }
 
-            const stack_start = self.stack.items.len - arguments_count;
+            const stack_start = self.stack.end - arguments_count;
 
-            const stack_arguments = self.stack.items[stack_start..];
+            const stack_arguments = stack_start[0..arguments_count];
 
             const arguments_with_context = if (native_function.maybe_context) |context|
                 try std.mem.concat(self.allocator, Code.Value, &.{ &.{context.*}, stack_arguments })
@@ -415,7 +485,7 @@ fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Ast.So
 
             const return_value = native_function.call(self, arguments_with_context);
 
-            self.stack.shrinkRetainingCapacity(stack_start);
+            self.stack.popMultiple(self.stack.end - stack_start);
 
             return self.stack.append(return_value);
         },
@@ -428,8 +498,10 @@ fn executeCall(self: *VirtualMachine, arguments_count: usize, source_loc: Ast.So
     return error.BadOperand;
 }
 
-fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: Ast.SourceLoc) Error!void {
+inline fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_count: usize, source_loc: Ast.SourceLoc) Error!void {
     if (required_count != arguments_count) {
+        @branchHint(.unlikely);
+
         var error_message_buf = std.ArrayList(u8).init(self.allocator);
 
         try error_message_buf.writer().print("expected {} {s} got {}", .{ required_count, if (required_count != 1) "arguments" else "argument", arguments_count });
@@ -441,7 +513,9 @@ fn checkArgumentsCount(self: *VirtualMachine, required_count: usize, arguments_c
 }
 
 fn executeReturn(self: *VirtualMachine) Error!bool {
-    if (self.frames.items.len == 1) {
+    if (self.frames.len() == 1) {
+        @branchHint(.unlikely);
+
         return true;
     }
 
@@ -449,11 +523,11 @@ fn executeReturn(self: *VirtualMachine) Error!bool {
 
     const return_value = self.stack.pop();
 
-    self.stack.shrinkRetainingCapacity(popped_frame.stack_start);
+    self.stack.popMultiple(self.stack.end - popped_frame.stack);
 
     try self.stack.append(return_value);
 
-    return self.frames.items.len == self.frames_start;
+    return self.frames.len() == self.frames_start;
 }
 
 fn executeNeg(self: *VirtualMachine, source_loc: Ast.SourceLoc) Error!void {

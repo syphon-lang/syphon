@@ -34,8 +34,16 @@ pub fn emitInstruction(self: *Optimizer, instruction: Code.Instruction, source_l
         .load_global,
         .load_local,
         .load_upvalue,
-        .load_subscript,
+        .make_closure,
         => blk: {
+            try self.stack.append(null);
+
+            break :blk false;
+        },
+
+        .load_subscript => blk: {
+            self.stack.shrinkRetainingCapacity(self.stack.items.len - 2);
+
             try self.stack.append(null);
 
             break :blk false;
@@ -44,20 +52,32 @@ pub fn emitInstruction(self: *Optimizer, instruction: Code.Instruction, source_l
         .store_global,
         .store_local,
         .store_upvalue,
-        .store_subscript,
-        .pop,
         .jump_if_false,
+        .pop,
         => blk: {
             _ = self.stack.pop();
 
             break :blk false;
         },
 
+        .store_subscript => blk: {
+            self.stack.shrinkRetainingCapacity(self.stack.items.len - 3);
+
+            break :blk false;
+        },
+
         .call,
         .make_array,
-        .make_map,
         => |length| blk: {
             self.stack.shrinkRetainingCapacity(self.stack.items.len - length);
+
+            try self.stack.append(null);
+
+            break :blk false;
+        },
+
+        .make_map => |length| blk: {
+            self.stack.shrinkRetainingCapacity(self.stack.items.len - (length * 2));
 
             try self.stack.append(null);
 

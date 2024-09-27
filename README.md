@@ -32,4 +32,4 @@ You would think "yeah, all people say that", and yes all people say that, we are
 
 ## How can I contribute?
 
-Try the language, open issues, open pull requests and join our [Discord](https://discord.com/invite/v7XZ4cQJ)
+Try the language, open issues, open pull requests and other stuff...

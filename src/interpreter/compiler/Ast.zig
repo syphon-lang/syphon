@@ -187,7 +187,7 @@ pub const Parser = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buffer: [:0]const u8) std.mem.Allocator.Error!Parser {
-        var tokens = std.ArrayList(Token).init(allocator);
+        var tokens = try std.ArrayList(Token).initCapacity(allocator, buffer.len / 2);
 
         var lexer = Lexer.init(buffer);
 
@@ -203,7 +203,7 @@ pub const Parser = struct {
             .allocator = allocator,
             .file_path = file_path,
             .buffer = buffer,
-            .tokens = tokens.items,
+            .tokens = try tokens.toOwnedSlice(),
             .current_token_index = 0,
         };
     }
@@ -215,7 +215,7 @@ pub const Parser = struct {
             try body.append(try self.parseStmt());
         }
 
-        return Ast{ .body = body.items };
+        return Ast{ .body = try body.toOwnedSlice() };
     }
 
     fn nextToken(self: *Parser) Token {
@@ -314,7 +314,7 @@ pub const Parser = struct {
             return error.UnexpectedToken;
         }
 
-        return body.items;
+        return try body.toOwnedSlice();
     }
 
     fn parseConditionalStmt(self: *Parser) Error!Node {
@@ -334,13 +334,29 @@ pub const Parser = struct {
 
                 const fallback = try self.parseBody();
 
-                return Node{ .stmt = .{ .conditional = .{ .conditions = conditions.items, .possiblities = possiblities.items, .fallback = fallback } } };
+                return Node{
+                    .stmt = .{
+                        .conditional = .{
+                            .conditions = try conditions.toOwnedSlice(),
+                            .possiblities = try possiblities.toOwnedSlice(),
+                            .fallback = fallback,
+                        },
+                    },
+                };
             }
 
             break;
         }
 
-        return Node{ .stmt = .{ .conditional = .{ .conditions = conditions.items, .possiblities = possiblities.items, .fallback = &.{} } } };
+        return Node{
+            .stmt = .{
+                .conditional = .{
+                    .conditions = try conditions.toOwnedSlice(),
+                    .possiblities = try possiblities.toOwnedSlice(),
+                    .fallback = &.{},
+                },
+            },
+        };
     }
 
     fn parseWhileLoopStmt(self: *Parser) Error!Node {
@@ -494,7 +510,7 @@ pub const Parser = struct {
             return error.UnexpectedToken;
         }
 
-        return parameters.items;
+        return parameters.toOwnedSlice();
     }
 
     fn parseIdentifierExpr(self: *Parser) Error!Node.Expr {
@@ -567,7 +583,7 @@ pub const Parser = struct {
             }
         }
 
-        return Node.Expr{ .string = .{ .content = unescaped.items, .source_loc = source_loc } };
+        return Node.Expr{ .string = .{ .content = try unescaped.toOwnedSlice(), .source_loc = source_loc } };
     }
 
     fn parseIntExpr(self: *Parser) Error!Node.Expr {
@@ -633,7 +649,7 @@ pub const Parser = struct {
             return error.UnexpectedToken;
         }
 
-        return Node.Expr{ .array = .{ .values = values.items } };
+        return Node.Expr{ .array = .{ .values = try values.toOwnedSlice() } };
     }
 
     fn parseMapExpr(self: *Parser) Error!Node.Expr {
@@ -666,7 +682,7 @@ pub const Parser = struct {
             return error.UnexpectedToken;
         }
 
-        return Node.Expr{ .map = .{ .keys = keys.items, .values = values.items } };
+        return Node.Expr{ .map = .{ .keys = try keys.toOwnedSlice(), .values = try values.toOwnedSlice() } };
     }
 
     fn parseUnaryOperationExpr(self: *Parser, operator: Node.Expr.UnaryOperation.Operator) Error!Node.Expr {
@@ -796,6 +812,6 @@ pub const Parser = struct {
             return error.UnexpectedToken;
         }
 
-        return arguments.items;
+        return arguments.toOwnedSlice();
     }
 };

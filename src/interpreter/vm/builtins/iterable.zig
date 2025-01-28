@@ -61,12 +61,12 @@ fn range(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
         else => unreachable,
     }
 
-    var range_array = std.ArrayList(Code.Value).init(vm.allocator);
+    var range_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, @intCast(end - start)) catch return .none;
 
     var i: i64 = start;
 
     while (i < end) : (i += step) {
-        range_array.append(Code.Value{ .int = i }) catch return .none;
+        range_array.appendAssumeCapacity(.{ .int = i });
     }
 
     return Code.Value.Array.init(vm.allocator, range_array) catch .none;
@@ -76,28 +76,16 @@ fn reverse(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
     switch (arguments[0]) {
         .array => {
             const array = arguments[0].array;
-
-            var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.inner.items.len) catch return .none;
-
-            var i = array.inner.items.len;
-            while (i > 0) {
-                i -= 1;
-                new_array.append(array.inner.items[i]) catch return .none;
-            }
+            const new_array = array.inner.clone() catch return .none;
+            std.mem.reverse(Code.Value, new_array.items);
             return Code.Value.Array.init(vm.allocator, new_array) catch .none;
         },
 
         .string => {
             const string = arguments[0].string;
-
             var new_string = std.ArrayList(u8).initCapacity(vm.allocator, string.content.len) catch return .none;
-
-            var i = string.content.len;
-            while (i > 0) {
-                i -= 1;
-                new_string.append(string.content[i]) catch return .none;
-            }
-
+            new_string.appendSliceAssumeCapacity(string.content);
+            std.mem.reverse(u8, new_string.items);
             return Code.Value{ .string = .{ .content = new_string.items } };
         },
 
@@ -209,7 +197,8 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             if (callback.function.parameters.len != 1) return .none;
 
             const array = arguments[0].array;
-            var new_array = std.ArrayList(Code.Value).init(vm.allocator);
+
+            var new_array = std.ArrayList(Code.Value).initCapacity(vm.allocator, array.inner.items.len) catch return .none;
 
             for (0..array.inner.items.len) |i| {
                 const return_value = callback.call(vm, &.{array.inner.items[i]});
@@ -224,7 +213,8 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             if (callback.function.parameters.len != 1) return .none;
 
             const string = arguments[0].string;
-            var new_string = std.ArrayList(u8).init(vm.allocator);
+
+            var new_string = std.ArrayList(u8).initCapacity(vm.allocator, string.content.len) catch return .none;
 
             for (0..string.content.len) |i| {
                 const return_value = callback.call(vm, &.{.{ .string = .{ .content = string.content[i .. i + 1] } }});
@@ -243,7 +233,9 @@ fn transform(vm: *VirtualMachine, arguments: []const Code.Value) Code.Value {
             if (callback.function.parameters.len != 2) return .none;
 
             const map = arguments[0].map;
+
             var new_map = Code.Value.Map.Inner.init(vm.allocator);
+            new_map.ensureTotalCapacity(map.inner.count()) catch return .none;
 
             var map_entry_iterator = map.inner.iterator();
 

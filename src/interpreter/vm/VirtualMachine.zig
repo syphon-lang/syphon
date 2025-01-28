@@ -97,9 +97,8 @@ pub fn Stack(comptime T: type) type {
             } else {
                 @branchHint(.likely);
 
-                for (values) |value| {
-                    self.appendAssumeCapacity(value);
-                }
+                @memcpy(self.end[0..values.len], values);
+                self.end += values.len;
             }
         }
 
